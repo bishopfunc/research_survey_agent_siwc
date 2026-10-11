@@ -24,6 +24,7 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 | 2026-10-12 | P01 Codex | 実ChatGPTログイン / codex-cli 0.144.6 | タイトル変更と通信遅延Issue追加の実提案→内部検証→レビュー→新Commit保存成功。元指示・run・Patch・親版を保持。文献調査品質の評価ではない |
 | 2026-10-12 | Codex schema | 実呼出し | 初回はuri format指定を400 invalid_json_schemaで拒否。対応subsetへ投影し、元schemaで再検証する修正後に成功 |
 | 2026-10-12 | P01 API境界 | ローカルHTTP | 不正Host、外部Origin、OriginなしPOSTを403で拒否。資格情報・生ログは返さない |
+| 2026-10-12 | P01デザイン再調整 | PC/390pxブラウザ | 濃いグレーのナビ、白い作業領域、オレンジのアクセントへ変更。課題を番号付き一覧にし、件数をコンパクトにした。3ビュー、編集フォーム、JSON非表示、モバイルの横溢れなしを確認。Agent実推論は今回再実行していない |
 
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
