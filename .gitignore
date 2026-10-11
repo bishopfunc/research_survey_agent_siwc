@@ -1,0 +1,17 @@
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+.playwright-mcp/
+
+.DS_Store
+dist/
+coverage/
+*.log
+.env*
+!.env.example
+credentials*.json
+*.pem
+*.key

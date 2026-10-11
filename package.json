@@ -1,0 +1,25 @@
+{
+  "name": "survey-siwc-cloudflare-poc",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs && npm test",
+    "check:deploy": "wrangler deploy --dry-run",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "siwc:login": "node scripts/siwc.mjs login",
+    "siwc:accounts": "node scripts/siwc.mjs accounts",
+    "siwc:models": "node scripts/siwc.mjs models",
+    "siwc:probe": "node scripts/siwc.mjs probe"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  }
+}
