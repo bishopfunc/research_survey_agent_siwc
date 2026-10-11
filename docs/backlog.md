@@ -11,6 +11,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P04 | Done | 論文・代表論文のコード公開状況、URL・確認日、編集、DSL・Prompt・Lab、既存履歴の互換性 | P03 |
 | P05 | Done | PDFのページ・範囲から代表FigをPNG保存、出典・キャプション、一覧/詳細、履歴/Fork、Lab、画像API検証 | P04 |
 | P06 | Done | 課題と手法の日本語表示、セル選択の説明・関連論文、未登録の区別、表への戻り、参照の集計・検索 | P03 |
+| P07 | Done | 調査用Promptを学会→サーベイ→awesome→一次文献の順で定義し、Labでレビュー。実調査の接続はB04 | P03 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験 | B02 |

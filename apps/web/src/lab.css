@@ -124,3 +124,7 @@ html, body { overflow-x: clip; }
  .lab-table-wrap table { font-size: 10px; } .lab-table-wrap th,.lab-table-wrap td { padding: var(--space-2); } .lab-table-wrap code { font-size: 10px; overflow-wrap: anywhere; } .lab-table-wrap td:nth-child(2) { min-width: 58px; } .lab-validator { padding: var(--space-4); gap: var(--space-4); } .lab-validation-result { padding: var(--space-4); } .lab-footer { font-size: 10px; gap: var(--space-2); } .lab-footer button { font-size: 10px; padding: var(--space-2); }
 }
 @media(prefers-reduced-motion:reduce) { .lab-shell * { transition: none !important; } .lab-shell button:active { transform: none; } }
+
+.lab-research-plan>h3,.lab-editor-heading { font-size: 17px; font-weight: 600; margin-top: var(--space-6); }
+.lab-research-plan>p { font-size: var(--text-small); margin-top: var(--space-3); }
+.lab-editor-heading { border-top: var(--rule-width) solid var(--color-line); padding-top: var(--space-6); }

@@ -40,6 +40,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: 手法タブの表示名を「手法の系譜」から「手法」に短縮し、Labと操作案内も更新。Node24の `npm run check`（35テスト・型検査・build）と `npm run check:deploy` 成功。
 
+2026-10-12 JST: P07で調査用Prompt `survey-discovery/1` を定義。代表学会→サーベイ論文→awesomeレポジトリ→一次論文の順をLabに表示し、既存の編集Promptと区別した。テーマ・基準日をデータとして渡す関数を用意した。調査実行への接続は未実装。Labで4段階・Prompt原文・未接続表示を確認し、375pxで横溢れなし。Node24のcheck（35テスト・型検査・build）とWorker dry-run成功。
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

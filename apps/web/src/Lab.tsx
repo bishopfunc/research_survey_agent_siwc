@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, SURVEY_RESEARCH_INSTRUCTIONS } from '../../../packages/agent/src/research-prompt';
 import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, SURVEY_EDITOR_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../../packages/domain/src/index';
 import { buildEvolution } from '../../../packages/domain/src/evolution';
@@ -73,7 +74,7 @@ export function Lab() {
     catch { setNotice('保存できませんでした。ブラウザの保存容量を確認してください'); }
   }
   function downloadNotes() {
-    const content = `# Survey Studio 開発レビュー\n\n日付: ${new Date().toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo'})}\nPrompt: ${PROMPT_VERSION}\nDSL: ${fixture.schema_version}\n\n` + (['ui','prompt','dsl'] as Topic[]).map(t=>`## ${titles[t]}\n\n状態: ${reviews[t].status}\n\n${reviews[t].note || 'メモなし'}\n`).join('\n');
+    const content = `# Survey Studio 開発レビュー\n\n日付: ${new Date().toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo'})}\n編集Prompt: ${PROMPT_VERSION}\n調査Prompt: ${RESEARCH_PROMPT_VERSION}\nDSL: ${fixture.schema_version}\n\n` + (['ui','prompt','dsl'] as Topic[]).map(t=>`## ${titles[t]}\n\n状態: ${reviews[t].status}\n\n${reviews[t].note || 'メモなし'}\n`).join('\n');
     const url = URL.createObjectURL(new Blob([content],{type:'text/markdown;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='survey-review.md';a.click();URL.revokeObjectURL(url);
   }
   return <div className="lab-shell">
@@ -88,7 +89,8 @@ export function Lab() {
           <div className="lab-review-points"><h3>レビューすること</h3><ul><li>「課題と手法」のセルから、課題・手法の説明と関連論文を確認できるか。</li><li>課題の階層と、手法の派生関係を区別して読み取れるか。</li><li>論文から主張・根拠・代表Fig・公開コードへ迷わずたどれるか。</li><li>編集、差分確認、過去版、Forkの操作がわかるか。</li></ul></div><ReviewBox topic="ui" review={reviews.ui} onChange={updateReview}/>
         </section>
 
-        <section className="lab-section" id="prompt"><div className="lab-section-heading"><div><span className="lab-section-number">02 / BEHAVIOR</span><h2>Agent Prompt <small>Codexに何を任せるか</small></h2></div><span className="lab-source-stamp">{PROMPT_VERSION} · 実行時と共通</span></div>
+        <section className="lab-section" id="prompt"><div className="lab-section-heading"><div><span className="lab-section-number">02 / BEHAVIOR</span><h2>Agent Prompt <small>Codexに何を任せるか</small></h2></div><span className="lab-source-stamp">調査の順序と編集ルール</span></div>
+          <div className="lab-research-plan"><h3>サーベイ調査の順序</h3><p>{RESEARCH_PROMPT_VERSION} · Prompt定義済み / 実調査への接続は未実装</p><div className="lab-prompt-rules">{RESEARCH_STEPS.map((s,i)=><article key={s.id}><span>{String(i+1).padStart(2,'0')}</span><div><h3>{s.title}</h3><p>{s.explanation}</p></div></article>)}</div><details className="lab-prompt-source"><summary>サーベイ調査用Promptを読む</summary><pre>{SURVEY_RESEARCH_INSTRUCTIONS}</pre><p>テーマと調査基準日を渡します。サーベイやawesomeは入口とし、主張の根拠は一次論文で確認します。</p></details></div><h3 className="lab-editor-heading">現在のPoC：調査の編集</h3><p className="lab-source-stamp">{PROMPT_VERSION} · 実行時と共通</p>
           <p className="lab-lede">現在のAgentは、渡された調査の編集案をつくります。自動検索や全文読解はまだ行いません。生成した変更案は検証し、あなたが適用するまで保存されません。</p>
           <div className="lab-io"><div><span>INPUT</span><h3>今の調査 ＋ 編集指示</h3><p>例：Learning-based MAPFを、未検証の課題・手法として追加して。</p></div><div><span>OUTPUT</span><h3>対象の版に対する変更案</h3><p>追加・変更・削除の操作、変更理由、どの版を編集するかを返します。</p></div></div>
           <div className="lab-prompt-rules">{PROMPT_RULES.map((r,i)=><article key={r.id}><span>{String(i+1).padStart(2,'0')}</span><div><h3>{r.title}</h3><p>{r.explanation}</p></div></article>)}</div>
