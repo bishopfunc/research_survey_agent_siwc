@@ -1,6 +1,31 @@
 [
   {
     "date": "2026-10-12",
+    "scope": "app",
+    "genre": "playful",
+    "macrostructure": "Workbench (column browser)",
+    "nav": "N3 side-rail (collections) + version trail",
+    "footer": "none (app)",
+    "theme": "studied-DNA",
+    "theme_source": "https://www.researchrabbit.ai/",
+    "theme_axes": "light / geometric-sans / cool + pastel",
+    "enrichment": "connection map from survey relations",
+    "brief": "User asked for a ResearchRabbit-style UI and removal of explanatory copy; replaces the Distill draft"
+  },
+  {
+    "date": "2026-10-12",
+    "scope": "app",
+    "genre": "editorial",
+    "macrostructure": "Long Document",
+    "nav": "N9 adapted research rail",
+    "footer": "Ft4 research colophon",
+    "theme": "Distill-inspired",
+    "theme_axes": "light / roman-serif / cool",
+    "enrichment": "actual paper figures and existing diagrams",
+    "brief": "User confirmed Distill.pub-inspired reading UI"
+  },
+  {
+    "date": "2026-10-12",
     "macrostructure": "Workbench",
     "theme": "Coral (existing brand)",
     "enrichment": "live UI and architecture SVG",

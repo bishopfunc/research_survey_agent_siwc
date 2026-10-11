@@ -1,27 +1,52 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: Coral (existing brand)
- * audience: app owner · use: review UI, prompt and DSL · tone: technical
- * nav: N1a · footer: Ft2 · enrichment: live UI + architecture SVG
- * pre-emit critique: P4 H4 E4 S5 R4 V4
+/* Hallmark · genre: playful · macrostructure: Workbench (column browser) · designed-as-app
+ * theme: studied-DNA (source: https://www.researchrabbit.ai/) · studied: yes · DNA-source: url
+ * observed-fonts: Plus Jakarta Sans + Open Sans · observed-accent: #2962ff · pastel lavender/turquoise/green/peach
+ * build: Plus Jakarta Sans + IBM Plex Sans · paper oklch(97.8% .006 255) · accent oklch(52% .22 266)
+ * nav: N3 side-rail (collections) · trail: version history · footer: none · enrichment: connection map from survey data
+ * pre-emit critique: P4 H4 E4 S4 R4 V4 · design-system: design.md
  */
 :root {
-  --color-paper: #fafafa;
-  --color-surface: #ffffff;
-  --color-ink: #25262b;
-  --color-muted: #6b6e7a;
-  --color-faint: #969aa5;
-  --color-line: #e4e5ea;
-  --color-accent: #e86b36;
-  --color-accent-soft: #fcf0e7;
-  --color-code: #24262e;
-  --color-code-ink: #dedfe5;
-  --color-success: #32684c;
-  --color-success-soft: #ecf4ed;
-  --color-error: #a24f3c;
-  --color-error-soft: #fceee9;
-  --color-shadow: #25262b0d;
-  --font-display: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
-  --font-body: var(--font-display);
-  --font-code: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --color-paper: oklch(97.8% .006 255);
+  --color-surface: oklch(100% 0 0);
+  --color-ink: oklch(22% .012 265);
+  --color-muted: oklch(48% .025 255);
+  --color-faint: oklch(56% .02 255);
+  --color-line: oklch(92.5% .012 255);
+  --color-line-strong: oklch(80% .02 255);
+  --color-accent: oklch(52% .22 266);
+  --color-accent-hover: oklch(44% .19 264);
+  --color-accent-soft: oklch(95.5% .025 268);
+  --color-accent-ink: oklch(100% 0 0);
+  --color-brand: var(--color-accent);
+  --color-brand-soft: var(--color-accent-soft);
+  --color-lavender: oklch(72% .09 288);
+  --color-lavender-soft: oklch(94% .022 288);
+  --color-turquoise: oklch(82% .1 200);
+  --color-turquoise-soft: oklch(95.5% .03 200);
+  --color-green: oklch(82% .13 145);
+  --color-green-soft: oklch(95.5% .035 145);
+  --color-peach: oklch(78% .11 55);
+  --color-peach-soft: oklch(95% .03 55);
+  --color-yellow: oklch(87% .14 88);
+  --color-yellow-soft: oklch(96.5% .045 92);
+  --color-sky: oklch(82% .07 268);
+  --color-sky-soft: oklch(95% .02 268);
+  --color-dot-ring: oklch(22% .012 265 / .28);
+  --color-code: oklch(24% .015 265);
+  --color-code-ink: oklch(95% .006 255);
+  --color-success: oklch(42% .09 150);
+  --color-success-soft: oklch(95.5% .035 145);
+  --color-error: oklch(46% .15 28);
+  --color-error-soft: oklch(96% .025 28);
+  --color-shadow: oklch(22% .012 265 / .07);
+  --color-shadow-strong: oklch(22% .012 265 / .14);
+  --color-backdrop: oklch(22% .012 265 / .32);
+  --color-transparent: transparent;
+  --gradient-brand: linear-gradient(135deg, var(--color-lavender-soft) 15%, var(--color-turquoise-soft) 55%, var(--color-green-soft));
+  --font-display: 'Plus Jakarta Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  --font-body: 'IBM Plex Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  --font-prose: var(--font-body);
+  --font-code: ui-monospace, SFMono-Regular, monospace;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -30,14 +55,25 @@
   --space-6: 32px;
   --space-7: 48px;
   --space-8: 72px;
-  --text-small: 11px;
-  --text-caption: 12px;
+  --space-sm: var(--space-4);
+  --space-md: var(--space-5);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-7);
+  --text-small: 12px;
+  --text-caption: 13px;
   --text-body: 14px;
-  --text-heading: 22px;
-  --text-display: clamp(28px, 4vw, 42px);
-  --radius-small: 5px;
-  --radius-panel: 8px;
+  --text-heading: 20px;
+  --text-display: clamp(24px, 2.4vw, 32px);
+  --radius-small: 8px;
+  --radius-panel: 14px;
+  --radius-large: 20px;
+  --radius-pill: 999px;
   --rule-width: 1px;
-  --ease-standard: ease-out;
-  --dur-fast: 140ms;
+  --shadow-card: 0 1px 2px var(--color-shadow), 0 4px 14px var(--color-shadow);
+  --shadow-raised: 0 2px 5px var(--color-shadow-strong), 0 10px 30px var(--color-shadow);
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-in: cubic-bezier(.4,0,1,1);
+  --ease-in-out: cubic-bezier(.4,0,.2,1);
+  --ease-standard: var(--ease-out);
+  --dur-fast: 120ms;
 }

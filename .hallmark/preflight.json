@@ -1,8 +1,8 @@
 {
   "date": "2026-10-12",
-  "font": "Inter/system sans",
-  "palette": "existing white / charcoal / orange",
-  "motion": "cut",
+  "font": "Plus Jakarta Sans + IBM Plex Sans, local fontsource",
+  "palette": "OKLCH white / blue-grey paper / blue accent; pastel type colours (peach, turquoise, lavender, green, yellow, sky)",
+  "motion": "cut (short colour/transform transitions only)",
   "framework": "React + Vite",
-  "scope": "new /lab; product UI preserved"
+  "scope": "product UI and Lab; design.md"
 }
