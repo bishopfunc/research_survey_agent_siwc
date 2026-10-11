@@ -10,3 +10,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0004](0004-siwc-validation-gate.md) | SIWC方式を実証して製品接続する | Accepted |
 | [0005](0005-codex-local-poc.md) | UI/DSL先行PoCとローカルCodex実行 | Accepted |
 | [0006](0006-review-source-of-truth.md) | Labを実行時の定義と接続する | Accepted |
+| [0007](0007-paper-code-compatibility.md) | コード公開情報と既存Commitの互換性 | Accepted |

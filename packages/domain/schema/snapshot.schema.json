@@ -330,6 +330,28 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "code_availability": {
+          "type": "string",
+          "enum": [
+            "public",
+            "not_found",
+            "unknown"
+          ]
+        },
+        "code_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "code_checked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
         }
       },
       "required": [

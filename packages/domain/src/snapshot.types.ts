@@ -64,6 +64,9 @@ export interface Paper {
   addresses: string[];
   claims: string[];
   evidence: string[];
+  code_availability?: "public" | "not_found" | "unknown";
+  code_url?: string | null;
+  code_checked_at?: string | null;
 }
 export interface Claim {
   id: string;

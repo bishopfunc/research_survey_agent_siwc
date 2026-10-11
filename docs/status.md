@@ -32,6 +32,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 | 2026-10-12 | P02 手法系譜 | Node24 / unit・ブラウザ | 30件（既存15＋domain8＋系譜7）のテスト、型検査、build、Worker dry-run成功。年順・複数親・循環・代表論文参照を試験。PCで4手法の分岐と論文詳細、検索の祖先保持、空状態を確認。390px幅でページの横溢れなし、図内のみ横スクロール。Codex実推論は再実行していない |
 | 2026-10-12 | P03 Lab | Node24 / unit・ブラウザ | 30件のテスト、型検査、build、Worker dry-run成功。直アクセス、旧実行Promptとの完全一致、7情報型＋関係・評価条件・Patch、4検証例、メモの連続入力・再読込・Markdown出力を確認。プレビューでフォーム保存後も製品のworkspace・pending-runが不変、Codex実行が無効。320/375/414/768/1440pxで横溢れなし。iframeのフォーム許可不足を修正して再確認。今回のCodex実推論・公開デプロイは未実行 |
 
+| 2026-10-12 | P04 コード公開情報 | Node24 / unit・ブラウザ | 31件のテスト、型検査、build、Worker dry-run成功。既存Paper・workspaceの互換性、不正URL・不足する確認日の拒否、Patch不変性を試験。一覧・InspectorのURL、系譜・代表論文、編集拒否→正常保存→旧版表示、Labの定義・Promptを確認。375/768/1440pxで横溢れなし。EECBSは著者の公開リポジトリで対応論文とソースを実確認、他は未確認。今回の実Codex推論は未実行 |
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

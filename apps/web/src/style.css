@@ -295,3 +295,5 @@ h1 { margin: 11px 0 8px; font-size: 32px; font-weight: 650; line-height: 1.35; l
 @media(max-width:950px) { .work-area:has(.canvas-evolution) .inspector { position: static; } }
 
 .lab-entry { display: inline-block; margin-top: 8px; font-size: 11px; color: #b4b6c1; }
+
+.paper-code-link { display: block; margin: 10px 0; }

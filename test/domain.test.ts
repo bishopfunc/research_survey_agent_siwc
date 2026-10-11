@@ -66,3 +66,34 @@ test('local Commit copies its snapshot, workspace restore rejects broken heads',
   const workspace = initialWorkspace(); assert.ok(validateWorkspace(workspace));
   workspace.branches[0].head = 'missing'; assert.equal(validateWorkspace(workspace), false);
 });
+
+test('code availability preserves legacy Papers and rejects incomplete or unsafe publication metadata', () => {
+  const legacy = structuredClone(fixture);
+  for (const paper of legacy.entities.filter(e => e.type === 'Paper')) {
+    delete paper.code_availability; delete paper.code_url; delete paper.code_checked_at;
+  }
+  assert.deepEqual(validateSnapshot(legacy), []);
+  assert.ok(validateWorkspace(initialWorkspace(legacy)));
+  const old = JSON.stringify(legacy);
+  const paper = legacy.entities.find(e => e.type === 'Paper')!;
+  const publicPaper = {...paper,code_availability:'public' as const,code_url:'https://example.org/source',code_checked_at:'2026-10-12'};
+  const patch: SurveyPatch = {schema_version:'0.1.0',base_commit_id:'old',message:'code metadata',operations:[{op:'replace_entity',entity:publicPaper}]};
+  const next = applyPatch(legacy,patch,'old');
+  assert.deepEqual(validateSnapshot(next), []);
+  assert.equal(JSON.stringify(legacy), old);
+  const updated = next.entities.find(e => e.id === paper.id && e.type === 'Paper')!;
+  assert.equal(updated.type, 'Paper');
+  if (updated.type !== 'Paper') throw Error('Expected Paper');
+  updated.code_checked_at = null;
+  assert.match(validateSnapshot(next).join(), /確認日/);
+  updated.code_checked_at = '2026-10-12'; updated.code_url = 'javascript:alert(1)';
+  assert.match(validateSnapshot(next).join(), /http\/https/);
+  updated.code_availability = 'not_found'; updated.code_url = null; updated.code_checked_at = null;
+  assert.match(validateSnapshot(next).join(), /確認日/);
+  updated.code_checked_at = '2026-10-12';
+  assert.deepEqual(validateSnapshot(next), []);
+  updated.code_availability = 'unknown';
+  assert.match(validateSnapshot(next).join(), /未確認/);
+  updated.code_checked_at = null;
+  assert.deepEqual(validateSnapshot(next), []);
+});

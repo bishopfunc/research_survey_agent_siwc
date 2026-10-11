@@ -31,6 +31,11 @@ export function validateSnapshot(value: unknown): string[] {
       for (const [field, type] of [['proposes', 'Method'], ['addresses', 'Issue'], ['claims', 'Claim'], ['evidence', 'Evidence']] as const)
         for (const id of e[field]) reference(e.id, id, [type]);
       if (e.citation_count !== null && (!e.citation_source || !e.citation_as_of)) errors.push(`${e.id}: 引用数にはsourceとas_ofが必要です`);
+      const code = e.code_availability ?? 'unknown';
+      if (e.code_url && !/^https?:\/\//.test(e.code_url)) errors.push(`${e.id}: コードURLはhttp/httpsのみ対応します`);
+      if (code === 'public' && (!e.code_url || !e.code_checked_at)) errors.push(`${e.id}: コード公開ありには公開URLと確認日が必要です`);
+      if (code === 'not_found' && (!e.code_checked_at || e.code_url)) errors.push(`${e.id}: コードが見つからずには確認日が必要で、公開URLは空にしてください`);
+      if (code === 'unknown' && (e.code_url || e.code_checked_at)) errors.push(`${e.id}: コード未確認では公開URLと確認日を空にしてください`);
     }
     if (e.type === 'Claim') {
       for (const id of e.evidence) reference(e.id, id, ['Evidence']);

@@ -89,7 +89,10 @@
       ],
       "evidence": [
         "evidence-cbs"
-      ]
+      ],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
     },
     {
       "id": "claim-cbs",
@@ -170,7 +173,10 @@
         "scalability"
       ],
       "claims": [],
-      "evidence": []
+      "evidence": [],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
     },
     {
       "id": "paper-ecbs",
@@ -202,7 +208,10 @@
         "scalability"
       ],
       "claims": [],
-      "evidence": []
+      "evidence": [],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
     },
     {
       "id": "paper-icbs",
@@ -237,7 +246,10 @@
         "scalability"
       ],
       "claims": [],
-      "evidence": []
+      "evidence": [],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
     },
     {
       "id": "paper-eecbs",
@@ -268,7 +280,10 @@
         "scalability"
       ],
       "claims": [],
-      "evidence": []
+      "evidence": [],
+      "code_availability": "public",
+      "code_url": "https://github.com/Jiaoyang-Li/EECBS",
+      "code_checked_at": "2026-10-12"
     }
   ],
   "relations": [

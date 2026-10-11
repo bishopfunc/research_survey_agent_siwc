@@ -23,6 +23,8 @@ PoCはローカル利用の例外であり、Cloudflare運用を実装済みと�
 
 `schema_version: 0.1.0`のSnapshotを正本とする。Domain、Concept、Issue、Method、Paper、Claim、Evidenceをdiscriminated unionで定義する。IssueのkindとClaimの解決状態を分離し、Claimにscope/as_ofとEvidence参照を保存する。Evidenceはsource_url、locator、excerpt、検証状態、取得日、任意hashを持つ。
 
+Paperには[コード公開状況](0005-paper-code.md)も保存・表示する。
+
 Paperはtitle/year/venue/venue_type/one_line_summary、引用数/source/as_of、doi/arxiv_id/url/authors、proposes/addresses/claims/evidenceを保持する。未取得値はnullで0と分ける。fixtureやCodexの生成はprovenanceで区別する。
 
 relationsは安定ID、type、from/toを持つ。part_of/specializes、addresses、proposes、supports/contradicts/refines、introduces_issue、related_to等を表示に投影する。Claimの対象はaboutで表す。型と参照、重複ID、階層循環、参照先の型、出典状態をアプリで検証する。
