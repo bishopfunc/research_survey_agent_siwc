@@ -125,6 +125,150 @@
       "verification": "unverified",
       "retrieved_at": null,
       "content_hash": null
+    },
+    {
+      "id": "icbs",
+      "type": "Method",
+      "label": "ICBS",
+      "description": "競合の優先順位づけなどの改良を組み合わせたCBS。",
+      "provenance": "fixture"
+    },
+    {
+      "id": "eecbs",
+      "type": "Method",
+      "label": "EECBS",
+      "description": "オンラインで得たコスト見積もりを用いて探索するbounded-suboptimalなCBS。",
+      "provenance": "fixture"
+    },
+    {
+      "id": "paper-cbs-2012",
+      "label": "CBS · AAAI 2012",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Conflict-Based Search For Optimal Multi-Agent Path Finding",
+      "year": 2012,
+      "venue": "AAAI",
+      "venue_type": "conference",
+      "one_line_summary": "エージェントごとの経路探索と競合解消を二段階で行うCBSを提案。",
+      "citation_count": null,
+      "citation_source": null,
+      "citation_as_of": null,
+      "doi": "10.1609/aaai.v26i1.8140",
+      "arxiv_id": null,
+      "url": "https://ojs.aaai.org/index.php/AAAI/article/view/8140",
+      "authors": [
+        "Guni Sharon",
+        "Roni Stern",
+        "Ariel Felner",
+        "Nathan R. Sturtevant"
+      ],
+      "proposes": [
+        "cbs"
+      ],
+      "addresses": [
+        "collision",
+        "scalability"
+      ],
+      "claims": [],
+      "evidence": []
+    },
+    {
+      "id": "paper-ecbs",
+      "label": "ECBS · SoCS 2014",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Suboptimal Variants of the Conflict-Based Search Algorithm for the Multi-Agent Pathfinding Problem",
+      "year": 2014,
+      "venue": "SoCS",
+      "venue_type": "conference",
+      "one_line_summary": "CBSの最適性条件を緩め、解の品質と計算時間を調整する探索法。",
+      "citation_count": null,
+      "citation_source": null,
+      "citation_as_of": null,
+      "doi": "10.1609/socs.v5i1.18315",
+      "arxiv_id": null,
+      "url": "https://ojs.aaai.org/index.php/SOCS/article/view/18315",
+      "authors": [
+        "Max Barer",
+        "Guni Sharon",
+        "Roni Stern",
+        "Ariel Felner"
+      ],
+      "proposes": [
+        "ecbs"
+      ],
+      "addresses": [
+        "collision",
+        "scalability"
+      ],
+      "claims": [],
+      "evidence": []
+    },
+    {
+      "id": "paper-icbs",
+      "label": "ICBS · IJCAI 2015",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "ICBS: Improved Conflict-Based Search Algorithm for Multi-Agent Pathfinding",
+      "year": 2015,
+      "venue": "IJCAI",
+      "venue_type": "conference",
+      "one_line_summary": "競合の優先順位づけとmerge-and-restartを既存のCBS改善と組み合わせる。",
+      "citation_count": null,
+      "citation_source": null,
+      "citation_as_of": null,
+      "doi": null,
+      "arxiv_id": null,
+      "url": "https://www.ijcai.org/Proceedings/15/Papers/110.pdf",
+      "authors": [
+        "Eli Boyarski",
+        "Ariel Felner",
+        "Roni Stern",
+        "Guni Sharon",
+        "David Tolpin",
+        "Oded Betzalel",
+        "Eyal Shimony"
+      ],
+      "proposes": [
+        "icbs"
+      ],
+      "addresses": [
+        "collision",
+        "scalability"
+      ],
+      "claims": [],
+      "evidence": []
+    },
+    {
+      "id": "paper-eecbs",
+      "label": "EECBS · AAAI 2021",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "EECBS: A Bounded-Suboptimal Search for Multi-Agent Path Finding",
+      "year": 2021,
+      "venue": "AAAI",
+      "venue_type": "conference",
+      "one_line_summary": "オンラインのコスト見積もりとExplicit Estimation SearchをCBSへ適用。",
+      "citation_count": null,
+      "citation_source": null,
+      "citation_as_of": null,
+      "doi": "10.1609/aaai.v35i14.17466",
+      "arxiv_id": null,
+      "url": "https://ojs.aaai.org/index.php/AAAI/article/view/17466",
+      "authors": [
+        "Jiaoyang Li",
+        "Wheeler Ruml",
+        "Sven Koenig"
+      ],
+      "proposes": [
+        "eecbs"
+      ],
+      "addresses": [
+        "collision",
+        "scalability"
+      ],
+      "claims": [],
+      "evidence": []
     }
   ],
   "relations": [
@@ -199,6 +343,42 @@
       "type": "about",
       "from": "claim-cbs",
       "to": "optimality"
+    },
+    {
+      "id": "extends-icbs-cbs",
+      "type": "extends",
+      "from": "icbs",
+      "to": "cbs"
+    },
+    {
+      "id": "extends-eecbs-ecbs",
+      "type": "extends",
+      "from": "eecbs",
+      "to": "ecbs"
+    },
+    {
+      "id": "addresses-icbs-tree",
+      "type": "addresses",
+      "from": "icbs",
+      "to": "tree"
+    },
+    {
+      "id": "addresses-icbs-optimality",
+      "type": "addresses",
+      "from": "icbs",
+      "to": "optimality"
+    },
+    {
+      "id": "addresses-eecbs-scalability",
+      "type": "addresses",
+      "from": "eecbs",
+      "to": "scalability"
+    },
+    {
+      "id": "addresses-eecbs-collision",
+      "type": "addresses",
+      "from": "eecbs",
+      "to": "collision"
     }
   ]
 }

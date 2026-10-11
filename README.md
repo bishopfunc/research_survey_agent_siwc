@@ -18,7 +18,7 @@ codex login
 npm run dev:poc
 ```
 
-http://127.0.0.1:8788 を開きます。Issue Explorer、Issue×Method Matrix、Paper一覧、Inspector、項目ごとの編集フォーム、ローカル履歴とForkが利用できます。DSL/Schema/JSONの表示は画面に出しません。新しい調査は空のsnapshotから始められます。Codexはチャット指示からPatch案を作り、日本語の前後値を確認して適用すると新しい版になります。
+http://127.0.0.1:8788 を開きます。Issue Explorer、手法の系譜（時系列ツリー・代表論文）、Issue×Method Matrix、Paper一覧、Inspector、項目ごとの編集フォーム、ローカル履歴とForkが利用できます。DSL/Schema/JSONの表示は画面に出しません。新しい調査は空のsnapshotから始められます。「手法の系譜」タブから「系譜サンプルを見る」で、分岐と代表論文の年順表示を試せます。Codexはチャット指示からPatch案を作り、日本語の前後値を確認して適用すると新しい版になります。
 
 データはこのブラウザのlocalStorageに保存します。保存と履歴管理は内部で行います。Codex実行状態はGit除外の`.poc/`に保存し、タブを閉じてもローカルサーバーが動いている間は実行を継続します。サーバー終了・再起動後の実行再開は未対応です。
 

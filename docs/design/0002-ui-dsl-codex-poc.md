@@ -9,7 +9,7 @@
 
 ユーザーの指示により、最初にUIとDSLスキーマを触って調整するPoCを作る。AgentはCodexを使用する。MVPの完成条件は維持し、Cloudflare認証・保存基盤の本実装より先に、研究情報の表現と編集体験を検証する。
 
-ローカルのReact/TypeScript UIに、Issue階層、Issue×Method Matrix、Paperカード、Claim/Evidence Inspectorと項目ごとの編集フォームを用意する。DSL Editor、Schemaタブ、Entity JSON、JSON入出力は画面に置かない。内部のJSON Schemaと検証は維持する。サンプルは明示的にfixtureと表示する。Codexに自然言語の編集指示を送り、typed Patchを検証・レビューして適用する。
+ローカルのReact/TypeScript UIに、Issue階層、[手法系譜・時系列](0003-method-evolution.md)、Issue×Method Matrix、Paperカード、Claim/Evidence Inspectorと項目ごとの編集フォームを用意する。DSL Editor、Schemaタブ、Entity JSON、JSON入出力は画面に置かない。内部のJSON Schemaと検証は維持する。サンプルは明示的にfixtureと表示する。Codexに自然言語の編集指示を送り、typed Patchを検証・レビューして適用する。
 
 ## 構成と実行場所
 
@@ -56,7 +56,7 @@ Codexの構造化出力はJSON Schemaの一部のみを扱うため、非対応�
 
 ## PoCの完了条件
 
-- 同じsnapshotから3ビューとInspectorが動く。
+- 同じsnapshotから4ビューとInspectorが動く。
 - フォームの正常編集は表示と履歴へ反映し、内部検証で不正型・参照切れ・循環は適用を拒否する。
 - 再読込、過去版表示、Forkでデータを維持できる。DSL/Schema/JSON表示がUIにない。
 - Codexの実出力からPatchレビュー→検証→新Commitを一度確認する。実Codex試験とfixture/mock試験を区別する。

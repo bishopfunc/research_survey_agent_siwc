@@ -4,7 +4,9 @@
 
 ## 製品
 
-MVP未完成。ユーザー指定によりUI＋DSL調整用のローカルPoC（P01）を先行実装した。3ビュー、Inspector、フォーム編集、内部JSON Schema検証、ブラウザ履歴/Fork、ローカルCodex接続がある。DSL Editor、Schemaタブ、JSON表示はユーザー指定でUIから外した。
+MVP未完成。ユーザー指定によりUI＋DSL調整用のローカルPoC（P01）を先行実装した。4ビュー（手法の系譜を含む）、Inspector、フォーム編集、内部JSON Schema検証、ブラウザ履歴/Fork、ローカルCodex接続がある。DSL Editor、Schemaタブ、JSON表示はユーザー指定でUIから外した。
+
+P02で時系列の手法系譜と代表論文一覧を追加した。代表論文は登録された提案論文から出版年で選ぶ。未取得年や矛盾は別表示する。
 
 Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存SIWC Workerは維持している。
 
@@ -25,6 +27,7 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 | 2026-10-12 | Codex schema | 実呼出し | 初回はuri format指定を400 invalid_json_schemaで拒否。対応subsetへ投影し、元schemaで再検証する修正後に成功 |
 | 2026-10-12 | P01 API境界 | ローカルHTTP | 不正Host、外部Origin、OriginなしPOSTを403で拒否。資格情報・生ログは返さない |
 | 2026-10-12 | P01デザイン再調整 | PC/390pxブラウザ | 濃いグレーのナビ、白い作業領域、オレンジのアクセントへ変更。課題を番号付き一覧にし、件数をコンパクトにした。3ビュー、編集フォーム、JSON非表示、モバイルの横溢れなしを確認。Agent実推論は今回再実行していない |
+| 2026-10-12 | P02 手法系譜 | Node24 / unit・ブラウザ | 30件（既存15＋domain8＋系譜7）のテスト、型検査、build、Worker dry-run成功。年順・複数親・循環・代表論文参照を試験。PCで4手法の分岐と論文詳細、検索の祖先保持、空状態を確認。390px幅でページの横溢れなし、図内のみ横スクロール。Codex実推論は再実行していない |
 
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 

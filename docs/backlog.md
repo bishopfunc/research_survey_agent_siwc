@@ -6,6 +6,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | --- | --- | --- | --- |
 | B00 | Done | 開発ルール、MVP設計、ADR、専用Git、チェックとCI定義 | なし |
 | P01 | Done | UI＋DSL調整PoC。3ビュー、フォーム編集と内部スキーマ検証、ローカル履歴/Fork、Codexの提案とレビュー（JSON表示なし） | なし |
+| P02 | Done | 手法の系譜と代表論文の時系列ビュー。分岐、複数親、年順、詳細連動 | P01 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験 | B02 |

@@ -72,6 +72,17 @@ export function validateSnapshot(value: unknown): string[] {
     visiting.delete(id); visited.add(id); return false;
   }
   if (value.entities.some(e => cycle(e.id))) errors.push('part_of / specializesに循環があります');
+  const methodParents = new Map<string, string[]>();
+  for (const r of value.relations) if (['extends', 'builds_on', 'specializes'].includes(r.type) && entities.get(r.from)?.type === 'Method' && entities.get(r.to)?.type === 'Method') methodParents.set(r.from,[...(methodParents.get(r.from) ?? []),r.to]);
+  visiting.clear(); visited.clear();
+  function methodCycle(id: string): boolean {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    if ((methodParents.get(id) ?? []).some(methodCycle)) return true;
+    visiting.delete(id); visited.add(id); return false;
+  }
+  if (value.entities.some(e => e.type === 'Method' && methodCycle(e.id))) errors.push('手法の派生関係に循環があります');
   return errors;
 }
 
