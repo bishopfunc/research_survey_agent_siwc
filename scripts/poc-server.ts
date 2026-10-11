@@ -7,6 +7,7 @@ import { createServer as createVite } from 'vite';
 import { applyPatch, validateSnapshot, type SurveySnapshot, type SurveyPatch } from '../packages/domain/src/index';
 import { patchSchema } from '../packages/domain/src/index';
 import { buildSurveyPrompt, CODEX_EXECUTION } from '../packages/agent/src/prompt';
+import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexOutputSchema } from '../packages/domain/src/codex-schema';
 
 const port = Number(process.env.POC_PORT ?? 8788);
@@ -53,7 +54,8 @@ function startRun(input: { instruction: string; base_commit_id: string; snapshot
     try {
       if (code !== 0) throw Error('Codexの実行に失敗しました。ログイン状態・利用枠・接続を確認してください');
       const patch: SurveyPatch = JSON.parse(readFileSync(output, 'utf8'));
-      applyPatch(input.snapshot, patch, input.base_commit_id);
+      const next = applyPatch(input.snapshot, patch, input.base_commit_id);
+      assertFigureAssets(next, resolve('.poc/figures'));
       run.patch = patch; run.status = 'succeeded'; run.message = '変更案ができました。差分を確認して適用してください';
     } catch (error) { run.status = 'failed'; run.message = error instanceof Error ? error.message.slice(0, 1600) : 'Patch検証に失敗しました'; }
     save(run);
@@ -69,6 +71,21 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', origin);
   if (!url.pathname.startsWith('/api/')) { vite.middlewares(req, res); return; }
   try {
+    if (url.pathname === '/api/figures' && req.method === 'POST') {
+      if (req.headers.origin !== origin) { json(res,{error:'ORIGIN_REQUIRED'},403);return; }
+      if (req.headers['content-type'] !== 'image/png') { json(res,{error:'PNG_REQUIRED'},415);return; }
+      let size=0; const chunks:Buffer[]=[];
+      for await (const chunk of req) {size+=chunk.length;if(size>MAX_FIGURE_BYTES){json(res,{error:'画像は8MiB以下にしてください'},413);return;}chunks.push(chunk);}
+      try {json(res,saveFigurePNG(Buffer.concat(chunks),resolve('.poc/figures')),201);}
+      catch(error) {json(res,{error:error instanceof Error ? error.message : '画像を保存できませんでした'},400);}
+      return;
+    }
+    const figure = url.pathname.match(/^\/api\/figures\/([a-f0-9]{64})\.png$/);
+    if(figure && req.method==='GET') {
+      try {const bytes=readFileSync(resolve('.poc/figures',`${figure[1]}.png`));res.writeHead(200,{'Content-Type':'image/png','X-Content-Type-Options':'nosniff','Cache-Control':'private, max-age=31536000, immutable'});res.end(bytes);}
+      catch {json(res,{error:'FIGURE_NOT_FOUND'},404);}
+      return;
+    }
     if (url.pathname === '/api/codex/status' && req.method === 'GET') {
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });

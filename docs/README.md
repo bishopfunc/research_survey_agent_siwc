@@ -9,6 +9,7 @@
 | [手法系譜・時系列](design/0003-method-evolution.md) | 手法の分岐と代表論文を年順でたどる |
 | [開発レビューLab](design/0004-review-lab.md) | `/lab`でUI・Agent Prompt・DSLをまとめてレビュー |
 | [コード公開状況](design/0005-paper-code.md) | 論文の公開コード・確認日と保存互換性 |
+| [代表Figの抽出・保存](design/0006-paper-figures.md) | PDF切り出し・PNG保存・出典と履歴 |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

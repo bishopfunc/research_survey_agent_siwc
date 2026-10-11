@@ -11,3 +11,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0005](0005-codex-local-poc.md) | UI/DSL先行PoCとローカルCodex実行 | Accepted |
 | [0006](0006-review-source-of-truth.md) | Labを実行時の定義と接続する | Accepted |
 | [0007](0007-paper-code-compatibility.md) | コード公開情報と既存Commitの互換性 | Accepted |
+| [0008](0008-paper-figure-assets.md) | Fig画像とsnapshotを分離して不変保存 | Accepted |

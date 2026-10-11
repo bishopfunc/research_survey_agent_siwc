@@ -32,6 +32,11 @@ export function validateSnapshot(value: unknown): string[] {
         for (const id of e[field]) reference(e.id, id, [type]);
       if (e.citation_count !== null && (!e.citation_source || !e.citation_as_of)) errors.push(`${e.id}: 引用数にはsourceとas_ofが必要です`);
       const code = e.code_availability ?? 'unknown';
+      const fig = e.representative_figure;
+      if (fig) {
+        if (fig.source_url && !/^https?:\/\//.test(fig.source_url)) errors.push(`${e.id}: Fig出典はhttp/httpsのみ対応します`);
+        if (fig.crop.x + fig.crop.width > 1.000001 || fig.crop.y + fig.crop.height > 1.000001) errors.push(`${e.id}: Figの範囲がページを超えています`);
+      }
       if (e.code_url && !/^https?:\/\//.test(e.code_url)) errors.push(`${e.id}: コードURLはhttp/httpsのみ対応します`);
       if (code === 'public' && (!e.code_url || !e.code_checked_at)) errors.push(`${e.id}: コード公開ありには公開URLと確認日が必要です`);
       if (code === 'not_found' && (!e.code_checked_at || e.code_url)) errors.push(`${e.id}: コードが見つからずには確認日が必要で、公開URLは空にしてください`);

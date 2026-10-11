@@ -34,6 +34,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 | 2026-10-12 | P04 コード公開情報 | Node24 / unit・ブラウザ | 31件のテスト、型検査、build、Worker dry-run成功。既存Paper・workspaceの互換性、不正URL・不足する確認日の拒否、Patch不変性を試験。一覧・InspectorのURL、系譜・代表論文、編集拒否→正常保存→旧版表示、Labの定義・Promptを確認。375/768/1440pxで横溢れなし。EECBSは著者の公開リポジトリで対応論文とソースを実確認、他は未確認。今回の実Codex推論は未実行 |
 
+| 2026-10-12 | P05 代表Fig | Node24 / unit・ブラウザ・HTTP | 33件のテスト、型検査、build、Worker dry-run成功。PNG形式・CRC・上限、不正メタデータ・crop・不存在assetを試験。オリジナルの2ページテストPDFでページ切替→範囲指定→612×300 PNG抽出を確認。独立ブラウザで実画像API保存・再読込・旧版・Forkを確認し、本人の保存データは変更しない。Originなし/外部Originは403、不正PNGは400、正常保存201と再取得が一致。320/375/414/768pxで抽出画面の横溢れなし。実論文の代表性・自動Fig選定・実Codex推論は未検証 |
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

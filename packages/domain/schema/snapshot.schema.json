@@ -352,6 +352,16 @@
             "null"
           ],
           "format": "date"
+        },
+        "representative_figure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Figure"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -622,6 +632,85 @@
         "type",
         "from",
         "to"
+      ]
+    },
+    "Figure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "caption": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "source_pdf_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "crop": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "width": {
+              "type": "number",
+              "minimum": 1e-06,
+              "maximum": 1
+            },
+            "height": {
+              "type": "number",
+              "minimum": 1e-06,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ]
+        },
+        "extracted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "asset_id",
+        "caption",
+        "source_name",
+        "source_url",
+        "source_pdf_sha256",
+        "page",
+        "crop",
+        "extracted_at"
       ]
     }
   }

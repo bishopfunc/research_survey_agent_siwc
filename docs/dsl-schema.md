@@ -19,6 +19,8 @@ Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す�
 
 Paperの任意フィールド `code_availability` はpublic（公開あり）、not_found（見つからず）、unknown（未確認）。省略も未確認として表示する。publicはHTTP(S)の `code_url` と日付 `code_checked_at`、not_foundは確認日が必要。未確認のURL・確認日は空にする。見つからずは非公開の断定ではない。既存Commitは補完せず保持し、更新は新Commitになる。
 
+Paperの任意 `representative_figure` は保存画像のasset_id、caption、source_name/source_url/source_pdf_sha256、page、crop（ページ左上基準の0〜1座標）、extracted_atを持つ。省略/nullは未抽出。PNG本体はローカルサーバーの `.poc/figures/` にhash名で保存し、snapshotには埋めない。旧画像を消さず、過去CommitとForkの参照を保持する。詳細は[Fig設計](design/0006-paper-figures.md)。
+
 Claimのscopeはtask、setting、metric、assumptions、limitations。statusがunknown以外ならEvidence参照とas_of（日付）が必要。Evidenceのverifiedには原文断片、取得日時、hashが必要。フィールドが揃うことは本文照合の実施証明ではないので、Codexの生成だけでverifiedにしない。
 
 ## 関係と検証

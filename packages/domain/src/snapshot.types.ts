@@ -67,6 +67,22 @@ export interface Paper {
   code_availability?: "public" | "not_found" | "unknown";
   code_url?: string | null;
   code_checked_at?: string | null;
+  representative_figure?: Figure | null;
+}
+export interface Figure {
+  asset_id: string;
+  caption: string;
+  source_name: string;
+  source_url: string | null;
+  source_pdf_sha256: string;
+  page: number;
+  crop: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  extracted_at: string;
 }
 export interface Claim {
   id: string;
