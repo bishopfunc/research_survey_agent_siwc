@@ -13,6 +13,8 @@ npm run dev
 
 `check`は所有するJSファイルの構文、ドキュメントの相対リンク、既存テストを検証する。`check:deploy`はWranglerのdry-runであり公開デプロイではない。自動チェックは実アカウントを使用せず、資格情報を読まない。
 
+P01で `check` にschema生成型の一致、TypeScript検査、ドメイン試験、Vite buildを追加した。UI＋DSLのローカル実行は `npm run dev:poc`。Codex実アカウントの操作試験はCIに含めない。
+
 TypeScript/React導入PRではtypecheckとbuildを追加し、D1/Workflow導入PRではWrangler環境の統合試験を追加する。CIはその時点の必須チェックをすべて実行する。
 
 ## 変更の進め方

@@ -6,6 +6,26 @@
 
 Node.js 24で `npm ci`、`npm run check`、`npm run check:deploy` を実行します。最後のコマンドは公開しないdry-runです。GitHub Actionsにも同じチェックを設定しています。
 
+## UI＋DSL調整PoC（Codex Agent）
+
+まずUIとスキーマの調整を行うためのローカルPoCです。[design doc](docs/design/0002-ui-dsl-codex-poc.md) と [DSL調整ガイド](docs/dsl-schema.md) に範囲と契約を記録しています。
+
+```sh
+# Node.js 24
+npm ci
+# Codex CLIをインストールし、本人がChatGPTでログイン
+codex login
+npm run dev:poc
+```
+
+http://127.0.0.1:8788 を開きます。Issue Explorer、Issue×Method Matrix、Paper一覧、Inspector、項目ごとの編集フォーム、ローカル履歴とForkが利用できます。DSL/Schema/JSONの表示は画面に出しません。新しい調査は空のsnapshotから始められます。Codexはチャット指示からPatch案を作り、日本語の前後値を確認して適用すると新しい版になります。
+
+データはこのブラウザのlocalStorageに保存します。保存と履歴管理は内部で行います。Codex実行状態はGit除外の`.poc/`に保存し、タブを閉じてもローカルサーバーが動いている間は実行を継続します。サーバー終了・再起動後の実行再開は未対応です。
+
+Codex CLI自身のChatGPTログインを使い、アプリは内部資格情報を読みません。ユーザー設定・hooks・MCPを引き継がない隔離実行のため、モデルはCLIの標準設定です。未ログイン時は実行せずログインを案内します。実行は1件ずつ、上限5分、取消可能です。モデルの生成結果やサンプルデータは確認済みの文献情報と区別してください。
+
+`npm run dev`と`npm run deploy`は従来のSIWC Worker PoC用です。新しいSurvey Studioの公開デプロイではありません。Cloudflare MVPのD1/R2/Workflowsは後続で実装します。
+
 ## 既存PoCの利用方法と検証記録
 
 SIWCでログインし、モデル一覧とResponses SSEを検証する個人用PoCです。

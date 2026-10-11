@@ -5,6 +5,8 @@
 | 文書 | 用途 |
 | --- | --- |
 | [MVP設計](design/0001-mvp.md) | 構成、データ、API、実装順序 |
+| [UI/DSL/Codex PoC](design/0002-ui-dsl-codex-poc.md) | 現在の最優先。UIとスキーマの調整 |
+| [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |
 | [開発手順](development.md) | design doc、ADR、Git、検証のルール |

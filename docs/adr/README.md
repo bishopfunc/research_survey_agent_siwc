@@ -8,3 +8,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0002](0002-versioned-json-graph.md) | JSON Schemaの型付きグラフと不変Commit | Accepted |
 | [0003](0003-workflows-and-polling.md) | Workflowsと進捗polling | Accepted |
 | [0004](0004-siwc-validation-gate.md) | SIWC方式を実証して製品接続する | Accepted |
+| [0005](0005-codex-local-poc.md) | UI/DSL先行PoCとローカルCodex実行 | Accepted |

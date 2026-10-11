@@ -5,6 +5,7 @@
 目標は CODEX_HANDOFF.md の研究サーベイMVPを完成させること。今回の開発基盤整備だけでMVP完了とはしない。
 作業開始時に `CODEX_HANDOFF.md`、`docs/README.md`、`docs/design/0001-mvp.md`、`docs/backlog.md` と関連ADRを読む。
 ユーザーの最新指示を優先する。引き継ぎの古い実測記録は `docs/status.md` と照合する。
+現在の最優先は `docs/design/0002-ui-dsl-codex-poc.md` のUI＋DSL調整PoC。AgentはCodex。PoCのローカル実行・ブラウザ保存は認めるが、Cloudflare MVP完了とは扱わない。
 
 ## 設計と記録
 

@@ -4,7 +4,9 @@
 
 ## 製品
 
-MVP未完成。UIは認証PoC。Survey、DSL、D1/R2、Workflow、3ビュー、履歴、Forkは未実装。開発基盤と採用方針を整備した。
+MVP未完成。ユーザー指定によりUI＋DSL調整用のローカルPoC（P01）を先行実装した。3ビュー、Inspector、フォーム編集、内部JSON Schema検証、ブラウザ履歴/Fork、ローカルCodex接続がある。DSL Editor、Schemaタブ、JSON表示はユーザー指定でUIから外した。
+
+Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存SIWC Workerは維持している。
 
 ## 検証記録
 
@@ -17,6 +19,11 @@ MVP未完成。UIは認証PoC。Survey、DSL、D1/R2、Workflow、3ビュー、�
 | 2026-10-12 | ローカルSIWC | 既存READMEの実測記録 | 本人認可・モデル一覧・SIWC_OK・response.completed成功の記録。この作業では再実行していない |
 | 2026-10-12 | refresh | 既存READMEとコード | モック試験あり。期限到来後の実更新は未確認 |
 | 2026-10-12 | 公開Worker | 既存READMEの記録 | デプロイ記録あり。設定不足503の記録と、その後のトークン401の記述が併存。現在状態は再確認していない |
+| 2026-10-12 | P01 | Node24 / unit・build | 型検査、生成型一致、既存15＋domain8テスト、Vite build成功。npm audit検出0件 |
+| 2026-10-12 | P01 UI | ローカルブラウザ | 3ビュー、フォーム編集・課題追加、保存、履歴/Fork、再読込を確認。390px幅で横溢れなし。DSL/SchemaタブとJSON表示なし |
+| 2026-10-12 | P01 Codex | 実ChatGPTログイン / codex-cli 0.144.6 | タイトル変更と通信遅延Issue追加の実提案→内部検証→レビュー→新Commit保存成功。元指示・run・Patch・親版を保持。文献調査品質の評価ではない |
+| 2026-10-12 | Codex schema | 実呼出し | 初回はuri format指定を400 invalid_json_schemaで拒否。対応subsetへ投影し、元schemaで再検証する修正後に成功 |
+| 2026-10-12 | P01 API境界 | ローカルHTTP | 不正Host、外部Origin、OriginなしPOSTを403で拒否。資格情報・生ログは返さない |
 
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
@@ -28,4 +35,4 @@ docs/design、docs/adr、テンプレート、AGENTS.md、チェックとGitHub 
 
 ## 次の確認
 
-B01でCloudflareの許可されたSIWC経路を確定する。B02でDSLとPatchのschemaを実装する。認証待ちでもfixtureによるドメインとUI開発は可能。
+P01を使ってUIとグラフ表現をユーザーと調整する。B02/B05にはPoCのschema・validator・UIを引き継ぐ。CloudflareでのCodex実行基盤と認証は後続の別設計で検証する。ローカルサーバー終了後のrun再開、クラウドバックアップ、全文調査の正確性は未検証。

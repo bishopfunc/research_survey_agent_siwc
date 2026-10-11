@@ -7,19 +7,42 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node scripts/check.mjs && npm test",
+    "check": "node scripts/check.mjs && node scripts/generate-types.mjs --check && npm run typecheck && npm test && npm run test:poc && npm run build",
     "check:deploy": "wrangler deploy --dry-run",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "siwc:login": "node scripts/siwc.mjs login",
     "siwc:accounts": "node scripts/siwc.mjs accounts",
     "siwc:models": "node scripts/siwc.mjs models",
-    "siwc:probe": "node scripts/siwc.mjs probe"
+    "siwc:probe": "node scripts/siwc.mjs probe",
+    "dev:poc": "tsx scripts/poc-server.ts",
+    "schema:types": "node scripts/generate-types.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build --config apps/web/vite.config.ts",
+    "test:poc": "tsx --test test/*.test.ts"
   },
   "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "json-schema-to-typescript": "^16.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
     "wrangler": "^4.0.0"
   },
   "dependencies": {
-    "jose": "^6.2.12"
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "jose": "^6.2.12",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "overrides": {
+    "source-map-js": "^1.2.2"
   }
 }

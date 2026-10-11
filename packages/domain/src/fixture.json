@@ -1,0 +1,204 @@
+{
+  "schema_version": "0.1.0",
+  "title": "Multi-Agent Path Finding",
+  "entities": [
+    {
+      "id": "mapf",
+      "label": "MAPF",
+      "provenance": "fixture",
+      "type": "Domain",
+      "description": "複数エージェントの経路計画。UIとスキーマを試すサンプルです。"
+    },
+    {
+      "id": "collision",
+      "label": "衝突のない経路計画",
+      "provenance": "fixture",
+      "type": "Issue",
+      "description": "複数のエージェントが衝突せずに目的地へ到達する経路を求める。",
+      "kind": "fundamental"
+    },
+    {
+      "id": "scalability",
+      "label": "エージェント数へのスケーラビリティ",
+      "provenance": "fixture",
+      "type": "Issue",
+      "description": "エージェント数や競合の増加に対して探索をどう抑えるか。",
+      "kind": "subproblem"
+    },
+    {
+      "id": "optimality",
+      "label": "最適性と計算時間",
+      "provenance": "fixture",
+      "type": "Issue",
+      "description": "最適解の保証と、実用的な計算時間の間にあるトレードオフ。",
+      "kind": "subproblem"
+    },
+    {
+      "id": "tree",
+      "label": "制約木の増大",
+      "provenance": "fixture",
+      "type": "Issue",
+      "description": "CBSの競合解消で探索する制約木が増大する問題。",
+      "kind": "method_dependent"
+    },
+    {
+      "id": "cbs",
+      "label": "CBS",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "競合を検出し、高レベルの制約木で解消する探索手法。"
+    },
+    {
+      "id": "ecbs",
+      "label": "ECBS",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "bounded-suboptimalな探索を用いるCBSの系統。表示確認用。"
+    },
+    {
+      "id": "paper-cbs",
+      "label": "CBS (2015)",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Conflict-based search for optimal multi-agent pathfinding",
+      "year": 2015,
+      "venue": "Artificial Intelligence",
+      "venue_type": "journal",
+      "one_line_summary": "競合を制約木で解消するMAPF探索。サンプルの要約は本文未検証。",
+      "citation_count": null,
+      "citation_source": null,
+      "citation_as_of": null,
+      "doi": "10.1016/j.artint.2014.11.006",
+      "arxiv_id": null,
+      "url": "https://doi.org/10.1016/j.artint.2014.11.006",
+      "authors": [
+        "Guni Sharon",
+        "Roni Stern",
+        "Ariel Felner",
+        "Nathan R. Sturtevant"
+      ],
+      "proposes": [
+        "cbs"
+      ],
+      "addresses": [
+        "collision",
+        "optimality"
+      ],
+      "claims": [
+        "claim-cbs"
+      ],
+      "evidence": [
+        "evidence-cbs"
+      ]
+    },
+    {
+      "id": "claim-cbs",
+      "label": "所定の条件下で最適な解を探索",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "CBSの最適性保証について検証するためのサンプル主張。原文照合は未実施。",
+      "status": "unknown",
+      "scope": {
+        "task": "MAPF",
+        "setting": "離散グラフ上の衝突回避",
+        "metric": "sum-of-costs",
+        "assumptions": [
+          "低レベル探索が最適解を返すことを確認する"
+        ],
+        "limitations": [
+          "このサンプルでは本文を検証していない"
+        ]
+      },
+      "as_of": null,
+      "evidence": [
+        "evidence-cbs"
+      ]
+    },
+    {
+      "id": "evidence-cbs",
+      "label": "CBS論文の参照先",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://doi.org/10.1016/j.artint.2014.11.006",
+      "locator": "論文参照先のみ。本文のページ・節は未取得",
+      "excerpt": "",
+      "verification": "unverified",
+      "retrieved_at": null,
+      "content_hash": null
+    }
+  ],
+  "relations": [
+    {
+      "id": "part_of-collision-mapf",
+      "type": "part_of",
+      "from": "collision",
+      "to": "mapf"
+    },
+    {
+      "id": "part_of-scalability-collision",
+      "type": "part_of",
+      "from": "scalability",
+      "to": "collision"
+    },
+    {
+      "id": "part_of-optimality-collision",
+      "type": "part_of",
+      "from": "optimality",
+      "to": "collision"
+    },
+    {
+      "id": "part_of-tree-scalability",
+      "type": "part_of",
+      "from": "tree",
+      "to": "scalability"
+    },
+    {
+      "id": "addresses-cbs-collision",
+      "type": "addresses",
+      "from": "cbs",
+      "to": "collision"
+    },
+    {
+      "id": "addresses-cbs-optimality",
+      "type": "addresses",
+      "from": "cbs",
+      "to": "optimality"
+    },
+    {
+      "id": "addresses-ecbs-collision",
+      "type": "addresses",
+      "from": "ecbs",
+      "to": "collision"
+    },
+    {
+      "id": "addresses-ecbs-scalability",
+      "type": "addresses",
+      "from": "ecbs",
+      "to": "scalability"
+    },
+    {
+      "id": "introduces_issue-cbs-tree",
+      "type": "introduces_issue",
+      "from": "cbs",
+      "to": "tree"
+    },
+    {
+      "id": "extends-ecbs-cbs",
+      "type": "extends",
+      "from": "ecbs",
+      "to": "cbs"
+    },
+    {
+      "id": "proposes-paper-cbs-cbs",
+      "type": "proposes",
+      "from": "paper-cbs",
+      "to": "cbs"
+    },
+    {
+      "id": "about-claim-cbs-optimality",
+      "type": "about",
+      "from": "claim-cbs",
+      "to": "optimality"
+    }
+  ]
+}

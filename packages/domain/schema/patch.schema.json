@@ -1,0 +1,705 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SurveyPatch",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "0.1.0"
+      ]
+    },
+    "base_commit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 300,
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "add_entity",
+                  "replace_entity"
+                ]
+              },
+              "entity": {
+                "$ref": "#/$defs/Entity"
+              }
+            },
+            "required": [
+              "op",
+              "entity"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "remove_entity"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "op",
+              "id"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "add_relation",
+                  "replace_relation"
+                ]
+              },
+              "relation": {
+                "$ref": "#/$defs/Relation"
+              }
+            },
+            "required": [
+              "op",
+              "relation"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "remove_relation"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "op",
+              "id"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "set_title"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "op",
+              "title"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "base_commit_id",
+    "message",
+    "operations"
+  ],
+  "$defs": {
+    "Domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Domain"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "description"
+      ]
+    },
+    "Concept": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Concept"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "description"
+      ]
+    },
+    "Issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Issue"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "fundamental",
+            "subproblem",
+            "method_dependent"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "description",
+        "kind"
+      ]
+    },
+    "Method": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Method"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "description"
+      ]
+    },
+    "Paper": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Paper"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1900,
+          "maximum": 2200
+        },
+        "venue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "venue_type": {
+          "enum": [
+            "conference",
+            "journal",
+            "preprint",
+            "other",
+            null
+          ]
+        },
+        "one_line_summary": {
+          "type": "string"
+        },
+        "citation_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "citation_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "citation_as_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "doi": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "arxiv_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "proposes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "title",
+        "year",
+        "venue",
+        "venue_type",
+        "one_line_summary",
+        "citation_count",
+        "citation_source",
+        "citation_as_of",
+        "doi",
+        "arxiv_id",
+        "url",
+        "authors",
+        "proposes",
+        "addresses",
+        "claims",
+        "evidence"
+      ]
+    },
+    "Claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Claim"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "partially_solved",
+            "solved",
+            "disputed",
+            "unknown"
+          ]
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "task": {
+              "type": "string"
+            },
+            "setting": {
+              "type": "string"
+            },
+            "metric": {
+              "type": "string"
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "limitations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "task",
+            "setting",
+            "metric",
+            "assumptions",
+            "limitations"
+          ]
+        },
+        "as_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "statement",
+        "status",
+        "scope",
+        "as_of",
+        "evidence"
+      ]
+    },
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Evidence"
+          ]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string",
+          "enum": [
+            "unverified",
+            "abstract_only",
+            "verified"
+          ]
+        },
+        "retrieved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "content_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "source_url",
+        "locator",
+        "excerpt",
+        "verification",
+        "retrieved_at",
+        "content_hash"
+      ]
+    },
+    "Entity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Domain"
+        },
+        {
+          "$ref": "#/$defs/Concept"
+        },
+        {
+          "$ref": "#/$defs/Issue"
+        },
+        {
+          "$ref": "#/$defs/Method"
+        },
+        {
+          "$ref": "#/$defs/Paper"
+        },
+        {
+          "$ref": "#/$defs/Claim"
+        },
+        {
+          "$ref": "#/$defs/Evidence"
+        }
+      ]
+    },
+    "Relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "part_of",
+            "specializes",
+            "depends_on",
+            "related_to",
+            "caused_by",
+            "tradeoff_with",
+            "addresses",
+            "extends",
+            "builds_on",
+            "introduces_issue",
+            "assumes",
+            "instance_of",
+            "proposes",
+            "supports",
+            "contradicts",
+            "refines",
+            "about"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "from",
+        "to"
+      ]
+    }
+  }
+}
