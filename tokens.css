@@ -1,0 +1,43 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: Coral (existing brand)
+ * audience: app owner · use: review UI, prompt and DSL · tone: technical
+ * nav: N1a · footer: Ft2 · enrichment: live UI + architecture SVG
+ * pre-emit critique: P4 H4 E4 S5 R4 V4
+ */
+:root {
+  --color-paper: #fafafa;
+  --color-surface: #ffffff;
+  --color-ink: #25262b;
+  --color-muted: #6b6e7a;
+  --color-faint: #969aa5;
+  --color-line: #e4e5ea;
+  --color-accent: #e86b36;
+  --color-accent-soft: #fcf0e7;
+  --color-code: #24262e;
+  --color-code-ink: #dedfe5;
+  --color-success: #32684c;
+  --color-success-soft: #ecf4ed;
+  --color-error: #a24f3c;
+  --color-error-soft: #fceee9;
+  --color-shadow: #25262b0d;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+  --font-body: var(--font-display);
+  --font-code: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+  --text-small: 11px;
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-heading: 22px;
+  --text-display: clamp(28px, 4vw, 42px);
+  --radius-small: 5px;
+  --radius-panel: 8px;
+  --rule-width: 1px;
+  --ease-standard: ease-out;
+  --dur-fast: 140ms;
+}

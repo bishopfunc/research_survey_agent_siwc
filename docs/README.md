@@ -7,6 +7,7 @@
 | [MVP設計](design/0001-mvp.md) | 構成、データ、API、実装順序 |
 | [UI/DSL/Codex PoC](design/0002-ui-dsl-codex-poc.md) | 現在の最優先。UIとスキーマの調整 |
 | [手法系譜・時系列](design/0003-method-evolution.md) | 手法の分岐と代表論文を年順でたどる |
+| [開発レビューLab](design/0004-review-lab.md) | `/lab`でUI・Agent Prompt・DSLをまとめてレビュー |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

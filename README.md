@@ -1,6 +1,6 @@
 # Research Survey Agent
 
-目標は、Cloudflare上で動く研究サーベイMVPです。現在の実装はSIWC認証・推論PoCで、サーベイ生成と編集機能は未実装です。
+目標は、Cloudflare上で動く研究サーベイMVPです。現在はUI・DSL調整とCodexによる編集案作成のローカルPoCです。自動文献調査とCloudflareの永続保存は未実装です。
 
 開発の入口は [docs/README.md](docs/README.md)、構成と実装順序は [MVP設計](docs/design/0001-mvp.md)、Agentの作業ルールは [AGENTS.md](AGENTS.md) を参照してください。[状態と実測](docs/status.md)で現時点の確認範囲を管理します。
 
@@ -19,6 +19,8 @@ npm run dev:poc
 ```
 
 http://127.0.0.1:8788 を開きます。Issue Explorer、手法の系譜（時系列ツリー・代表論文）、Issue×Method Matrix、Paper一覧、Inspector、項目ごとの編集フォーム、ローカル履歴とForkが利用できます。DSL/Schema/JSONの表示は画面に出しません。新しい調査は空のsnapshotから始められます。「手法の系譜」タブから「系譜サンプルを見る」で、分岐と代表論文の年順表示を試せます。Codexはチャット指示からPatch案を作り、日本語の前後値を確認して適用すると新しい版になります。
+
+開発レビューは **http://127.0.0.1:8788/lab** にまとめています。UIの隔離プレビュー、実行時と共通のAgent Prompt、DSLの関係図・定義・検証例を確認し、対象ごとにレビューメモを保存・Markdown出力できます。プレビューの編集は本人の保存済み調査に影響せず、Codex実行は無効です。[Lab設計](docs/design/0004-review-lab.md)に構成を記録しています。
 
 データはこのブラウザのlocalStorageに保存します。保存と履歴管理は内部で行います。Codex実行状態はGit除外の`.poc/`に保存し、タブを閉じてもローカルサーバーが動いている間は実行を継続します。サーバー終了・再起動後の実行再開は未対応です。
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { applyPatch, emptySurvey, fixture, initialWorkspace, makeCommit, validateSnapshot, validateWorkspace, type Entity, type SurveyPatch, type SurveySnapshot, type Workspace } from '../../../packages/domain/src/index';
 import './style.css';
+import { Lab } from './Lab';
 import { MethodEvolution } from './MethodEvolution';
 import { buildEvolution, byPublication } from '../../../packages/domain/src/evolution';
 
@@ -9,6 +10,7 @@ function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 
   const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12a4 4 0 0 0 4 4h8 M6 9h8a4 4 0 0 0 4-4V3', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7' };
   return <svg className={`icon ${className}`} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
 }
+const reviewPreview = new URLSearchParams(location.search).get('preview') === 'lab';
 const KEY = 'survey-studio.workspace.v1';
 const RUN_KEY = 'survey-studio.pending-run';
 const kindLabels = { fundamental: '本質的課題', subproblem: '部分課題', method_dependent: '手法依存' };
@@ -65,7 +67,7 @@ async function request(path: string, body?: unknown) {
   const data = await response.json(); if (!response.ok) throw Error(data.error ?? `HTTP ${response.status}`); return data;
 }
 function App() {
-  const [loaded] = useState(load);
+  const [loaded] = useState(() => reviewPreview ? {workspace:initialWorkspace(),warning:''} : load());
   const [workspace, setWorkspace] = useState(loaded.workspace);
   const [notice, setNotice] = useState(loaded.warning);
   const [viewId, setViewId] = useState<string | null>(null);
@@ -75,7 +77,7 @@ function App() {
   const [editing, setEditing] = useState<Entity | null>(null);
   const [instruction, setInstruction] = useState('');
   const [run, setRun] = useState<Run | null>(null);
-  const [runId, setRunId] = useState<string | null>(() => localStorage.getItem(RUN_KEY));
+  const [runId, setRunId] = useState<string | null>(() => reviewPreview ? null : localStorage.getItem(RUN_KEY));
   const [agent, setAgent] = useState('Codexの状態を確認中');
   const [agentReady, setAgentReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -92,6 +94,7 @@ function App() {
   const linked = (id: string) => snapshot.entities.find(e => e.id === id);
   const proposalLabel = (id: string) => run?.patch?.operations.flatMap(op => 'entity' in op ? [op.entity] : []).find(e => e.id === id)?.label ?? linked(id)?.label ?? id;
   useEffect(() => {
+    if (reviewPreview) { setAgent('レビュー用プレビュー · 実行は無効'); return; }
     void request('/api/codex/status').then(data => { setAgent(data.message); setAgentReady(data.chatgpt); }).catch(() => setAgent('Codex接続は npm run dev:poc で利用できます'));
   }, []);
   useEffect(() => {
@@ -109,7 +112,7 @@ function App() {
     void poll(); return () => { active = false; clearTimeout(timer); };
   }, [runId]);
   function save(next: Workspace) {
-    localStorage.setItem(KEY, pretty(next)); setWorkspace(next); setNotice('ブラウザに保存しました');
+    if (!reviewPreview) localStorage.setItem(KEY, pretty(next)); setWorkspace(next); setNotice(reviewPreview ? 'プレビュー内で変更しました' : 'ブラウザに保存しました');
   }
   function newCommit(value: SurveySnapshot, message: string, source: 'user' | 'codex' = 'user', patch: SurveyPatch | null = null) {
     if (historical) throw Error('過去版からはForkして編集してください');
@@ -128,7 +131,7 @@ function App() {
     save({ ...workspace, branches: [...workspace.branches, b], active_branch: b.id }); setViewId(null);
   }
   async function askCodex() {
-    if (!instruction.trim() || historical) return;
+    if (reviewPreview || !agentReady || !instruction.trim() || historical) return;
     setSubmitting(true); setRun(null);
     try {
       const result: Run = await request('/api/codex/runs', { instruction, base_commit_id: head.id, snapshot });
@@ -155,7 +158,7 @@ function App() {
   const tabs = [['issues', '課題'], ['evolution', '手法の系譜'], ['matrix', '課題 × 手法'], ['papers', '論文']];
   return <div className="app">
     <aside className="sidebar">
-      <a className="brand" href="/"><span className="brand-icon"><Icon name="network"/></span><span>Survey Studio<small>RESEARCH, CONNECTED</small></span></a>
+      <a className="brand" href={reviewPreview ? '/?preview=lab' : '/'}><span className="brand-icon"><Icon name="network"/></span><span>Survey Studio<small>RESEARCH, CONNECTED</small></span></a>
       <div className="sidebar-label">ワークスペース <span className="pill">PoC</span></div>
       <label className="sr-only" htmlFor="branch">調査・ブランチ</label><select id="branch" value={branch.id} onChange={e => guard(() => { save({ ...workspace, active_branch: e.target.value }); setViewId(null); })}>{workspace.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
       <div className="sidebar-actions"><button onClick={() => guard(() => createSurvey(emptySurvey('Untitled survey'), `survey-${workspace.branches.length}`))}><Icon name="plus"/> 新しい調査</button><button onClick={() => guard(() => createSurvey(fixture, `mapf-${workspace.branches.length}`, 'fixture'))}>サンプル</button></div>
@@ -163,7 +166,7 @@ function App() {
       <nav className="tree" aria-label="課題階層">{roots.map(e => tree(e.id))}{!roots.length && <p className="muted">まだ課題はありません</p>}</nav>
       <div className="sidebar-label history-label">バージョン履歴 <button onClick={() => guard(fork)} title="選択版から独立したブランチを作る">Fork ↗</button></div>
       <div className="history">{history.map((c, i) => <button key={c.id} className={c.id === commit.id ? 'current' : ''} onClick={() => setViewId(c.id)}><span className="history-dot"/><span><strong>v{history.length - i} <em>{c.id === head.id ? 'HEAD' : c.source}</em></strong><small>{c.message}</small></span></button>)}</div>
-      <div className="sidebar-footer"><span className="online-dot"/> ローカルワークスペース<small>保存先：このブラウザ</small></div>
+      <div className="sidebar-footer"><span className="online-dot"/> ローカルワークスペース<small>保存先：このブラウザ</small>{!reviewPreview && <a className="lab-entry" href="/lab">開発Lab ↗</a>}</div>
     </aside>
     <div className="body">
       <header className="topbar"><span><Icon name="layers"/> サーベイ <span className="slash">/</span> {branch.name}</span><div><label className="sr-only" htmlFor="version">表示するバージョン</label><select id="version" value={commit.id} onChange={e => setViewId(e.target.value)}>{history.map((c,i) => <option key={c.id} value={c.id}>v{history.length-i} · {c.message}</option>)}</select><button onClick={() => guard(fork)}>選択版からFork</button></div></header>
@@ -201,4 +204,4 @@ function App() {
     }}/>} {notice && <div className="toast" role="status"><span>{notice}</span><button aria-label="通知を閉じる" onClick={() => setNotice('')}>×</button></div>}
   </div>;
 }
-createRoot(document.getElementById('root')!).render(<App/>);
+createRoot(document.getElementById('root')!).render(location.pathname.replace(/\/$/,'') === '/lab' ? <Lab/> : <App/>);

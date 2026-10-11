@@ -293,3 +293,5 @@ h1 { margin: 11px 0 8px; font-size: 32px; font-weight: 650; line-height: 1.35; l
 .work-area:has(.canvas-evolution) .inspector { position: sticky; top: 18px; }
 .rep-summary { font-size: 9px; color: #a8abb6; line-height: 1.6; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media(max-width:950px) { .work-area:has(.canvas-evolution) .inspector { position: static; } }
+
+.lab-entry { display: inline-block; margin-top: 8px; font-size: 11px; color: #b4b6c1; }

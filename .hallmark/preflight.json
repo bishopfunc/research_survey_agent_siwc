@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-12",
+  "font": "Inter/system sans",
+  "palette": "existing white / charcoal / orange",
+  "motion": "cut",
+  "framework": "React + Vite",
+  "scope": "new /lab; product UI preserved"
+}

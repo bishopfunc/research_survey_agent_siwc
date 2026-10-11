@@ -8,6 +8,8 @@ MVP未完成。ユーザー指定によりUI＋DSL調整用のローカルPoC（
 
 P02で時系列の手法系譜と代表論文一覧を追加した。代表論文は登録された提案論文から出版年で選ぶ。未取得年や矛盾は別表示する。
 
+P03で開発レビュー画面 `/lab` を追加した。実画面の隔離プレビュー、共有Prompt、DSLの関係図・定義・検証例、レビュー状態とメモの保存・Markdown出力をまとめた。Hallmarkは `~/.agents/skills/hallmark` に導入済み。簡潔な日本語報告ルールとコア変更時のLab更新をAGENTS.mdに追加した。
+
 Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存SIWC Workerは維持している。
 
 ## 検証記録
@@ -28,6 +30,7 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 | 2026-10-12 | P01 API境界 | ローカルHTTP | 不正Host、外部Origin、OriginなしPOSTを403で拒否。資格情報・生ログは返さない |
 | 2026-10-12 | P01デザイン再調整 | PC/390pxブラウザ | 濃いグレーのナビ、白い作業領域、オレンジのアクセントへ変更。課題を番号付き一覧にし、件数をコンパクトにした。3ビュー、編集フォーム、JSON非表示、モバイルの横溢れなしを確認。Agent実推論は今回再実行していない |
 | 2026-10-12 | P02 手法系譜 | Node24 / unit・ブラウザ | 30件（既存15＋domain8＋系譜7）のテスト、型検査、build、Worker dry-run成功。年順・複数親・循環・代表論文参照を試験。PCで4手法の分岐と論文詳細、検索の祖先保持、空状態を確認。390px幅でページの横溢れなし、図内のみ横スクロール。Codex実推論は再実行していない |
+| 2026-10-12 | P03 Lab | Node24 / unit・ブラウザ | 30件のテスト、型検査、build、Worker dry-run成功。直アクセス、旧実行Promptとの完全一致、7情報型＋関係・評価条件・Patch、4検証例、メモの連続入力・再読込・Markdown出力を確認。プレビューでフォーム保存後も製品のworkspace・pending-runが不変、Codex実行が無効。320/375/414/768/1440pxで横溢れなし。iframeのフォーム許可不足を修正して再確認。今回のCodex実推論・公開デプロイは未実行 |
 
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
@@ -39,4 +42,4 @@ docs/design、docs/adr、テンプレート、AGENTS.md、チェックとGitHub 
 
 ## 次の確認
 
-P01を使ってUIとグラフ表現をユーザーと調整する。B02/B05にはPoCのschema・validator・UIを引き継ぐ。CloudflareでのCodex実行基盤と認証は後続の別設計で検証する。ローカルサーバー終了後のrun再開、クラウドバックアップ、全文調査の正確性は未検証。
+`/lab` を使ってUI・Agent Prompt・DSLをユーザーと調整する。B02/B05にはPoCのschema・validator・UIを引き継ぐ。CloudflareでのCodex実行基盤と認証は後続の別設計で検証する。ローカルサーバー終了後のrun再開、クラウドバックアップ、全文調査の正確性は未検証。
