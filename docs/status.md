@@ -38,6 +38,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 | 2026-10-12 | P06 課題と手法 | Node24 / unit・ブラウザ | 35件のテスト、型検査、build、Worker dry-run成功。Paper配列と関係の統合・重複排除、課題/手法/論文の検索を試験。関連セルで説明とCBS論文2件を確認、未登録セルは不対応と断定しない。詳細連動・比較表への戻り・空状態を確認。320/375/414/768pxで横溢れなし |
 
+2026-10-12 JST: 手法タブの表示名を「手法の系譜」から「手法」に短縮し、Labと操作案内も更新。Node24の `npm run check`（35テスト・型検査・build）と `npm run check:deploy` 成功。
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

@@ -83,7 +83,7 @@ export function Lab() {
         <section className="lab-intro" id="overview"><div className="lab-kicker">DEVELOPMENT REVIEW / LOCAL POC</div><div className="lab-intro-heading"><h1>アプリの核を、<br/>ここでレビュー。</h1><p>UIで何を見せるか。Agentに何を任せるか。<br/>調査をどんな構造で残すか。<br/>この3点を、動く画面と実装の定義で確認できます。</p></div><div className="lab-scope"><span>実装済み：表示・編集・変更案・検証・ローカル履歴・PDFからFig抽出</span><span>未実装：自動文献検索・全文調査・Cloudflareの永続Job</span></div><Architecture selected={step} onSelect={setStep}/></section>
 
         <section className="lab-section" id="ui"><div className="lab-section-heading"><div><span className="lab-section-number">01 / EXPERIENCE</span><h2>UI <small>何を見せ、どう編集するか</small></h2></div><a href="/?preview=lab" target="_blank" rel="noreferrer">プレビューを開く ↗</a></div>
-          <p className="lab-lede">同じ調査を、課題・系譜・課題と手法・論文の4つの見方で確認します。選択した情報は右側に表示し、フォームかCodexへの指示で編集します。</p>
+          <p className="lab-lede">同じ調査を、課題・手法・課題と手法・論文の4つの見方で確認します。選択した情報は右側に表示し、フォームかCodexへの指示で編集します。</p>
           <figure className="lab-live-preview"><iframe src="/?preview=lab" title="保存済み調査から隔離したUIプレビュー" sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy"/><figcaption>実際のアプリを操作できます。変更はこのプレビュー内だけに残り、実Codexの実行は無効です。</figcaption></figure>
           <div className="lab-review-points"><h3>レビューすること</h3><ul><li>「課題と手法」のセルから、課題・手法の説明と関連論文を確認できるか。</li><li>課題の階層と、手法の派生関係を区別して読み取れるか。</li><li>論文から主張・根拠・代表Fig・公開コードへ迷わずたどれるか。</li><li>編集、差分確認、過去版、Forkの操作がわかるか。</li></ul></div><ReviewBox topic="ui" review={reviews.ui} onChange={updateReview}/>
         </section>

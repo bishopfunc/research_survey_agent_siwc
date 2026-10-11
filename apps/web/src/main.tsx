@@ -159,7 +159,7 @@ function App() {
     return <div key={`${id}-${path.join('.')}`}><button className={`tree-item ${selected === id ? 'selected' : ''}`} style={{ paddingLeft: 14 + depth * 16 }} onClick={() => { setSelected(id); setTab('issues'); }}><span className={`node-dot ${e.type === 'Issue' ? e.kind : ''}`}/><span>{e.label}</span>{children.length > 0 && <small>{children.length}</small>}</button>{children.map(child => tree(child, depth + 1, [...path, id]))}</div>;
   }
   const roots = snapshot.entities.filter(e => (e.type === 'Domain' || e.type === 'Issue') && !snapshot.relations.some(r => (r.type === 'part_of' || r.type === 'specializes') && r.from === e.id));
-  const tabs = [['issues', '課題'], ['evolution', '手法の系譜'], ['matrix', '課題と手法'], ['papers', '論文']];
+  const tabs = [['issues', '課題'], ['evolution', '手法'], ['matrix', '課題と手法'], ['papers', '論文']];
   return <div className="app">
     <aside className="sidebar">
       <a className="brand" href={reviewPreview ? '/?preview=lab' : '/'}><span className="brand-icon"><Icon name="network"/></span><span>Survey Studio<small>RESEARCH, CONNECTED</small></span></a>
