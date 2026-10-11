@@ -253,6 +253,19 @@
         "one_line_summary": {
           "type": "string"
         },
+        "abstract": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "abstract_source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
         "citation_count": {
           "type": [
             "integer",

@@ -13,6 +13,8 @@
 | [サーベイ調査Prompt](design/0007-survey-discovery-prompt.md) | 代表学会→サーベイ・awesome→一次論文の順序 |
 | [Distill風UI（不採用）](design/0008-distill-reading-ui.md) | 0009へ置き換えた案 |
 | [ResearchRabbit風UI](design/0009-researchrabbit-ui.md) | コレクション・版の履歴・つながり図・説明文の削減 |
+| [論文ライブラリ](design/0010-paper-library.md) | DBにある論文は読み直さない。PDF・md・原文とリンクの保存 |
+| [アブストラクトと原文](design/0011-paper-abstract.md) | Paperのabstractと出典URL、Evidenceの原文 |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

@@ -97,3 +97,41 @@ test('code availability preserves legacy Papers and rejects incomplete or unsafe
   updated.code_checked_at = null;
   assert.deepEqual(validateSnapshot(next), []);
 });
+
+test('paper abstracts are optional, keep their source link, and reject unsafe or orphaned links', () => {
+  const legacy = structuredClone(fixture);
+  assert.ok(legacy.entities.filter(e => e.type === 'Paper').every(p => p.type === 'Paper' && p.abstract === undefined));
+  assert.deepEqual(validateSnapshot(legacy), []);
+  const paper = legacy.entities.find(e => e.type === 'Paper')!;
+  if (paper.type !== 'Paper') throw Error('Expected Paper');
+  const before = JSON.stringify(legacy);
+  const withAbstract = { ...paper, abstract: 'Original abstract text.', abstract_source_url: 'https://example.org/paper' };
+  const next = applyPatch(legacy, { schema_version: '0.1.0', base_commit_id: 'old', message: 'abstract', operations: [{ op: 'replace_entity', entity: withAbstract }] }, 'old');
+  assert.deepEqual(validateSnapshot(next), []);
+  assert.equal(JSON.stringify(legacy), before);
+  const stored = next.entities.find(e => e.id === paper.id)!;
+  if (stored.type !== 'Paper') throw Error('Expected Paper');
+  assert.equal(stored.abstract, 'Original abstract text.');
+  stored.abstract_source_url = null;
+  assert.match(validateSnapshot(next).join(), /取得元のURL/);
+  stored.abstract_source_url = 'javascript:alert(1)';
+  assert.match(validateSnapshot(next).join(), /http\/https/);
+  stored.abstract = '  '; stored.abstract_source_url = 'https://example.org/paper';
+  assert.match(validateSnapshot(next).join(), /原文が無い/);
+  stored.abstract = null; stored.abstract_source_url = null;
+  assert.deepEqual(validateSnapshot(next), []);
+});
+
+test('abstract-only evidence must keep the original passage alongside its link', () => {
+  const input = structuredClone(fixture);
+  const evidence = input.entities.find(e => e.type === 'Evidence')!;
+  if (evidence.type !== 'Evidence') throw Error('Expected Evidence');
+  assert.equal(evidence.verification, 'unverified');
+  assert.deepEqual(validateSnapshot(input), []);
+  evidence.verification = 'abstract_only';
+  assert.match(validateSnapshot(input).join(), /要旨の原文/);
+  evidence.excerpt = 'Passage copied from the source abstract.';
+  assert.deepEqual(validateSnapshot(input), []);
+  evidence.source_url = 'ftp://example.org/paper';
+  assert.match(validateSnapshot(input).join(), /http\/https/);
+});

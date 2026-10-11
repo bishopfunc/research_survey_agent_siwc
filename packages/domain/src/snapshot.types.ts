@@ -53,6 +53,8 @@ export interface Paper {
   venue: string | null;
   venue_type: "conference" | "journal" | "preprint" | "other" | null;
   one_line_summary: string;
+  abstract?: string | null;
+  abstract_source_url?: string | null;
   citation_count: number | null;
   citation_source: string | null;
   citation_as_of: string | null;

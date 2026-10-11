@@ -128,3 +128,5 @@ html, body { overflow-x: clip; }
 .lab-research-plan>h3,.lab-editor-heading { font-size: 17px; font-weight: 600; margin-top: var(--space-6); }
 .lab-research-plan>p { font-size: var(--text-small); margin-top: var(--space-3); }
 .lab-editor-heading { border-top: var(--rule-width) solid var(--color-line); padding-top: var(--space-6); }
+.lab-parallel { display: inline-block; margin-left: var(--space-2); padding: 1px var(--space-2); border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: 500; vertical-align: middle; color: var(--color-ink); background: var(--color-turquoise-soft); }
+.lab-prompt-rules article.lab-stage-solo { grid-column: 1/-1; }

@@ -19,9 +19,11 @@ Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す�
 
 Paperの任意フィールド `code_availability` はpublic（公開あり）、not_found（見つからず）、unknown（未確認）。省略も未確認として表示する。publicはHTTP(S)の `code_url` と日付 `code_checked_at`、not_foundは確認日が必要。未確認のURL・確認日は空にする。見つからずは非公開の断定ではない。既存Commitは補完せず保持し、更新は新Commitになる。
 
+Paperの任意 `abstract` はアブストラクトの原文で、要約・翻訳・生成した文を入れない。値があれば `abstract_source_url`（取得元のHTTP(S) URL）が必要で、URLだけの状態は拒否する。省略/nullは未取得。詳細は[0011](design/0011-paper-abstract.md)。
+
 Paperの任意 `representative_figure` は保存画像のasset_id、caption、source_name/source_url/source_pdf_sha256、page、crop（ページ左上基準の0〜1座標）、extracted_atを持つ。省略/nullは未抽出。PNG本体はローカルサーバーの `.poc/figures/` にhash名で保存し、snapshotには埋めない。旧画像を消さず、過去CommitとForkの参照を保持する。詳細は[Fig設計](design/0006-paper-figures.md)。
 
-Claimのscopeはtask、setting、metric、assumptions、limitations。statusがunknown以外ならEvidence参照とas_of（日付）が必要。Evidenceのverifiedには原文断片、取得日時、hashが必要。フィールドが揃うことは本文照合の実施証明ではないので、Codexの生成だけでverifiedにしない。
+Claimのscopeはtask、setting、metric、assumptions、limitations。statusがunknown以外ならEvidence参照とas_of（日付）が必要。Evidenceは出典URL（source_url）が必須。abstract_only（要旨のみ確認）には要旨の原文断片、verifiedには原文断片・取得日時・hashが必要。unverifiedは原文を読んでいない状態で、断片は空でよい。フィールドが揃うことは本文照合の実施証明ではないので、Codexの生成だけでverifiedにしない。
 
 ## 関係と検証
 

@@ -44,6 +44,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: P09でResearchRabbit風UIへ変更（Distill風のP08は実装途中で置き換え）。コレクション、版の履歴、ピル型タブ、パステルの種類色、選択項目のつながり図を追加し、画面の説明文を削った。環境はmacOS。このマシンにNode 24が無いため `npx -p node@24`（v24.21.0）で `npm run check`（15＋22テスト・型検査・生成型一致・build）と `npm run check:deploy`（Worker dry-run）を実行し成功。Node 20.19.5ではcheckは成功、Wranglerは22以上が必要で失敗。`vite preview` のビルド済み画面をheadless Chromeで撮影し、1440/1280/1024pxで4表示・つながり図・比較表の選択・論文詳細、320/375/414/768pxをiframe幅で確認して横溢れなし（表と系譜図のみ領域内スクロール）。撮影時に見つけたタブの欠け、つながり図ラベルの欠け、768pxのサイドバー余白、手法カードの説明の重なりは修正して再撮影。ブラウザでのキーボード操作の通し確認と実Codex推論は未実施。
 
+2026-10-12 JST: P10。調査Promptを `survey-discovery/2` にし、サーベイ論文（2a）とawesome（2b）を並行、結果を突き合わせてから一次論文（3）へ進む順にした。論文ライブラリの照合と、原文・リンクの保存規則をPromptに追加（ライブラリ本体は設計のみ・未実装、[0010](design/0010-paper-library.md)・ADR 0009）。Paperに任意の `abstract` と `abstract_source_url`、`abstract_only` のEvidenceに原文断片を必須化（schema 0.1.0のまま、既存データ互換）。編集Promptは `survey-editor/4`。`npx -p node@24`（v24.21.0）で `npm run check`（15＋27テスト・型検査・生成型一致・build）と `npm run check:deploy` 成功。実Codex推論と実調査は未実行。
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

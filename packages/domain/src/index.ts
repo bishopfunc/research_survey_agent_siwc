@@ -37,6 +37,9 @@ export function validateSnapshot(value: unknown): string[] {
         if (fig.source_url && !/^https?:\/\//.test(fig.source_url)) errors.push(`${e.id}: Fig出典はhttp/httpsのみ対応します`);
         if (fig.crop.x + fig.crop.width > 1.000001 || fig.crop.y + fig.crop.height > 1.000001) errors.push(`${e.id}: Figの範囲がページを超えています`);
       }
+      if (e.abstract?.trim() && !e.abstract_source_url) errors.push(`${e.id}: アブストラクトには取得元のURLが必要です`);
+      if (e.abstract_source_url && !e.abstract?.trim()) errors.push(`${e.id}: アブストラクトの原文が無いのに取得元URLがあります`);
+      if (e.abstract_source_url && !/^https?:\/\//.test(e.abstract_source_url)) errors.push(`${e.id}: アブストラクトの取得元URLはhttp/httpsのみ対応します`);
       if (e.code_url && !/^https?:\/\//.test(e.code_url)) errors.push(`${e.id}: コードURLはhttp/httpsのみ対応します`);
       if (code === 'public' && (!e.code_url || !e.code_checked_at)) errors.push(`${e.id}: コード公開ありには公開URLと確認日が必要です`);
       if (code === 'not_found' && (!e.code_checked_at || e.code_url)) errors.push(`${e.id}: コードが見つからずには確認日が必要で、公開URLは空にしてください`);
@@ -50,6 +53,7 @@ export function validateSnapshot(value: unknown): string[] {
       if (!/^https?:\/\//.test(e.source_url)) errors.push(`${e.id}: 出典はhttp/https URLが必要です`);
       if (e.provenance === 'codex' && e.verification === 'verified') errors.push(`${e.id}: Codexの生成だけで原文確認済みにはできません`);
       if (e.verification === 'verified' && (!e.excerpt.trim() || !e.retrieved_at || !e.content_hash)) errors.push(`${e.id}: verifiedには本文断片・取得日・hashが必要です`);
+      if (e.verification === 'abstract_only' && !e.excerpt.trim()) errors.push(`${e.id}: 要旨のみ確認には要旨の原文（断片）が必要です`);
     }
     if (e.type === 'Paper' && e.url && !/^https?:\/\//.test(e.url)) errors.push(`${e.id}: URLはhttp/httpsのみ対応します`);
   }
