@@ -165,4 +165,16 @@ test('fields copied from the paper library are an explicit exception to the retr
   assert.match(SURVEY_RULES_INSTRUCTIONS, /the server sets the venue acronym from its table of well-known venues/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Do not write abstracts or full bibliography/);
 });
+test('blog search uses generic terms and covers individual authors; claims follow an extraction guide', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /generic terms such as survey, review, awesome, tutorial, overview, introduction, explained, lecture notes, slides, reading list and blog, and in Japanese 入門, 解説, まとめ/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /individual researchers or engineers \(personal sites and blogs/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Finding blogs and explanations: search the field or method name together with generic terms/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Extracting claims: prefer statements that carry the weight of a paper/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Do not extract promotional phrases/);
+});
+test('the prompt says which parts of a paper to read for issues, claims, evidence and achievement', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /for issues, read the problem statement in the introduction/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /For claims, collect candidates from the abstract and the contribution list at the end of the introduction, then check them against the main results tables/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Take Evidence from where the number or guarantee is stated/);
+});
 
