@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, validateSnapshot } from '../packages/domain/src/index';
-import { assessTutorial } from '../packages/domain/src/tutorial';
+import { assessTutorial, tutorialOutline } from '../packages/domain/src/tutorial';
 
 const failing = (snapshot: typeof fixture) => assessTutorial(snapshot).filter(c => !c.pass).map(c => c.id);
 const tutorialOf = (snapshot: typeof fixture) => { const t = snapshot.entities.find(e => e.type === 'Tutorial'); if (t?.type !== 'Tutorial') throw Error('no tutorial'); return t; };
@@ -51,4 +51,13 @@ test('tutorial citations, media and links must resolve, and a survey has at most
   t.sections[8].links = [];
   input.entities.push({ ...structuredClone(t), id: 'tutorial-2' });
   assert.match(validateSnapshot(input).join(), /1つの調査に1つだけ/);
+});
+
+test('the tutorial reads as a numbered outline: runs of one role become a chapter of numbered sections', () => {
+  const outline = tutorialOutline(tutorialOf(fixture).sections);
+  assert.deepEqual(outline.map(c => [c.number, c.title]).slice(0, 5), [['1', '問題設定'], ['2', 'なぜ面白い問題か'], ['3', '解き方'], ['4', 'まとめと選び方'], ['5', '課題と達成度']]);
+  assert.deepEqual(outline[2].sections.map(s => s.number), ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7']);
+  assert.equal(outline[2].sections[0].heading, '2段階の探索：CBS');
+  assert.equal(outline.find(c => c.role === 'variants')!.sections.length, 6);
+  assert.equal(outline.flatMap(c => c.sections).length, tutorialOf(fixture).sections.length);
 });

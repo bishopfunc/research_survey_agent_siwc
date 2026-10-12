@@ -7,6 +7,23 @@ import type { Paper, SurveySnapshot, Tutorial, TutorialSection } from './snapsho
  * challenge with why it matters, the progress with numbers and sources, how far it is solved and the open questions. */
 export const TUTORIAL_ROLES = ['definition', 'motivation', 'methods', 'summary', 'challenges', 'variants', 'hands_on', 'further_reading', 'conclusion'] as const;
 export const TUTORIAL_ROLE_LABELS: Record<TutorialSection['role'], string> = { definition: '問題設定', motivation: '動機と応用', methods: '解き方', summary: 'まとめと選び方', challenges: '課題と達成度', variants: '派生問題', hands_on: '手を動かす', further_reading: 'さらに学ぶ', conclusion: 'おわりに' };
+/** The tutorial as a numbered outline, like headings of a Markdown document: consecutive sections of one role form a
+ * chapter titled by the role (解き方 → 3.1, 3.2, …); a role with a single section is a chapter titled by that section. */
+export interface TutorialChapter { number: string; title: string; role: TutorialSection['role']; sections: { index: number; number: string; heading: string }[] }
+export function tutorialOutline(sections: TutorialSection[]): TutorialChapter[] {
+  const chapters: TutorialChapter[] = [];
+  sections.forEach((section, index) => {
+    const last = chapters.at(-1);
+    if (last && last.role === section.role) last.sections.push({ index, number: '', heading: section.heading });
+    else chapters.push({ number: String(chapters.length + 1), title: '', role: section.role, sections: [{ index, number: '', heading: section.heading }] });
+  });
+  for (const chapter of chapters) {
+    const many = chapter.sections.length > 1;
+    chapter.title = many ? TUTORIAL_ROLE_LABELS[chapter.role] : chapter.sections[0].heading;
+    chapter.sections.forEach((s, i) => { s.number = many ? `${chapter.number}.${i + 1}` : chapter.number; });
+  }
+  return chapters;
+}
 export interface TutorialCheck { id: string; label: string; pass: boolean; detail: string }
 
 export const citationsIn = (body: string) => [...body.matchAll(/\[@([^\]\s]+)\]/g)].map(m => m[1]);

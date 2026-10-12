@@ -153,9 +153,15 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .tutorial { max-width: 760px; }
 .tutorial>h2 { margin-bottom: var(--space-3); font-family: var(--font-display); font-size: var(--text-heading); font-weight: 700; }
 .tutorial-toc { margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); }
-.tutorial-toc ol { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.tutorial-toc ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 2px; }
+.tutorial-toc ol ol { margin: 2px 0 4px; padding-left: 1.6em; }
+.toc-number, .heading-number { display: inline-block; min-width: 2.2em; margin-right: 6px; font-variant-numeric: tabular-nums; color: var(--color-muted); }
+.tutorial-chapter { margin-bottom: var(--space-6); scroll-margin-top: 72px; }
+.tutorial-chapter>h3 { margin-bottom: var(--space-3); padding-bottom: 6px; border-bottom: var(--rule-width) solid var(--color-line); font-family: var(--font-display); font-size: 17px; font-weight: 700; scroll-margin-top: 72px; }
+.tutorial-chapter .tutorial-section { margin-bottom: var(--space-5); }
+.tutorial-section>h4 { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.tutorial-section h5 { margin: var(--space-3) 0 var(--space-1); font-family: var(--font-display); font-size: var(--text-body); font-weight: 700; }
 .tutorial-toc a { font-size: var(--text-caption); color: var(--color-ink); }
-.tutorial-toc small { margin-right: var(--space-2); font-size: 11px; color: var(--color-faint); }
 .tutorial-section { margin-bottom: var(--space-6); scroll-margin-top: 72px; }
 .tutorial-section>h3 { margin-bottom: var(--space-2); padding-bottom: 6px; border-bottom: var(--rule-width) solid var(--color-line); font-family: var(--font-display); font-size: 17px; font-weight: 700; }
 .tutorial-section p, .tutorial-section li { font-size: var(--text-body); line-height: 1.95; color: var(--color-ink); overflow-wrap: anywhere; }

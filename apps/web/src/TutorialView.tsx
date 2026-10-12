@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Entity, SurveySnapshot } from '../../../packages/domain/src/index';
-import { TUTORIAL_ROLE_LABELS } from '../../../packages/domain/src/tutorial';
+import { tutorialOutline } from '../../../packages/domain/src/tutorial';
 import { Algorithm, Equation, Images, algorithmNumber, arxivIdOf, equationNumber, figureKey, japaneseCaption, useArxivData } from './KeyFigures';
 import { MathText, Tex } from './Tex';
 
@@ -26,6 +26,8 @@ function Inline({ text, find, onSelect }: { text: string; find: (id: string) => 
 function Body({ body, find, onSelect }: { body: string; find: (id: string) => Entity | undefined; onSelect: (id: string) => void }) {
   return <>{body.split(/\n\s*\n/).map((block, i) => {
     const text = block.trim();
+    const heading = text.match(/^#{3,6}\s+(.+)$/);
+    if (heading && !text.includes('\n')) return <h5 key={i}><Inline text={heading[1]} find={find} onSelect={onSelect}/></h5>;
     const display = text.match(/^\$\$([\s\S]+)\$\$$/);
     if (display) return <div key={i} className="equation tutorial-equation"><Tex tex={display[1].trim()} display/></div>;
     const lines = text.split('\n');
@@ -58,18 +60,26 @@ export function TutorialView({ snapshot, preview, onSelect }: { snapshot: Survey
   const find = (id: string) => snapshot.entities.find(e => e.id === id);
   const anchor = (i: number) => `tutorial-${i}`;
   const cited = (section: Section) => new Set([...section.body.matchAll(/\[@([^\]\s]+)\]/g)].map(m => m[1]));
+  const go = (id: string) => (e: React.MouseEvent) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const outline = tutorialOutline(tutorial.sections);
+  const content = (section: Section) => {
+    const extra = section.refs.filter(id => !cited(section).has(id));
+    return <>
+      <Body body={section.body} find={find} onSelect={onSelect}/>
+      {section.media.map((m, j) => { const paper = find(m.paper); return <Media key={`${m.paper}-${m.label}-${j}`} paper={paper?.type === 'Paper' ? paper : undefined} label={m.label} captionJa={m.caption_ja} preview={preview} onSelect={onSelect}/>; })}
+      {section.links.length > 0 && <ul className="tutorial-links">{section.links.map((l, j) => <li key={j}><a href={l.url} target="_blank" rel="noreferrer">{l.title} ↗</a></li>)}</ul>}
+      {extra.length > 0 && <p className="tutorial-refs">{extra.map(id => <button key={id} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button>)}</p>}
+    </>;
+  };
   return <article className="tutorial">
     <h2>{tutorial.label}</h2>
-    <nav className="tutorial-toc" aria-label="目次"><ol>{tutorial.sections.map((s, i) => <li key={i}><a href={`#${anchor(i)}`} onClick={e => { e.preventDefault(); document.getElementById(anchor(i))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><small>{TUTORIAL_ROLE_LABELS[s.role]}</small>{s.heading}</a></li>)}</ol></nav>
-    {tutorial.sections.map((section, i) => {
-      const extra = section.refs.filter(id => !cited(section).has(id));
-      return <section key={i} id={anchor(i)} className="tutorial-section">
-        <h3>{section.heading}</h3>
-        <Body body={section.body} find={find} onSelect={onSelect}/>
-        {section.media.map((m, j) => { const paper = find(m.paper); return <Media key={`${m.paper}-${m.label}-${j}`} paper={paper?.type === 'Paper' ? paper : undefined} label={m.label} captionJa={m.caption_ja} preview={preview} onSelect={onSelect}/>; })}
-        {section.links.length > 0 && <ul className="tutorial-links">{section.links.map((l, j) => <li key={j}><a href={l.url} target="_blank" rel="noreferrer">{l.title} ↗</a></li>)}</ul>}
-        {extra.length > 0 && <p className="tutorial-refs">{extra.map(id => <button key={id} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button>)}</p>}
-      </section>;
-    })}
+    <nav className="tutorial-toc" aria-label="目次"><ol>{outline.map(chapter => <li key={chapter.number}>
+      <a href={`#${anchor(chapter.sections[0].index)}`} onClick={go(anchor(chapter.sections[0].index))}><span className="toc-number">{chapter.number}</span>{chapter.title}</a>
+      {chapter.sections.length > 1 && <ol>{chapter.sections.map(s => <li key={s.index}><a href={`#${anchor(s.index)}`} onClick={go(anchor(s.index))}><span className="toc-number">{s.number}</span>{s.heading}</a></li>)}</ol>}
+    </li>)}</ol></nav>
+    {outline.map(chapter => chapter.sections.length > 1
+      ? <section key={chapter.number} className="tutorial-chapter"><h3 id={anchor(chapter.sections[0].index)}><span className="heading-number">{chapter.number}</span>{chapter.title}</h3>
+        {chapter.sections.map(s => <section key={s.index} id={s.index === chapter.sections[0].index ? undefined : anchor(s.index)} className="tutorial-section"><h4><span className="heading-number">{s.number}</span>{s.heading}</h4>{content(tutorial.sections[s.index])}</section>)}</section>
+      : <section key={chapter.number} id={anchor(chapter.sections[0].index)} className="tutorial-section"><h3><span className="heading-number">{chapter.number}</span>{chapter.title}</h3>{content(tutorial.sections[chapter.sections[0].index])}</section>)}
   </article>;
 }
