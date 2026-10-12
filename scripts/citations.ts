@@ -2,7 +2,7 @@
 export const OPENALEX = 'https://api.openalex.org';
 export const CITATION_SOURCE = 'OpenAlex';
 export const MAX_CITATION_PAPERS = 200;
-const DOI_BATCH = 40;
+const DOI_PARALLEL = 10;
 const MAX_TITLE_QUERIES = 30;
 
 export interface CitationQuery { id: string; doi: string | null; arxiv_id: string | null; title: string; year: number | null }
@@ -30,30 +30,44 @@ function works(value: unknown): Work[] {
   return results.filter((w): w is Work => !!w && typeof w === 'object' && typeof (w as Work).id === 'string' && Number.isInteger((w as Work).cited_by_count) && (w as Work).cited_by_count >= 0);
 }
 
+/** A DOI looked up as a single work (free on OpenAlex), with only the path separators of the DOI left as they are. */
+export const openAlexDoiPath = (doi: string) => `${OPENALEX}/works/doi:${doi.split('/').map(encodeURIComponent).join('/')}`;
+/** Lists and searches spend the daily budget; without a key it is small and a few surveys use it up. */
+export function openAlexError(status: number, keyed: boolean): string {
+  if (status === 429) return keyed ? 'OpenAlexの1日の上限に達しました（429）。日本時間9時に回復します' : 'OpenAlexの1日の無料枠を使い切りました（429）。日本時間9時に回復します。OPENALEX_API_KEYで枠が10倍になります';
+  return `OpenAlexに接続できませんでした（${status}）`;
+}
+
 export async function lookupCitations(papers: CitationQuery[], fetcher: Fetcher, apiKey?: string): Promise<CitationLookup> {
   const found = new Map<string, CitationResult>();
   const key = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
   const select = '&select=id,doi,title,publication_year,cited_by_count';
   const get = async (query: string) => {
     const response = await fetcher(`${OPENALEX}/works?${query}${select}${key}`);
-    if (!response.ok) throw Error(`OpenAlexに接続できませんでした（${response.status}）`);
+    if (!response.ok) throw Error(openAlexError(response.status, !!apiKey));
     return works(await response.json());
   };
+  // One request per DOI: a single work costs nothing, where a DOI filter is a list that spends the daily budget.
   const byDoi = async (pairs: [CitationQuery, string][], matched_by: 'doi' | 'arxiv') => {
-    for (let i = 0; i < pairs.length; i += DOI_BATCH) {
-      const chunk = pairs.slice(i, i + DOI_BATCH);
-      const list = await get(`filter=doi:${chunk.map(([, doi]) => encodeURIComponent(doi)).join('|')}&per_page=100`);
-      const index = new Map(list.map(w => [normalizeDoi(w.doi), w]));
-      for (const [paper, doi] of chunk) { const w = index.get(doi); if (w && !found.has(paper.id)) found.set(paper.id, { id: paper.id, citation_count: w.cited_by_count, openalex_id: w.id, matched_by }); }
+    for (let i = 0; i < pairs.length; i += DOI_PARALLEL) {
+      await Promise.all(pairs.slice(i, i + DOI_PARALLEL).map(async ([paper, doi]) => {
+        const response = await fetcher(`${openAlexDoiPath(doi)}?${select.slice(1)}${key}`);
+        if (response.status === 404) return;
+        if (!response.ok) throw Error(openAlexError(response.status, !!apiKey));
+        const [w] = works({ results: [await response.json()] });
+        if (w && normalizeDoi(w.doi) === doi && !found.has(paper.id)) found.set(paper.id, { id: paper.id, citation_count: w.cited_by_count, openalex_id: w.id, matched_by });
+      }));
     }
   };
   const pending = () => papers.filter(p => !found.has(p.id));
   let error: string | null = null;
-  try {
-    // A publisher DOI first. The arXiv DOI names only the preprint, which OpenAlex often counts apart from the published edition,
-    // so it is tried last, after an exact title match has had the chance to find the published edition.
-    const isArxiv = (doi: string) => doi.startsWith('10.48550/arxiv.');
-    await byDoi(papers.flatMap(p => { const doi = normalizeDoi(p.doi); return doi && !isArxiv(doi) ? [[p, doi] as [CitationQuery, string]] : []; }), 'doi');
+  // Each step runs even when an earlier one failed, so a spent search budget does not stop the free DOI lookups.
+  const step = async (task: () => Promise<void>) => { try { await task(); } catch (e) { error ??= e instanceof Error ? e.message : 'OpenAlexに接続できませんでした'; } };
+  // A publisher DOI first. The arXiv DOI names only the preprint, which OpenAlex often counts apart from the published edition,
+  // so it is tried last, after an exact title match has had the chance to find the published edition.
+  const isArxiv = (doi: string) => doi.startsWith('10.48550/arxiv.');
+  await step(() => byDoi(papers.flatMap(p => { const doi = normalizeDoi(p.doi); return doi && !isArxiv(doi) ? [[p, doi] as [CitationQuery, string]] : []; }), 'doi'));
+  await step(async () => {
     // Without a year a title alone is too weak: a generic title would match unrelated works across decades.
     for (const paper of pending().filter(p => p.year !== null && normalizeTitle(p.title).split(' ').length >= 3).slice(0, MAX_TITLE_QUERIES)) {
       const title = normalizeTitle(paper.title);
@@ -63,8 +77,8 @@ export async function lookupCitations(papers: CitationQuery[], fetcher: Fetcher,
       const best = candidates.sort((a, b) => Math.abs((a.publication_year ?? 0) - paper.year!) - Math.abs((b.publication_year ?? 0) - paper.year!) || b.cited_by_count - a.cited_by_count)[0];
       if (best) found.set(paper.id, { id: paper.id, citation_count: best.cited_by_count, openalex_id: best.id, matched_by: 'title' });
     }
-    await byDoi(pending().flatMap(p => { const doi = arxivDoi(p.arxiv_id) ?? (normalizeDoi(p.doi)?.startsWith('10.48550/arxiv.') ? normalizeDoi(p.doi) : null); return doi ? [[p, doi] as [CitationQuery, string]] : []; }), 'arxiv');
-  } catch (e) { error = e instanceof Error ? e.message : 'OpenAlexに接続できませんでした'; }
+  });
+  await step(() => byDoi(pending().flatMap(p => { const doi = arxivDoi(p.arxiv_id) ?? (normalizeDoi(p.doi)?.startsWith('10.48550/arxiv.') ? normalizeDoi(p.doi) : null); return doi ? [[p, doi] as [CitationQuery, string]] : []; }), 'arxiv'));
   return { results: papers.flatMap(p => found.get(p.id) ?? []), not_found: pending().map(p => p.id), error };
 }
 

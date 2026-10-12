@@ -2,7 +2,7 @@
  * write them out. Only empty fields are filled; whatever Codex wrote is kept. Sources: the arXiv API for arXiv papers,
  * OpenAlex for the rest. Only these two fixed hosts are contacted. */
 import type { SurveyPatch } from '../packages/domain/src/index';
-import { normalizeDoi, normalizeTitle, OPENALEX } from './citations';
+import { normalizeDoi, normalizeTitle, OPENALEX, openAlexDoiPath, openAlexError } from './citations';
 import { lookupVenue } from '../packages/domain/src/venues';
 
 export const ARXIV_API = 'https://export.arxiv.org/api/query';
@@ -11,7 +11,7 @@ const CODE_URL = /https?:\/\/(?:www\.)?(?:github\.com|gitlab\.com)\/[A-Za-z0-9_.
 export type TextFetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 type PaperFields = Record<string, unknown> & { id: string; type: 'Paper'; title: string };
 export interface EnrichResult { patch: SurveyPatch; arxiv: number; openalex: number; code: number; error: string | null }
-const ARXIV_BATCH = 40, DOI_BATCH = 40, MAX_TITLE_QUERIES = 40;
+const ARXIV_BATCH = 40, DOI_PARALLEL = 10, MAX_TITLE_QUERIES = 40;
 
 const empty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
 const decode = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
@@ -44,7 +44,7 @@ export function abstractFromIndex(index: unknown): string | null {
 }
 interface Work { id: string; doi: string | null; title: string | null; publication_year: number | null; cited_by_count: number; authorships?: { author?: { display_name?: string } }[]; primary_location?: { source?: { display_name?: string; type?: string } | null } | null; abstract_inverted_index?: unknown }
 
-export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf: string, schedule: <T>(task: () => Promise<T>) => Promise<T> = t => t()): Promise<EnrichResult> {
+export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf: string, schedule: <T>(task: () => Promise<T>) => Promise<T> = t => t(), apiKey?: string): Promise<EnrichResult> {
   const out = structuredClone(patch);
   const papers = out.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' ? [op.entity as unknown as PaperFields] : []);
   const set = (p: PaperFields, key: string, value: unknown) => { if (empty(p[key]) && !empty(value)) p[key] = value; };
@@ -60,7 +60,9 @@ export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf
     if (!url || (p.code_availability && p.code_availability !== 'unknown')) return;
     p.code_availability = 'public'; p.code_url = url.replace(/[.)]+$/, ''); p.code_checked_at = asOf; code++;
   };
-  try {
+  // Each source runs even when an earlier one failed, so a spent OpenAlex budget does not stop arXiv or the code lookup.
+  const step = async (task: () => Promise<void>) => { try { await task(); } catch (e) { error ??= e instanceof Error ? e.message : '書誌の補完に失敗しました'; } };
+  await step(async () => {
     // arXiv first: its abstract is the authors' own text, linked to the abstract page.
     const byArxiv = papers.flatMap(p => { const id = arxivIdOfPaper(p); return id && (empty(p.abstract) || empty(p.authors) || p.year === null) ? [[p, id.replace(/v\d+$/, '')] as const] : []; });
     for (let i = 0; i < byArxiv.length; i += ARXIV_BATCH) {
@@ -77,21 +79,31 @@ export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf
         arxiv++;
       }
     }
-    // OpenAlex for the rest (publisher DOI, then exact title and year), and for citation counts of everyone.
-    const select = '&select=id,doi,title,publication_year,cited_by_count,authorships,primary_location,abstract_inverted_index';
-    const get = async (query: string) => {
-      const response = await fetcher(`${OPENALEX}/works?${query}${select}`);
-      if (!response.ok) throw Error(`OpenAlexに接続できませんでした（${response.status}）`);
-      const results = (JSON.parse(await response.text()) as { results?: Work[] }).results;
-      return Array.isArray(results) ? results : [];
-    };
-    const found = new Map<PaperFields, Work>();
+  });
+  // OpenAlex for the rest (publisher DOI, then exact title and year), and for citation counts of everyone.
+  const select = 'select=id,doi,title,publication_year,cited_by_count,authorships,primary_location,abstract_inverted_index';
+  const key = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
+  const get = async (query: string) => {
+    const response = await fetcher(`${OPENALEX}/works?${query}&${select}${key}`);
+    if (!response.ok) throw Error(openAlexError(response.status, !!apiKey));
+    const results = (JSON.parse(await response.text()) as { results?: Work[] }).results;
+    return Array.isArray(results) ? results : [];
+  };
+  const found = new Map<PaperFields, Work>();
+  // One request per publisher DOI: a single work is free, where a DOI filter is a list that spends the daily budget.
+  await step(async () => {
     const withDoi = papers.flatMap(p => { const doi = normalizeDoi(p.doi as string | null); return doi && !doi.startsWith('10.48550/arxiv.') ? [[p, doi] as const] : []; });
-    for (let i = 0; i < withDoi.length; i += DOI_BATCH) {
-      const chunk = withDoi.slice(i, i + DOI_BATCH);
-      const index = new Map((await get(`filter=doi:${chunk.map(([, d]) => encodeURIComponent(d)).join('|')}&per_page=100`)).map(w => [normalizeDoi(w.doi), w]));
-      for (const [p, d] of chunk) { const w = index.get(d); if (w) found.set(p, w); }
+    for (let i = 0; i < withDoi.length; i += DOI_PARALLEL) {
+      await Promise.all(withDoi.slice(i, i + DOI_PARALLEL).map(async ([p, d]) => {
+        const response = await fetcher(`${openAlexDoiPath(d)}?${select}${key}`);
+        if (response.status === 404) return;
+        if (!response.ok) throw Error(openAlexError(response.status, !!apiKey));
+        const w = JSON.parse(await response.text()) as Work;
+        if (w && typeof w.id === 'string' && normalizeDoi(w.doi) === d) found.set(p, w);
+      }));
     }
+  });
+  await step(async () => {
     // Title search also finds the published edition of an arXiv paper (its venue and citation count).
     for (const p of papers.filter(p => !found.has(p) && (empty(p.abstract) || empty(p.venue) || p.venue === 'arXiv' || p.citation_count === null || p.citation_count === undefined) && typeof p.year === 'number' && normalizeTitle(p.title).split(' ').length >= 3).slice(0, MAX_TITLE_QUERIES)) {
       const title = normalizeTitle(p.title), year = p.year as number;
@@ -99,23 +111,25 @@ export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf
       const w = (await get(`filter=title.search:${encodeURIComponent(title)},publication_year:${year - 1}-${year + 1}&per_page=10`)).filter(w => normalizeTitle(w.title) === title).sort((a, b) => published(b) - published(a) || b.cited_by_count - a.cited_by_count)[0];
       if (w) found.set(p, w);
     }
-    for (const [p, w] of found) {
-      const text = abstractFromIndex(w.abstract_inverted_index);
-      if (empty(p.abstract) && text) { p.abstract = text; p.abstract_source_url = w.id; }
-      set(p, 'authors', (w.authorships ?? []).map(a => a.author?.display_name).filter(Boolean));
-      set(p, 'year', w.publication_year); set(p, 'doi', normalizeDoi(w.doi));
-      const source = w.primary_location?.source;
-      if (source?.display_name && (empty(p.venue) || p.venue === 'arXiv' || lookupVenue(source.display_name))) { if (p.venue === 'arXiv') { p.venue = null; p.venue_type = null; } setVenue(p, source.display_name, source.type); }
-      if (p.citation_count === null || p.citation_count === undefined) { p.citation_count = w.cited_by_count; p.citation_source = 'OpenAlex'; p.citation_as_of = asOf; }
-      openalex++;
-    }
+  });
+  for (const [p, w] of found) {
+    const text = abstractFromIndex(w.abstract_inverted_index);
+    if (empty(p.abstract) && text) { p.abstract = text; p.abstract_source_url = w.id; }
+    set(p, 'authors', (w.authorships ?? []).map(a => a.author?.display_name).filter(Boolean));
+    set(p, 'year', w.publication_year); set(p, 'doi', normalizeDoi(w.doi));
+    const source = w.primary_location?.source;
+    if (source?.display_name && (empty(p.venue) || p.venue === 'arXiv' || lookupVenue(source.display_name))) { if (p.venue === 'arXiv') { p.venue = null; p.venue_type = null; } setVenue(p, source.display_name, source.type); }
+    if (p.citation_count === null || p.citation_count === undefined) { p.citation_count = w.cited_by_count; p.citation_source = 'OpenAlex'; p.citation_as_of = asOf; }
+    openalex++;
+  }
+  await step(async () => {
     // Code: Hugging Face links papers to their GitHub repository; looked up only for arXiv papers whose code is still unknown.
     for (const p of papers.filter(p => arxivIdOfPaper(p) && (!p.code_availability || p.code_availability === 'unknown')).slice(0, 60)) {
       const response = await fetcher(`${HF_PAPERS}/${encodeURIComponent(arxivIdOfPaper(p)!.replace(/v\d+$/, ''))}`);
       if (!response.ok) continue;
       try { const repo = (JSON.parse(await response.text()) as { githubRepo?: unknown }).githubRepo; if (typeof repo === 'string' && CODE_URL.test(repo)) setCode(p, repo); } catch { /* not JSON */ }
     }
-  } catch (e) { error = e instanceof Error ? e.message : '書誌の補完に失敗しました'; }
+  });
   // A translation needs its original; one whose original could not be found is dropped rather than failing validation.
   for (const p of papers) if (!empty(p.abstract_ja) && empty(p.abstract)) p.abstract_ja = null;
   if (arxiv || openalex || code) out.message = `${out.message}（書誌・アブストラクトの補完：arXiv ${arxiv}本、OpenAlex ${openalex}本、コード${code}本）`;

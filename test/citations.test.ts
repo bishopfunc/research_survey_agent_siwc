@@ -10,6 +10,8 @@ function openalex(list: Work[], fail?: (url: string) => number | null) {
     urls.push(url);
     const status = fail?.(url) ?? 200;
     if (status !== 200) return { ok: false, status, json: async () => ({}) };
+    const doi = url.match(/\/works\/doi:([^?]+)/)?.[1];
+    if (doi) { const w = list.find(w => w.doi === `https://doi.org/${decodeURIComponent(doi)}`); return w ? { ok: true, status: 200, json: async () => w } : { ok: false, status: 404, json: async () => ({}) }; }
     const filter = decodeURIComponent(new URL(url).searchParams.get('filter') ?? '');
     let results: Work[] = [];
     if (filter.startsWith('doi:')) { const dois = filter.slice(4).split('|'); results = list.filter(w => w.doi && dois.includes(w.doi.replace('https://doi.org/', ''))); }
@@ -31,7 +33,7 @@ test('DOIs, arXiv IDs and titles are normalized before matching', () => {
   assert.equal(arxivDoi('../etc'), null);
   assert.equal(normalizeTitle('Conflict-Based Search: For Optimal, Multi-Agent Path-Finding!'), 'conflict based search for optimal multi agent path finding');
 });
-test('a publisher DOI matches in one batch; an arXiv-only paper finds its published edition by exact title before its preprint DOI', async () => {
+test('a publisher DOI matches as a free single work; an arXiv-only paper finds its published edition by exact title before its preprint DOI', async () => {
   const api = openalex([cbs, preprint, published]);
   const out = await lookupCitations([
     { id: 'paper-cbs', doi: '10.1016/j.artint.2014.11.006', arxiv_id: null, title: 'CBS', year: 2015 },
@@ -42,7 +44,8 @@ test('a publisher DOI matches in one batch; an arXiv-only paper finds its publis
     { id: 'scalevln', citation_count: 150, openalex_id: published.id, matched_by: 'title' },
   ]);
   assert.deepEqual(out.not_found, []); assert.equal(out.error, null);
-  assert.ok(api.urls.every(u => u.startsWith('https://api.openalex.org/works?')));
+  assert.ok(api.urls.some(u => u.startsWith('https://api.openalex.org/works/doi:10.1016/j.artint.2014.11.006?')));
+  assert.ok(!api.urls.some(u => u.includes('filter=doi')));
   assert.ok(api.urls.every(u => !u.includes('mailto') && !u.includes('api_key')));
 });
 test('the preprint DOI is the last resort, a different title never matches, and short titles are not searched', async () => {
@@ -80,3 +83,9 @@ test('a paper without a year is not matched by title; its arXiv DOI is used inst
   assert.ok(!api.urls.some(u => u.includes('title.search')));
 });
 
+test('a spent search budget still lets the free arXiv DOI lookup run, and says how to recover', async () => {
+  const api = openalex([preprint], url => url.includes('title.search') ? 429 : null);
+  const out = await lookupCitations([{ id: 'scalevln', doi: null, arxiv_id: '2307.15644', title: 'Scaling Data Generation in Vision-and-Language Navigation', year: 2023 }], api.fetcher);
+  assert.deepEqual(out.results.map(r => [r.id, r.matched_by]), [['scalevln', 'arxiv']]);
+  assert.match(out.error ?? '', /無料枠.*OPENALEX_API_KEY/);
+});

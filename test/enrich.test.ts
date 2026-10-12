@@ -11,7 +11,14 @@ const paper = (over: Record<string, unknown>) => ({ id: 'p', label: 'p', provena
 const patchOf = (...papers: Record<string, unknown>[]) => ({ schema_version: '0.1.0', base_commit_id: 'b', message: 'm', operations: papers.map(entity => ({ op: 'add_entity', entity })) }) as unknown as SurveyPatch;
 function api(openalex: unknown[] = [], fail?: (url: string) => number | null) {
   const urls: string[] = [];
-  const fetcher: TextFetcher = async url => { urls.push(url); const status = fail?.(url) ?? 200; return { ok: status === 200, status, text: async () => url.includes('export.arxiv.org') ? feed : JSON.stringify({ results: openalex }) }; };
+  const fetcher: TextFetcher = async url => {
+    urls.push(url);
+    // A single work by DOI answers the work itself, or 404.
+    const doi = url.match(/\/works\/doi:([^?]+)/)?.[1];
+    const single = doi ? (openalex as { doi?: string }[]).find(w => w.doi === `https://doi.org/${decodeURIComponent(doi)}`) : undefined;
+    const status = fail?.(url) ?? (doi && !single ? 404 : 200);
+    return { ok: status === 200, status, text: async () => url.includes('export.arxiv.org') ? feed : JSON.stringify(doi ? single : { results: openalex }) };
+  };
   return { fetcher, urls };
 }
 
@@ -32,7 +39,8 @@ test('empty fields are filled from arXiv and OpenAlex; what Codex wrote is kept'
   assert.deepEqual([cbs.citation_count, cbs.citation_source, cbs.citation_as_of], [1261, 'OpenAlex', '2026-10-12']);
   assert.deepEqual([out.arxiv, out.openalex, out.error], [1, 1, null]);
   assert.match(out.patch.message, /arXiv 1本、OpenAlex 1本/);
-  assert.ok(urls.every(u => u.startsWith('https://export.arxiv.org/api/query?') || u.startsWith('https://api.openalex.org/works?') || u.startsWith('https://huggingface.co/api/papers/')));
+  assert.ok(urls.includes('https://api.openalex.org/works/doi:10.1016/j.artint.2014.11.006?select=id,doi,title,publication_year,cited_by_count,authorships,primary_location,abstract_inverted_index'), 'a DOI is a free single-work lookup, not a list');
+  assert.ok(urls.every(u => u.startsWith('https://export.arxiv.org/api/query?') || u.startsWith('https://api.openalex.org/works') || u.startsWith('https://huggingface.co/api/papers/')));
 });
 test('a failure keeps what was filled, and a translation without its original is dropped', async () => {
   const { fetcher } = api([], url => url.includes('openalex') ? 503 : null);
@@ -54,3 +62,13 @@ test('code links are fixed information from the arXiv comment or Hugging Face, n
   assert.equal(none.code_availability ?? 'unknown', 'unknown');
 });
 
+test('a spent OpenAlex budget stops only the searches: DOI lookups and the code lookup still run, and the key is sent', async () => {
+  const work = { id: 'https://openalex.org/W1', doi: 'https://doi.org/10.1000/x', title: 'X', publication_year: 2020, cited_by_count: 7 };
+  const { fetcher, urls } = api([work], url => url.includes('title.search') ? 429 : null);
+  const out = await enrichPatch(patchOf(paper({ id: 'search', year: 2020 }), paper({ id: 'x', doi: '10.1000/x' }), paper({ id: 'lacam', arxiv_id: '2211.13432' })), fetcher, '2026-10-12', t => t(), 'k');
+  const [, x] = out.patch.operations.map(o => (o as unknown as { entity: Record<string, unknown> }).entity);
+  assert.equal(x.citation_count, 7);
+  assert.match(out.error ?? '', /429.*日本時間9時/);
+  assert.ok(urls.some(u => u.startsWith('https://huggingface.co/api/papers/')));
+  assert.ok(urls.filter(u => u.includes('openalex')).every(u => u.includes('api_key=k')));
+});

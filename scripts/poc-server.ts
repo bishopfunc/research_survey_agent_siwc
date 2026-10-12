@@ -154,7 +154,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   const prepare = async (patch: unknown) => {
     if (!(patch as SurveyPatch)?.operations) return patch;
     if (run.status === 'running') { run.message = 'Codexの結果に書誌とアブストラクトを補完しています'; save(run); }
-    const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi);
+    const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi, process.env.OPENALEX_API_KEY);
     if (result.error) addTrace(run, { kind: 'error', text: result.error });
     const now = new Date().toISOString();
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
