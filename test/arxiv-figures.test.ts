@@ -47,6 +47,23 @@ test('a page without figures falls through to ar5iv; redirects off arXiv and bad
   const none = pages({});
   assert.deepEqual((await fetchArxivFigures('2101.00003', none.fetcher, 't', now)).figures, []);
 });
+test('a busy arXiv (429, 5xx, a thrown timeout) is retried, waiting for Retry-After; a lasting failure still fails', async () => {
+  const now = <T,>(task: () => Promise<T>) => task();
+  const waits: number[] = [];
+  const wait = async (ms: number) => { waits.push(ms); };
+  let calls = 0;
+  const flaky: PageFetcher = async url => {
+    calls++;
+    if (calls === 1) return { ok: false, status: 429, url, headers: { get: (h: string) => h.toLowerCase() === 'retry-after' ? '20' : null }, text: async () => '' };
+    if (calls === 2) throw Error('timeout');
+    return { ok: true, status: 200, url, headers: { get: () => 'text/html' }, text: async () => html };
+  };
+  const out = await fetchArxivFigures('2307.15644', flaky, 't', now, wait);
+  assert.ok(out.figures.length > 0);
+  assert.deepEqual(waits, [20000]);
+  const down: PageFetcher = async url => ({ ok: false, status: 503, url, headers: { get: () => null }, text: async () => '' });
+  await assert.rejects(fetchArxivFigures('2307.15644', down, 't', now, wait), /503/);
+});
 test('arXiv requests are serialized with a minimum gap', async () => {
   let clock = Date.now() + 60_000; const waits: number[] = [];
   const wait = async (ms: number) => { waits.push(ms); clock += ms; };

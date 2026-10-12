@@ -77,7 +77,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .collections .collection>span:last-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .collections .collection:hover { color: var(--color-ink); background: var(--color-transparent); }
 .collection-row.current .collection { color: var(--color-accent); font-weight: 600; }
-.collection-delete { flex-shrink: 0; width: 24px; height: 24px; margin-right: 6px; opacity: 0; }
+.collection-delete { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; margin-right: 6px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); opacity: 0; }
+/* An icon-only close button centers its mark; an inline SVG would otherwise sit on the text baseline. */
+.close-icon { display: block; flex-shrink: 0; }
 .collection-row:hover .collection-delete, .collection-delete:focus-visible { opacity: 1; }
 .collection-delete:hover { color: var(--color-error); background: var(--color-error-soft); }
 .collection-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--color-sky); box-shadow: inset 0 0 0 1px var(--color-dot-ring); }
@@ -397,7 +399,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .muted { padding: var(--space-2); font-size: var(--text-small); color: var(--color-muted); }
 .toast { position: fixed; z-index: 30; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-start; gap: var(--space-4); max-width: calc(100vw - 32px); max-height: 35vh; overflow: auto; padding: var(--space-3) var(--space-4); border-radius: var(--radius-panel); font-size: var(--text-caption); color: var(--color-code-ink); background: var(--color-code); box-shadow: var(--shadow-raised); white-space: pre-wrap; }
 .toast button { padding: 0; border: 0; color: var(--color-code-ink); background: var(--color-transparent); }
-.toast button:not(.toast-action) { width: 24px; height: 24px; flex-shrink: 0; color: var(--color-code-ink); opacity: .75; }
+.toast button:not(.toast-action) { display: grid; place-items: center; align-self: center; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; color: var(--color-code-ink); opacity: .75; }
 .toast .toast-action { font-size: var(--text-caption); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .toast button:hover { color: var(--color-code-ink); background: var(--color-transparent); }
 .toast button:not(.toast-action):hover { opacity: 1; background: var(--color-on-dark-hover); }

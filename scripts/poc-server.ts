@@ -64,7 +64,9 @@ await papersDb.migrate(readFileSync(resolve('packages/storage/migrations/0001_pa
 const blobs = fileBlobStore(resolve('.poc/blobs'));
 const arxivDirectory = resolve('.poc/arxiv');
 async function readArxivCache(id: string) {
-  const parse = (text: string | null) => { try { const saved = text ? JSON.parse(text) : null; return saved?.parser === FIGURE_PARSER_VERSION ? saved : null; } catch { return null; } };
+  // A result without figures may come from a page that was not ready; it is fetched again after a day.
+  const stale = (saved: { figures?: unknown[]; algorithms?: unknown[]; equations?: unknown[]; tables?: unknown[]; retrieved_at?: string }) => ![saved.figures, saved.algorithms, saved.equations, saved.tables].some(list => list?.length) && Date.now() - Date.parse(saved.retrieved_at ?? '') > 86_400_000;
+  const parse = (text: string | null) => { try { const saved = text ? JSON.parse(text) : null; return saved?.parser === FIGURE_PARSER_VERSION && !stale(saved) ? saved : null; } catch { return null; } };
   return parse(await blobs.get(`arxiv/${cacheName(id)}`)) ?? parse((() => { try { return readFileSync(join(arxivDirectory, cacheName(id)), 'utf8'); } catch { return null; } })());
 }
 async function fetchAndCacheArxiv(id: string) {

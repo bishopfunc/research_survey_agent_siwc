@@ -160,12 +160,28 @@ export function throttled<T>(task: () => Promise<T>, wait = (ms: number) => new 
   return run;
 }
 
-export async function fetchArxivFigures(id: string, fetcher: PageFetcher, retrieved_at = new Date().toISOString(), schedule: <T>(task: () => Promise<T>) => Promise<T> = throttled): Promise<ArxivFigures> {
+/** arXiv answers 429 or 5xx when busy and requests time out now and then; these are retried, other answers are not. */
+const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+export const ARXIV_RETRIES = 2;
+/** A page fetched through the arXiv queue, retried after a transient failure (waiting for Retry-After when arXiv sends one). */
+async function fetchPage(page: string, fetcher: PageFetcher, schedule: <T>(task: () => Promise<T>) => Promise<T>, wait: (ms: number) => Promise<void>) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await schedule(() => fetcher(page));
+      if (!TRANSIENT.has(response.status) || attempt >= ARXIV_RETRIES) return response;
+      const after = Number(response.headers.get('retry-after'));
+      if (after > 0) await wait(Math.min(after, 60) * 1000);
+    } catch (error) {
+      if (attempt >= ARXIV_RETRIES) throw error;
+    }
+  }
+}
+export async function fetchArxivFigures(id: string, fetcher: PageFetcher, retrieved_at = new Date().toISOString(), schedule: <T>(task: () => Promise<T>) => Promise<T> = throttled, wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms))): Promise<ArxivFigures> {
   if (!ID.test(id)) throw Error('arXiv IDを確認してください');
   let empty: ArxivFigures | null = null;
   // arxiv.org has HTML for recent papers; ar5iv covers older ones. A page without figures falls through to the next.
   for (const page of PAGES(id)) {
-    const response = await schedule(() => fetcher(page));
+    const response = await fetchPage(page, fetcher, schedule, wait);
     if (response.status === 404) continue;
     if (!response.ok) throw Error(`arXivのページを取得できませんでした（${response.status}）`);
     const final = new URL(response.url || page);
