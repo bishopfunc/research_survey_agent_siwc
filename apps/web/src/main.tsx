@@ -335,7 +335,15 @@ function App() {
   }
   const startingSurvey = !snapshot.entities.length && !historical;
   const chatHistory = [...history].reverse().filter(c => c.source === 'codex' && c.instruction);
-  const followUps = run ? run.follow_ups ?? run.patch?.follow_ups ?? [] : chatHistory.at(-1)?.patch?.follow_ups ?? [];
+  // Codex's own suggestions come first; a survey made before they existed gets requests that fill what it lacks.
+  const gaps = historical ? [] : [
+    snapshot.entities.some(e => e.type === 'Method' && !families(e.id).length) && '手法を系統（考え方を共有する分類）に分け、各系統を古典から最新まで年順にそろえて',
+    issues.length > 0 && !issues.some(e => claimsAbout(e.id).length) && '重要な課題の達成度を、論文の数値（ベンチマーク・指標・条件）で示して',
+    papers.some(p => (p.abstract && !p.abstract_ja) || !p.reading) && 'アブストラクトの和訳と、論文の要点（貢献と5つの問い）を加えて',
+    issues.some(e => !e.english_terms?.length) && '課題に、論文で使われる英語表現を加えて',
+  ].filter((q): q is string => !!q).slice(0, 3);
+  const codexFollowUps = run ? run.follow_ups ?? run.patch?.follow_ups ?? [] : chatHistory.at(-1)?.patch?.follow_ups ?? [];
+  const followUps = codexFollowUps.length ? codexFollowUps : run ? [] : gaps;
   const runTrace = run?.trace?.length ? <details className="run-trace" open={run.status === 'running'}><summary><Icon name="chevron"/><span>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.searches ?? run.trace.filter(t => t.kind === 'search').length}回`}</span></summary><ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details> : null;
   const sideRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (selected) setSide('detail'); }, [selected]);

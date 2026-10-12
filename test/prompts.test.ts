@@ -103,4 +103,8 @@ test('numbers, SOTA and paper reading come only from text retrieved in this run;
   assert.match(SURVEY_RULES_INSTRUCTIONS, /copy its stored english_terms, abstract_ja and reading unchanged/);
   assert.ok(RESEARCH_MODES.new.repairTimeoutSeconds >= 600 && RESEARCH_MODES.additional.repairTimeoutSeconds >= 600);
 });
+test('a library paper is re-read only after the user sends the follow-up that asks for it', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /When the stored fields are not enough for the request, do not re-read: make one of the follow_ups a request to re-read the named papers/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /so that sending it is the user's approval/);
+});
 
