@@ -385,12 +385,14 @@ function App() {
     guard(() => {
       const previous = workspace, previousRun = pendingRuns[id];
       save(deleteBranch(workspace, id)); setBranchRun(id, null); setViewId(null); setSelected('');
-      if (previousRun) pendingCancel.current = { runId: previousRun, timer: setTimeout(() => { flushCancel(); setUndo(null); }, 20_000) };
-      setUndo(() => () => {
+      const restore = () => {
         const pending = pendingCancel.current;
         if (previousRun && pending?.runId === previousRun) { clearTimeout(pending.timer); pendingCancel.current = null; }
         save(previous); if (previousRun) setBranchRun(id, previousRun);
-      });
+      };
+      // When the cancel fires, only this delete's undo is dropped; a newer undo set meanwhile stays.
+      if (previousRun) pendingCancel.current = { runId: previousRun, timer: setTimeout(() => { flushCancel(); setUndo(current => current === restore ? null : current); }, 20_000) };
+      setUndo(() => restore);
       setNotice('コレクションを削除しました');
     });
   }
