@@ -15,7 +15,7 @@
 
 ## DSL
 
-新しいEntity型 `Tutorial`（1つの調査に1つ）。`label`（題）と `sections`（順に並ぶ節）。節は `role`（definition・motivation・methods・summary・variants・hands_on・further_reading・conclusion）、`heading`、`body`（日本語。引用は `[@ID]`、数式は `$…$` と単独の行の `$$…$$`、`- ` の行は箇条書き）、`refs`（参照する項目のID）、`media`（引用する論文の図・アルゴリズム・数式。`{paper, label}`、labelは「Figure 2」「Algorithm 1」「Eq. (3)」）、`links`（`{url, title}`、http(s)のみ）。検証：引用・refsのIDが存在し根拠・チュートリアル以外の型、media.paperは論文、リンクはhttp(s)、チュートリアルは1つまで。
+新しいEntity型 `Tutorial`（1つの調査に1つ）。`label`（題）と `sections`（順に並ぶ節）。節は `role`（definition・motivation・methods・summary・challenges・variants・hands_on・further_reading・conclusion）、`heading`、`body`（日本語。引用は `[@ID]`、数式は `$…$` と単独の行の `$$…$$`、`- ` の行は箇条書き）、`refs`（参照する項目のID）、`media`（引用する論文の図・アルゴリズム・数式。`{paper, label}`、labelは「Figure 2」「Algorithm 1」「Eq. (3)」）、`links`（`{url, title}`、http(s)のみ）。検証：引用・refsのIDが存在し根拠・チュートリアル以外の型、media.paperは論文、リンクはhttp(s)、チュートリアルは1つまで。
 
 ## 試験要件（採点表）
 
@@ -33,6 +33,12 @@
 | 図のキャプション | すべてのmediaに日本語のキャプション（`caption_ja`、論文のキャプションの忠実な和訳）がある（2026-10-12追加、ユーザー指示「チュートリアルのcaptionも日本語に」）。表示は caption_ja → 論文の reading.captions_ja → 原文の順 |
 | 図（画像） | arXivにある論文の図（labelがFigure・Fig・図）を、definitionかmethodsの2節以上のmediaに入れる（2026-10-12追加、ユーザー指示「チュートリアルに画像が必要」。数式だけで上の要件を満たし画像が1枚も無いチュートリアルを落とす。画像はarXiv HTML版から取るので、arXivに無い論文の図は数えない） |
 | まとめと選び方 | summaryの出典が2つ以上 |
+| 課題と達成度：節の数 | challengesの節が3つ以上（課題ごとに1節）。2026-10-12追加（ユーザー指示：チャレンジの項目を足し、課題と達成内容を解説する。手本は https://huyenchip.com/2023/08/16/llm-research-open-challenges.html ：課題ごとに、問題・なぜ重要か・進展（数値と出典）・未解決の問いを書き、最後に解決の度合いと難しさを比べる） |
+| 課題と達成度：課題 | 各節が調査のIssueを引用する（課題ツリーとつながる） |
+| 課題と達成度：到達点 | 各節が、引用したIssueについて（about）のClaimを引用する。達成度の主張に数値・条件・時点を持たせる規則（issuesの規則）と合わせて、記事の「進展を数値と出典で示す」に当たる |
+| 課題と達成度：根拠 | 各節が論文を2本以上引用する |
+| 課題と達成度：解決の度合い | 各節の本文に、未解決・部分的に解決・解決済みなどの語がある（記事は明示しないが、まとめで難しさを比べている。ここでは節ごとに書かせる） |
+| 課題と達成度：未解決の問い | 「- …？」の箇条書きの問いを挙げる節が1つ以上（記事の人の好みの節の、番号つきの問いに当たる） |
 | 派生問題 | variantsの出典が3つ以上 |
 | 手を動かす | hands_onにリンク |
 | さらに学ぶ | further_readingの出典とリンクが合わせて2つ以上 |

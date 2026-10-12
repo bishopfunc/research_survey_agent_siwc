@@ -2,9 +2,11 @@ import type { Paper, SurveySnapshot, Tutorial, TutorialSection } from './snapsho
 
 /** Section roles in the order a newcomer reads them, modeled on an introduction such as
  * https://kei18.github.io/note/posts/mapf-tutorial/ (definition → motivation → methods from naive to state of the art →
- * practical summary → derived problems → hands-on → further reading → outlook). */
-export const TUTORIAL_ROLES = ['definition', 'motivation', 'methods', 'summary', 'variants', 'hands_on', 'further_reading', 'conclusion'] as const;
-export const TUTORIAL_ROLE_LABELS: Record<TutorialSection['role'], string> = { definition: '問題設定', motivation: '動機と応用', methods: '解き方', summary: 'まとめと選び方', variants: '派生問題', hands_on: '手を動かす', further_reading: 'さらに学ぶ', conclusion: 'おわりに' };
+ * practical summary → open challenges and how far they are achieved → derived problems → hands-on → further reading → outlook).
+ * The challenges sections follow https://huyenchip.com/2023/08/16/llm-research-open-challenges.html: one section per
+ * challenge with why it matters, the progress with numbers and sources, how far it is solved and the open questions. */
+export const TUTORIAL_ROLES = ['definition', 'motivation', 'methods', 'summary', 'challenges', 'variants', 'hands_on', 'further_reading', 'conclusion'] as const;
+export const TUTORIAL_ROLE_LABELS: Record<TutorialSection['role'], string> = { definition: '問題設定', motivation: '動機と応用', methods: '解き方', summary: 'まとめと選び方', challenges: '課題と達成度', variants: '派生問題', hands_on: '手を動かす', further_reading: 'さらに学ぶ', conclusion: 'おわりに' };
 export interface TutorialCheck { id: string; label: string; pass: boolean; detail: string }
 
 export const citationsIn = (body: string) => [...body.matchAll(/\[@([^\]\s]+)\]/g)].map(m => m[1]);
@@ -15,6 +17,10 @@ const shows = (s: TutorialSection) => s.media.length > 0 || /\$\$[\s\S]+?\$\$/.t
 /** A section shows an image: a figure of a cited paper that is on arXiv, where the app takes figures from the HTML version. */
 const onArxiv = (paper: Paper | undefined) => !!paper && (!!paper.arxiv_id || /arxiv\.org\/(abs|pdf|html)\//i.test(paper.url ?? ''));
 const showsFigure = (s: TutorialSection, papers: Map<string, Paper>) => s.media.some(m => /fig|図/i.test(m.label) && onArxiv(papers.get(m.paper)));
+/** Words that say how far a challenge is solved. */
+const SOLVED_STATE = /未解決|部分的に解決|部分的|解決済み|解決されていない|解けていない|残っている|残る/;
+/** A "- …？" line: an open question. */
+const OPEN_QUESTION = /^\s*[-・]\s+.*[？?]\s*$/m;
 const hasLimitation = (body: string) => /限界|問題点|弱点|欠点|しかし|ただし|難し|スケールしない|爆発/.test(body);
 
 /** The test requirements for a tutorial. Each check is structural, so it can run on every Codex result. */
@@ -25,6 +31,11 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
   const of = (role: TutorialSection['role']) => sections.filter(s => s.role === role);
   const cites = (list: TutorialSection[]) => new Set(list.flatMap(sectionCitations)).size;
   const methods = of('methods');
+  const challenges = of('challenges');
+  const typeOf = (id: string) => snapshot.entities.find(e => e.id === id)?.type;
+  const issuesIn = (s: TutorialSection) => sectionCitations(s).filter(id => typeOf(id) === 'Issue');
+  // The section cites a Claim that is about one of the issues it cites: the achievement of that issue.
+  const progressCited = (s: TutorialSection) => sectionCitations(s).some(id => typeOf(id) === 'Claim' && snapshot.relations.some(r => r.type === 'about' && r.from === id && issuesIn(s).includes(r.to)));
   const lastYear = (s: TutorialSection) => Math.max(...sectionCitations(s).map(id => papers.get(id)?.year ?? -Infinity));
   const latest = methods.map(lastYear);
   const order = sections.map(s => TUTORIAL_ROLES.indexOf(s.role));
@@ -43,10 +54,16 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
     check('captions', '図：チュートリアルの図・アルゴリズム・数式に日本語のキャプション（caption_ja）', sections.every(s => s.media.every(m => !!m.caption_ja?.trim())) && sections.some(s => s.media.length > 0), `${sections.flatMap(s => s.media).filter(m => m.caption_ja?.trim()).length}/${sections.flatMap(s => s.media).length}件`),
     check('figures', '図：arXivにある論文の図（画像）を、問題設定か解き方の2節以上で示す', sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length >= 2, `${sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length}節`),
     check('summary', 'まとめと選び方：場面ごとの推奨を出典つきで', cites(of('summary')) >= 2, `出典${cites(of('summary'))}`),
+    check('challenges', '課題と達成度：分野の重要な課題を1節に1つ、3節以上', challenges.length >= 3, `${challenges.length}節`),
+    check('challenge_issue', '課題と達成度：各節が調査の課題を引用する', challenges.length > 0 && challenges.every(s => issuesIn(s).length > 0), `${challenges.filter(s => issuesIn(s).length > 0).length}/${challenges.length}節`),
+    check('challenge_progress', '課題と達成度：各節が、その課題の達成度の主張（数値・条件・時点）を引用する', challenges.length > 0 && challenges.every(progressCited), `${challenges.filter(progressCited).length}/${challenges.length}節`),
+    check('challenge_evidence', '課題と達成度：各節が論文を2本以上引用する', challenges.length > 0 && challenges.every(s => sectionCitations(s).filter(id => papers.has(id)).length >= 2), `${challenges.filter(s => sectionCitations(s).filter(id => papers.has(id)).length >= 2).length}/${challenges.length}節`),
+    check('challenge_status', '課題と達成度：各節で解決の度合い（未解決・部分的に解決・解決済み）を書く', challenges.length > 0 && challenges.every(s => SOLVED_STATE.test(s.body)), `${challenges.filter(s => SOLVED_STATE.test(s.body)).length}/${challenges.length}節`),
+    check('challenge_questions', '課題と達成度：未解決の問いを「- …？」の箇条書きで挙げる節が1つ以上', challenges.some(s => OPEN_QUESTION.test(s.body)), `${challenges.filter(s => OPEN_QUESTION.test(s.body)).length}節`),
     check('variants', '派生問題：3つ以上を出典つきで', cites(of('variants')) >= 3, `出典${cites(of('variants'))}`),
     check('hands_on', '手を動かす：コードや資料へのリンク', of('hands_on').some(s => s.links.length > 0), `リンク${of('hands_on').reduce((n, s) => n + s.links.length, 0)}`),
     check('further_reading', 'さらに学ぶ：サーベイ・講演・学会など2つ以上', of('further_reading').reduce((n, s) => n + sectionCitations(s).length + s.links.length, 0) >= 2, `${of('further_reading').reduce((n, s) => n + sectionCitations(s).length + s.links.length, 0)}件`),
-    check('order', '節の順序：問題設定→動機→解き方→まとめ→派生→実装→文献→おわりに', order.every((r, i) => i === 0 || r >= order[i - 1]), sections.map(s => TUTORIAL_ROLE_LABELS[s.role]).join(' → ') || 'なし'),
+    check('order', '節の順序：問題設定→動機→解き方→まとめ→課題と達成度→派生→実装→文献→おわりに', order.every((r, i) => i === 0 || r >= order[i - 1]), sections.map(s => TUTORIAL_ROLE_LABELS[s.role]).join(' → ') || 'なし'),
     check('length', '分量：本文3000字以上', chars >= 3000, `${chars}字`),
   ];
 }

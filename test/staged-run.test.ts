@@ -47,7 +47,12 @@ test('the stages merge into one valid proposal against the empty base; a failed 
     outline: ok(outline),
     'deepen-1': ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'w1', operations: [{ op: 'replace_entity', entity: ecbs }] }),
     'deepen-2': { ok: false, error: '時間切れ', searches: 1 },
-    integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: '統合した', follow_ups: ['次'], operations: [{ op: 'add_entity', entity: tutorial }] }),
+    // The integration adds the achievement Claims (with their Evidence) the tutorial's challenge sections cite.
+    integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: '統合した', follow_ups: ['次'], operations: [
+      ...fixture.entities.filter(e => e.type === 'Claim' || e.type === 'Evidence').map(entity => ({ op: 'add_entity', entity })),
+      ...fixture.relations.filter(r => r.type === 'about').map(relation => ({ op: 'add_relation', relation })),
+      { op: 'add_entity', entity: tutorial },
+    ] }),
   };
   const run = steps({ results });
   const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s, 2);

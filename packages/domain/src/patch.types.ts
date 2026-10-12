@@ -245,7 +245,15 @@ export interface Tutorial {
 }
 export interface TutorialSection {
   role:
-    "definition" | "motivation" | "methods" | "summary" | "variants" | "hands_on" | "further_reading" | "conclusion";
+    | "definition"
+    | "motivation"
+    | "methods"
+    | "summary"
+    | "challenges"
+    | "variants"
+    | "hands_on"
+    | "further_reading"
+    | "conclusion";
   heading: string;
   body: string;
   refs: string[];

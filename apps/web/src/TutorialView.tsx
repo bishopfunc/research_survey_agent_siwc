@@ -29,7 +29,11 @@ function Body({ body, find, onSelect }: { body: string; find: (id: string) => En
     const display = text.match(/^\$\$([\s\S]+)\$\$$/);
     if (display) return <div key={i} className="equation tutorial-equation"><Tex tex={display[1].trim()} display/></div>;
     const lines = text.split('\n');
-    if (lines.every(l => /^\s*[-・]\s+/.test(l))) return <ul key={i}>{lines.map((l, j) => <li key={j}><Inline text={l.replace(/^\s*[-・]\s+/, '')} find={find} onSelect={onSelect}/></li>)}</ul>;
+    const item = (l: string) => /^\s*[-・]\s+/.test(l);
+    const list = (items: string[]) => <ul key={`${i}-list`}>{items.map((l, j) => <li key={j}><Inline text={l.replace(/^\s*[-・]\s+/, '')} find={find} onSelect={onSelect}/></li>)}</ul>;
+    if (lines.every(item)) return list(lines);
+    // A lead line followed by a list ("未解決の問い：" then "- …？") is a paragraph and a list.
+    if (lines.length > 1 && !item(lines[0]) && lines.slice(1).every(item)) return <React.Fragment key={i}><p><Inline text={lines[0]} find={find} onSelect={onSelect}/></p>{list(lines.slice(1))}</React.Fragment>;
     return <p key={i}><Inline text={text} find={find} onSelect={onSelect}/></p>;
   })}</>;
 }
