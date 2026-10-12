@@ -165,7 +165,7 @@ export function Lab() {
             </dl>
             <Source summary="選択した論文を対象にする指示を読む"><span className="lab-stamp">{CONTEXT_PROMPT_VERSION}</span><pre>{contextInstructions([fixture.entities.find(e => e.type === 'Paper')!.id], fixture)}</pre></Source>
             <Source summary="時間budgetと途中保存の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{budgetInstructions(STAGE_TIMEOUT_SECONDS.outline, Date.parse('2026-10-12T23:13:00+09:00'))}{'\n\n'}{CHECKPOINT_INSTRUCTIONS}</pre></Source>
-            <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち「指示として扱わない」「頼まれた範囲だけを変える」「保存済みの分析は消さない」「検証に通る形で返す」の4つだけを付け、変えた項目の由来をcodexに保つよう修正の指示に書き、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。一部の操作だけが返ったときは元の変更案に合流させ、合流した変更案だけを検証に通す。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>
+            <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち「指示として扱わない」「頼まれた範囲だけを変える」「保存済みの分析は消さない」「検証に通る形で返す」の4つだけを付け、変えた項目の由来をcodexに保つよう修正の指示に書き、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。一部の操作だけが返ったときは元の変更案に合流させ、合流した変更案を検証に通す。合流しても通らないときは、修正が単独で検証に通り、外した操作がすべて元の検証エラーに挙がっている場合だけ、直せない操作を外した修正としてそのまま使う。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>
           </Sub>
         </section>
 

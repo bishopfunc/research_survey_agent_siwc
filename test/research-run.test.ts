@@ -109,4 +109,20 @@ test('a cancel while the research result is prepared does not start the repair',
   assert.deepEqual(await executeResearch(run.s), { status: 'stopped' });
   assert.ok(!run.calls.some(c => c.startsWith('repair')));
 });
+test('a full repair that drops or renames the operations the validator named stands alone when merging them back fails', async () => {
+  const patchOf = (...ids: string[]) => JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'big', operations: [{ op: 'set_title', title: 't' }, ...ids.map(id => ({ op: 'add_entity', entity: { id, label: id } }))] });
+  // The validator names a rejected operation by its ID, or by its index in a shape error.
+  const validator = (badName: string) => (p: SurveyPatch) => {
+    const found = p.operations.flatMap((o, i) => !('entity' in o) ? [] : o.entity.id === 'bad' ? [`${badName}: 参照先 missing がありません`] : o.entity.id === 'dup' ? ['ID dup は既に存在します'] : o.entity.id === 'blank' ? [`/operations/${i}/entity/label must NOT have fewer than 1 characters`] : []);
+    if (found.length) throw Error(found.join('\n'));
+  };
+  // The repair drops the operations it cannot fix and renames the colliding addition, as the repair instructions allow.
+  const outcome = await executeResearch(steps({ outputs: { research: patchOf('x', 'bad', 'dup', 'blank'), repair: patchOf('x', 'dup-2') }, validate: validator('bad') }).s);
+  assert.deepEqual(outcome.status === 'succeeded' && outcome.repaired && outcome.patch.operations.map(o => 'entity' in o ? o.entity.id : o.op), ['set_title', 'x', 'dup-2']);
+  // An omitted operation the validator did not name, or named only inside a longer ID, is never dropped silently.
+  for (const [repair, badName] of [[patchOf(), 'bad'], [patchOf('x'), 'bad-2']]) {
+    const failed = await executeResearch(steps({ outputs: { research: patchOf('x', 'bad'), repair }, validate: validator(badName) }).s);
+    assert.ok(failed.status === 'failed' && failed.message.startsWith('修正後も検証に失敗しました'), repair);
+  }
+});
 

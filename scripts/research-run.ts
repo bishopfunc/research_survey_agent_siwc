@@ -55,6 +55,13 @@ export function mergeRepair(rejected: SurveyPatch, repaired: SurveyPatch, base: 
   const known = new Set(rejected.operations.map(opKey));
   return { ...rejected, message: repaired.message || rejected.message, follow_ups: repaired.follow_ups ?? rejected.follow_ups, operations: [...kept, ...repaired.operations.filter(op => !known.has(opKey(op)))] as SurveyPatch['operations'] };
 }
+/** Whether the validator errors name an operation: its index in a shape error's path, or its ID as a whole word. */
+function named(errors: string, op: Operation, index: number): boolean {
+  if (new RegExp(`/operations/${index}(?![0-9])`).test(errors)) return true;
+  const id = 'entity' in op ? op.entity.id : 'relation' in op ? op.relation.id : 'id' in op ? op.id : '';
+  for (let at = id ? errors.indexOf(id) : -1; at >= 0; at = errors.indexOf(id, at + 1)) if (!/[\w.-]/.test(errors[at - 1] ?? '') && !/[\w.-]/.test(errors[at + id.length] ?? '')) return true;
+  return false;
+}
 async function check(steps: ResearchSteps, step: 'research' | 'repair'): Promise<{ patch?: unknown; error?: string; unchanged?: string }> {
   let raw: string;
   try { raw = steps.output(step); } catch { return { error: 'Codexの出力が見つかりません' }; }
@@ -86,12 +93,17 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   if (repaired.unchanged !== undefined) return { status: 'failed', message: `修正で操作が空になりました：\n${result.error}`, searches };
   const partial = repaired.patch as SurveyPatch | undefined, original = result.patch as SurveyPatch;
   // Codex often returns only the corrected operations of a large patch. A repair that leaves out any target of the research
-  // result is merged back into it, and only the merged patch can succeed; such a repair alone never replaces the result.
-  const returned = new Set((partial?.operations ?? []).map(opKey));
+  // result is merged back into it first; it replaces the result alone only as a full repair (below).
+  const returned = new Set((partial?.operations ?? []).map(opKey)), errors = result.error;
   if (partial?.operations && original.operations?.some(op => !returned.has(opKey(op)))) {
     const merged = mergeRepair(original, partial, steps.snapshot);
     try { steps.validate(merged); return { status: 'succeeded', patch: merged, repaired: true, searches }; }
-    catch (error) { return { status: 'failed', message: `修正後も検証に失敗しました：\n${error instanceof Error ? error.message : '検証に失敗しました'}`, searches }; }
+    catch (error) {
+      // A full repair may drop an operation it cannot fix or rename a colliding addition, as the repair instructions allow.
+      // It stands alone only when it validated and every operation it left out is named in the research result's errors.
+      if (!repaired.error && original.operations.every((op, i) => returned.has(opKey(op)) || named(errors, op, i))) return { status: 'succeeded', patch: partial, repaired: true, searches };
+      return { status: 'failed', message: `修正後も検証に失敗しました：\n${error instanceof Error ? error.message : '検証に失敗しました'}`, searches };
+    }
   }
   if (!repaired.error) return { status: 'succeeded', patch: partial!, repaired: true, searches };
   return { status: 'failed', message: `修正後も検証に失敗しました：\n${repaired.error}`, searches };
