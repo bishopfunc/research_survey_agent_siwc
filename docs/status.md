@@ -99,3 +99,5 @@ docs/design、docs/adr、テンプレート、AGENTS.md、チェックとGitHub 
 `/lab` を使ってUI・Agent Prompt・DSLをユーザーと調整する。B02/B05にはPoCのschema・validator・UIを引き継ぐ。CloudflareでのCodex実行基盤と認証は後続の別設計で検証する。ローカルサーバー終了後のrun再開、クラウドバックアップ、全文調査の正確性は未検証。
 
 2026-10-12 JST: `paper-r2r` の修正後検証失敗を調査。元の98操作を修正Agentが2操作だけに縮め、未適用のadd_entityをreplace_entityに変えたため、元の空snapshotでID不存在となった。reading配列のnullを検証前に空配列へ正規化し、修正Promptに全操作・元のbase・追加操作の維持を明記、Labも同期。macOS / Node24（`npx --yes --package=node@24`）で `npm ci`、`npm run check`（15＋88テスト、型検査、build）、`npm run check:deploy` 成功。元パッチをローカルで再検証し98操作・53entityが通過（内容の再調査・保存はしていない）。buildはchunkサイズ警告あり。実Codexでの再実行、実行中runへの反映、失敗runの復旧、Cloudflare公開デプロイは未実施。
+
+2026-10-12 JST: ユーザー指示で新規調査Promptの第1段階に一般Web検索を追記。最初の検索群はsite・URL・ドメイン・既知の個別論文名で限定せず、発見した情報源を開いて分野の全体像とURLを整理してから一次論文へ絞る。survey-discovery / survey-newの版を本文変更時刻に更新。Labは共通のRESEARCH_STEPSから説明とPromptを参照するため同時に反映。macOS / Node24で `npm ci`、`npm run check`（15＋88テスト、型検査、build）、`npm run check:deploy` 成功（buildのchunkサイズ警告あり）。実Codexが指示どおり検索するか、稼働中runへの反映、公開デプロイは未検証・未実施。段階をアプリ側で強制する実装は含めない。

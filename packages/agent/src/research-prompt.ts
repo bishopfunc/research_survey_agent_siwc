@@ -1,11 +1,11 @@
 /** Prompt versions are the JST time the text last changed. */
-export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-12T13:10+09:00';
+export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-12T14:36+09:00';
 /** The new-survey flow alternates levels: abstract → concrete → abstract → divergent → concrete → abstract (user instruction). */
 export const RESEARCH_STEPS = [
   {
     id:'sources',stage:1,level:'抽象',title:'信頼できる情報源から、動向と深掘りすべき論文を挙げる',
-    explanation:'代表的なサーベイ論文（古典と最近）、awesomeレポジトリ、主要な学会の論文集、リーダーボード、研究室・学会・企業の技術ブログやチュートリアルから、分野の動向と、一次論文を広く30〜100本程度（古典・引用の多いもの・系統ごとの最初から最新まで・最近の転換点・強いベースライン）理由つきで挙げ、そのうち深く読む10〜20本に印を付ける。ブログ・記事は手がかりで、根拠には使わない。',
-    instruction:'Abstract: map the field from trustworthy sources before collecting individual papers: representative survey and review papers (foundational and recent), curated awesome-<field> repositories, proceedings of the main venues, leaderboards, and technical blogs or tutorials from labs, conferences and companies. From them, write down the field\'s main trends, note the datasets, benchmarks, metrics, simulators, hardware configurations, baselines, widely used models and the state of the art that the surveys treat as standard, and list the primary papers of the field broadly, about 30 to 100 of them (seminal, most cited, each method family\'s line from its first paper to the state of the art, recent turning points, strong baselines), each with the reason; mark about 10 to 20 of them as the ones to read in depth. Blogs and articles are leads only, never Evidence. Record source URLs and the date of each check.',
+    explanation:'まず分野名とsurvey・review・awesome・tutorial・overviewなどで一般のWebを検索し、最初はsite指定・URL指定・既知の個別論文名で限定しない。見つけた情報源を開いて、課題・手法の系統・評価の慣習をURL付きで整理してから、特定サイトや一次論文に絞る。代表的なサーベイ論文（古典と最近）、awesomeレポジトリ、主要な学会の論文集、リーダーボード、研究室・学会・企業の技術ブログやチュートリアルから、分野の動向と、一次論文を広く30〜100本程度（古典・引用の多いもの・系統ごとの最初から最新まで・最近の転換点・強いベースライン）理由つきで挙げ、そのうち深く読む10〜20本に印を付ける。ブログ・記事は手がかりで、根拠には使わない。',
+    instruction:'Start with broad Internet searches combining the field name with terms such as survey, review, awesome, tutorial and overview. In the initial search batch, do not use site: filters, restrict searches to URLs or domains, or start from names of individual papers you already know. Open the sources discovered by these searches and first summarize the source map and field overview (main issues, method families and evaluation practices) with source URLs. Only after that overview is assembled may you narrow searches to arXiv, publishers, proceedings or individual primary papers. Abstract: map the field from trustworthy sources before collecting individual papers: representative survey and review papers (foundational and recent), curated awesome-<field> repositories, proceedings of the main venues, leaderboards, and technical blogs or tutorials from labs, conferences and companies. From them, write down the field\'s main trends, note the datasets, benchmarks, metrics, simulators, hardware configurations, baselines, widely used models and the state of the art that the surveys treat as standard, and list the primary papers of the field broadly, about 30 to 100 of them (seminal, most cited, each method family\'s line from its first paper to the state of the art, recent turning points, strong baselines), each with the reason; mark about 10 to 20 of them as the ones to read in depth. Blogs and articles are leads only, never Evidence. Record source URLs and the date of each check.',
   },
   {
     id:'primary',stage:2,level:'具体',title:'一次論文から課題と手法を整理する',
@@ -40,7 +40,7 @@ export function stageLabel(step: ResearchStep) {
   return peers.length > 1 ? `${step.stage}${String.fromCharCode(97 + peers.findIndex(s => s.id === step.id))}` : String(step.stage);
 }
 
-export const NEW_SURVEY_PROMPT_VERSION = 'survey-new@2026-10-12T13:10+09:00';
+export const NEW_SURVEY_PROMPT_VERSION = 'survey-new@2026-10-12T14:36+09:00';
 export const NEW_SURVEY_INSTRUCTIONS = [
   'Mode: new survey. Build a new survey on the theme in the user request, starting from the empty snapshot. Run the six stages below in order; they alternate between the abstract view and concrete papers (abstract → concrete → abstract → divergent → concrete → abstract), so do not skip back to listing papers without integrating them. Record source URLs and the date of each check.',
   ...RESEARCH_STEPS.map(step => `${stageLabel(step)}. ${step.instruction}`),

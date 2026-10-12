@@ -8,7 +8,7 @@ test('a new survey alternates abstract, concrete, abstract, divergent, concrete,
   assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6']);
   assert.ok(!(RESEARCH_STEPS as readonly { id: string }[]).some(s => s.id === 'venues'));
   assert.match(NEW_SURVEY_INSTRUCTIONS, /abstract → concrete → abstract → divergent → concrete → abstract/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /1\. Abstract: map the field from trustworthy sources/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /1\. Start with broad Internet searches/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /list the primary papers of the field broadly/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /4\. Divergent: look for what is still missing/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /adjacent fields that solved a similar problem and whose ideas could transfer/);
