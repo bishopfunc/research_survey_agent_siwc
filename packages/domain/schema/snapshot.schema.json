@@ -613,10 +613,12 @@
         "category": {
           "type": "string",
           "enum": [
-            "task",
             "dataset",
             "benchmark",
+            "hardware",
+            "simulator",
             "metric",
+            "task",
             "baseline",
             "concept",
             "method",

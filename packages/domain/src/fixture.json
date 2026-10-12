@@ -286,49 +286,6 @@
       "code_checked_at": "2026-10-12"
     },
     {
-      "id": "kw-mapf",
-      "label": "Multi-Agent Path Finding",
-      "provenance": "fixture",
-      "type": "Keyword",
-      "aliases": [
-        "MAPF"
-      ],
-      "category": "task",
-      "meaning": "複数のエージェントそれぞれに、スタートからゴールまでの経路を、互いに衝突しないように同時に計画する問題。グラフ上の移動として定式化されることが多い。",
-      "papers": [
-        "paper-cbs"
-      ],
-      "related": [
-        "mapf",
-        "collision"
-      ],
-      "definition_excerpt": "",
-      "source_url": null,
-      "locator": null
-    },
-    {
-      "id": "kw-conflict",
-      "label": "衝突（Conflict）",
-      "provenance": "fixture",
-      "type": "Keyword",
-      "aliases": [
-        "vertex conflict",
-        "edge conflict"
-      ],
-      "category": "concept",
-      "meaning": "2つのエージェントが同じ時刻に同じ頂点にいる、または同じ辺を同時に逆向きに通る状態。CBSはこれを見つけて制約を加える。",
-      "papers": [
-        "paper-cbs"
-      ],
-      "related": [
-        "collision",
-        "cbs"
-      ],
-      "definition_excerpt": "",
-      "source_url": null,
-      "locator": null
-    },
-    {
       "id": "kw-soc",
       "label": "Sum-of-costs",
       "provenance": "fixture",
@@ -337,55 +294,13 @@
         "SOC"
       ],
       "category": "metric",
-      "meaning": "全エージェントの経路コスト（ゴールに着くまでの時間ステップ数など）の合計。MAPFでよく使われる最適化の目的。",
+      "meaning": "全エージェントの経路コスト（ゴールに着くまでの時間ステップ数など）の合計。CBS・ECBS・EECBSのいずれもこのコストで解の良さを測る。",
       "papers": [
-        "paper-cbs"
-      ],
-      "related": [
-        "optimality"
-      ],
-      "definition_excerpt": "",
-      "source_url": null,
-      "locator": null
-    },
-    {
-      "id": "kw-ct",
-      "label": "制約木（Constraint Tree）",
-      "provenance": "fixture",
-      "type": "Keyword",
-      "aliases": [
-        "CT"
-      ],
-      "category": "method",
-      "meaning": "CBSの上位の探索で使う木。各ノードは制約の集合と、その制約の下での各エージェントの経路を持ち、衝突ごとに子ノードへ分かれる。",
-      "papers": [
-        "paper-cbs"
-      ],
-      "related": [
-        "cbs",
-        "tree"
-      ],
-      "definition_excerpt": "",
-      "source_url": null,
-      "locator": null
-    },
-    {
-      "id": "kw-bounded",
-      "label": "有界準最適（Bounded-suboptimal）",
-      "provenance": "fixture",
-      "type": "Keyword",
-      "aliases": [
-        "w-suboptimal"
-      ],
-      "category": "concept",
-      "meaning": "最適な解のコストの定数倍（w倍）以内であることを保証する探索。最適性を少し緩めて計算時間を減らす。",
-      "papers": [
+        "paper-cbs",
         "paper-ecbs",
         "paper-eecbs"
       ],
       "related": [
-        "ecbs",
-        "eecbs",
         "optimality"
       ],
       "definition_excerpt": "",
@@ -414,21 +329,34 @@
       "official_url": "https://movingai.com/benchmarks/mapf.html"
     },
     {
-      "id": "kw-baseline-cbs",
-      "label": "CBS（比較の基準）",
+      "id": "kw-makespan",
+      "label": "Makespan",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [],
+      "category": "metric",
+      "meaning": "最後のエージェントがゴールに着くまでの時間。全体の完了時刻を表し、Sum-of-costsと並ぶMAPFの評価指標。",
+      "papers": [],
+      "related": [
+        "optimality"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
+    },
+    {
+      "id": "kw-success-rate",
+      "label": "成功率（制限時間内の解決率）",
       "provenance": "fixture",
       "type": "Keyword",
       "aliases": [
-        "CBS baseline"
+        "success rate"
       ],
-      "category": "baseline",
-      "meaning": "最適なMAPF解法の代表。新しい最適・準最適の手法は、CBSと比べて速さや解ける規模を示すことが多い。",
-      "papers": [
-        "paper-cbs"
-      ],
+      "category": "metric",
+      "meaning": "制限時間内に解けた問題の割合。エージェント数を増やしたときに、どこまで解けるかを比べるために使う。",
+      "papers": [],
       "related": [
-        "cbs",
-        "optimality"
+        "scalability"
       ],
       "definition_excerpt": "",
       "source_url": null,

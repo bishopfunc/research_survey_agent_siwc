@@ -51,14 +51,16 @@ test('the repair prompt keeps the rejected values and leaves out the retrieve-in
   assert.ok(prompt.includes('The app rejects the whole patch if any rule fails'));
 });
 test('both modes extract beginner keywords; new subtopics start from surveys, awesome lists and blogs or articles', () => {
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Keyword entities \(about 10–20\) taken from the papers you read, so that a newcomer can catch up/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Build Keyword entities from the papers you read, integrating them across papers, so that a newcomer can see the experimental setup/);
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /representative survey papers, curated awesome repositories, and blogs or articles/);
-  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /derive them from the stored abstracts, summaries and titles without re-reading the papers unless explicitly asked/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /use the stored abstracts, summaries and titles without re-reading the papers unless explicitly asked/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword\.papers lists Paper IDs and Keyword\.related lists Issue\/Method\/Concept\/Domain IDs/);
 });
-test('surveys and keywords cover representative tasks, datasets, benchmarks, metrics and baselines', () => {
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the tasks, datasets, benchmarks, metrics and baselines the surveys treat as standard/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Record which tasks, datasets, benchmarks, metrics and baselines the papers evaluate on/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /must include the field's representative tasks, datasets, benchmarks \(with their main metrics\) and standard baselines/);
-  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /new representative tasks, datasets, benchmarks, metrics or baselines/);
+test('keywords are integrated across papers into datasets, benchmarks, hardware, simulators and metrics', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the datasets, benchmarks, hardware configurations, simulators and metrics the surveys treat as standard/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Record which datasets, benchmarks, hardware configurations, simulators and metrics each paper uses/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /category dataset, benchmark, hardware \(hardware configuration such as robot platform, sensors or compute\), simulator, or metric/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Merge mentions of the same resource across papers into one Keyword \(match by name and aliases\) and list every paper that uses it/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /when a Keyword for the resource already exists, replace it with the merged paper list instead of adding a duplicate/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /a Keyword category is dataset, benchmark, hardware, simulator or metric/);
 });

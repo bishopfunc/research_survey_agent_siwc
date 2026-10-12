@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyPatch, emptySurvey, fixture, initialWorkspace, makeCommit, snapshotSchema, validateSnapshot, validateWorkspace, type SurveyPatch } from '../packages/domain/src/index';
+import { applyPatch, deleteBranch, emptySurvey, fixture, initialWorkspace, makeCommit, snapshotSchema, validateSnapshot, validateWorkspace, type SurveyPatch } from '../packages/domain/src/index';
 import { codexOutputSchema, codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { patchSchema } from '../packages/domain/src/index';
 
@@ -200,4 +200,24 @@ test('keywords keep beginner meanings with typed references, and a definition ex
   keyword.official_url = 'https://example.org/benchmark';
   assert.deepEqual(validateSnapshot(input), []);
   assert.ok(fixture.entities.some(e => e.type === 'Keyword' && e.category === 'benchmark' && e.official_url && e.definition_excerpt && e.source_url));
+});
+
+test('deleting a collection keeps shared history, drops unreachable commits and never removes the last one', () => {
+  const base = initialWorkspace();
+  const root = base.commits[0];
+  const forkHead = makeCommit(structuredClone(root.snapshot), [root.id], 'fork edit');
+  const lone = makeCommit(emptySurvey('空'), [], '新規調査を開始');
+  const workspace = { ...base, commits: [...base.commits, forkHead, lone],
+    branches: [...base.branches, { id: 'fork', name: 'fork', head: forkHead.id, forked_from: root.id }, { id: 'lone', name: 'lone', head: lone.id, forked_from: null }], active_branch: 'lone' };
+  const before = JSON.stringify(workspace);
+  const withoutLone = deleteBranch(workspace, 'lone');
+  assert.equal(JSON.stringify(workspace), before);
+  assert.ok(validateWorkspace(withoutLone));
+  assert.deepEqual(withoutLone.branches.map(b => b.id), ['main', 'fork']);
+  assert.equal(withoutLone.active_branch, 'main');
+  assert.ok(!withoutLone.commits.some(c => c.id === lone.id));
+  const withoutMain = deleteBranch(withoutLone, 'main');
+  assert.ok(withoutMain.commits.some(c => c.id === root.id), 'the fork still reaches the shared root');
+  assert.throws(() => deleteBranch(withoutMain, 'fork'), /最後のコレクション/);
+  assert.throws(() => deleteBranch(withoutMain, 'missing'), /見つかりません/);
 });

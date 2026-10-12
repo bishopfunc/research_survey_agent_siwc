@@ -167,6 +167,17 @@ export function initialWorkspace(snapshot = fixture): Workspace {
   const c = makeCommit(snapshot, [], '初期サンプル', 'fixture');
   return { version: 1, commits: [c], branches: [{ id: 'main', name: 'main', head: c.id, forked_from: null }], active_branch: 'main' };
 }
+/** Removes a collection (branch). Commits still reachable from other branches stay untouched; unreachable ones are dropped. */
+export function deleteBranch(workspace: Workspace, branchId: string): Workspace {
+  if (!workspace.branches.some(b => b.id === branchId)) throw Error('コレクションが見つかりません');
+  if (workspace.branches.length === 1) throw Error('最後のコレクションは削除できません');
+  const branches = workspace.branches.filter(b => b.id !== branchId);
+  const byId = new Map(workspace.commits.map(c => [c.id, c]));
+  const reachable = new Set<string>();
+  const visit = (id: string) => { if (reachable.has(id)) return; reachable.add(id); byId.get(id)?.parents.forEach(visit); };
+  branches.forEach(b => visit(b.head));
+  return { ...workspace, branches, commits: workspace.commits.filter(c => reachable.has(c.id)), active_branch: workspace.active_branch === branchId ? branches[0].id : workspace.active_branch };
+}
 export function validateWorkspace(value: unknown): value is Workspace {
   if (!value || typeof value !== 'object') return false;
   const w = value as Workspace;

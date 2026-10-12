@@ -164,7 +164,17 @@ export interface Keyword {
   provenance: "fixture" | "user" | "codex";
   type: "Keyword";
   aliases: string[];
-  category: "task" | "dataset" | "benchmark" | "metric" | "baseline" | "concept" | "method" | "other";
+  category:
+    | "dataset"
+    | "benchmark"
+    | "hardware"
+    | "simulator"
+    | "metric"
+    | "task"
+    | "baseline"
+    | "concept"
+    | "method"
+    | "other";
   meaning: string;
   papers: string[];
   related: string[];
