@@ -463,13 +463,14 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .timeline-edge.active { stroke: var(--color-accent); stroke-width: 2; }
 .timeline-arrow { fill: var(--color-line-strong); }
 .timeline-arrow.active { fill: var(--color-accent); }
-.timeline-node { position: absolute; z-index: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 10px; border: var(--rule-width) solid var(--color-line-strong); border-radius: var(--radius-small); text-align: left; color: var(--color-ink); background: var(--color-surface); }
+.timeline-node { position: absolute; z-index: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; gap: 2px; padding: 6px 10px; border: var(--rule-width) solid var(--color-line-strong); border-radius: var(--radius-small); text-align: left; color: var(--color-ink); background: var(--color-surface); }
 .timeline-node:hover, .timeline-node.chosen { color: var(--color-ink); background: var(--color-surface); border-color: var(--color-accent); }
 .timeline-node.chosen { box-shadow: 0 0 0 1px var(--color-accent); }
 .timeline-node:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .timeline-node strong { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--text-caption); font-weight: 600; line-height: 1.4; }
 .timeline-node strong>span:last-child { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-width: 0; overflow: hidden; overflow-wrap: anywhere; }
 .timeline-node small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin-top: 2px; padding-top: 4px; border-top: var(--rule-width) solid var(--color-line); font-size: var(--text-small); line-height: 1.5; color: var(--color-ink); }
 .timeline-node small { font-size: var(--text-small); color: var(--color-muted); }
 
 @media (max-width: 1180px) {

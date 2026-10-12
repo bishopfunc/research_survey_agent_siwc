@@ -1,10 +1,11 @@
-import type { Issue, Paper, SurveySnapshot } from './snapshot.types';
+import type { Claim, Issue, Paper, SurveySnapshot } from './snapshot.types';
 import { buildEvolution } from './evolution';
 import { generations, layoutTimeline, type TimelineLayout } from './timeline';
 import { buildPaperTree, type PaperTree } from './paper-tree';
 
 export interface IssueTree { layout: TimelineLayout; issues: Map<string, Issue>; years: Map<string, number | null> }
-export interface IssuePaperTree extends PaperTree { issues: Map<string, Issue>; depth: Map<string, number> }
+/** claims: the claim shown on each paper item, about the issue of its row when the paper has one. */
+export interface IssuePaperTree extends PaperTree { issues: Map<string, Issue>; depth: Map<string, number>; claims: Map<string, Claim> }
 
 /** Issue parents (part_of / specializes between two issues), the order of issues (parents before their sub-issues) and their depth. */
 function issueHierarchy(snapshot: SurveySnapshot) {
@@ -88,5 +89,13 @@ export function buildIssuePaperTree(snapshot: SurveySnapshot): IssuePaperTree {
     const first = [...own].sort((a, b) => depth.get(b)! - depth.get(a)! || order.indexOf(a) - order.indexOf(b))[0];
     return first ? [first, ...own.filter(id => id !== first)] : [];
   });
-  return { ...tree, issues: new Map(issues.map(i => [i.id, i])), depth };
+  const claims = new Map<string, Claim>();
+  for (const node of tree.layout.nodes) {
+    const paper = tree.papers.get(node.id)!, issue = tree.layout.rows[node.row].key;
+    const own = [...new Set([...paper.claims, ...snapshot.relations.filter(r => r.type === 'supports' && r.from === paper.id).map(r => r.to)])]
+      .map(id => snapshot.entities.find(e => e.id === id)).filter((e): e is Claim => e?.type === 'Claim');
+    const about = own.find(c => snapshot.relations.some(r => r.type === 'about' && r.from === c.id && r.to === issue));
+    if (about ?? own[0]) claims.set(paper.id, (about ?? own[0])!);
+  }
+  return { ...tree, issues: new Map(issues.map(i => [i.id, i])), depth, claims };
 }

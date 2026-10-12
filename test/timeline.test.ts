@@ -142,3 +142,10 @@ test('a straight line never runs behind another item: siblings and blocked lanes
     assert.equal(layout.nodes.filter(n => n.row === to.row && n.lane === to.lane && n.column > from.column && n.column < to.column).length, 0, `${e.from}>${e.to}`);
   }
 });
+
+test('a paper item in the issue paper tree carries its claim about the issue of its row, else its first claim', () => {
+  const tree = buildIssuePaperTree(fixture);
+  assert.equal(tree.claims.get('paper-lacam-star')?.id, 'claim-lacam-star-scale', 'LaCAM* sits in the scalability row and has a claim about scalability');
+  assert.equal(tree.claims.get('paper-primal')?.id, 'claim-primal');
+  assert.equal(tree.claims.has('paper-icbs'), false, 'a paper without claims shows none');
+});

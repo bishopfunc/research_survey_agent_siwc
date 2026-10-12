@@ -2,17 +2,21 @@ import React, { useId } from 'react';
 import type { TimelineLayout } from '../../../packages/domain/src/timeline';
 import type { Entity } from '../../../packages/domain/src/index';
 
-const COLUMN = 180, NODE_W = 156, NODE_H = 72, LANE = NODE_H + 10, ROW_PAD = 14, INSET = 16;
+const GAP = 24, ROW_PAD = 14, INSET = 16;
+/** Item sizes: hierarchy items show a name and one term; paper items also carry one sentence. */
+export const ITEM = { compact: { width: 156, height: 72 }, paper: { width: 220, height: 128 } } as const;
 
-export interface TimelineCard { title: string; meta?: string; dot?: string; hint?: string }
-/** A paper item in every paper tree: its title, then year and venue, nothing else. */
-export function paperCard(paper: Extract<Entity, { type: 'Paper' }>): TimelineCard {
-  return { title: paper.title, meta: [paper.year ?? '年未取得', paper.venue].filter(Boolean).join(' · '), hint: paper.title };
+export interface TimelineCard { title: string; meta?: string; note?: string; dot?: string; hint?: string }
+/** A paper item in every paper tree: its title, year and venue, and one sentence the tree is about
+ * (the claim in the issue tree, what it is in the method tree). */
+export function paperCard(paper: Extract<Entity, { type: 'Paper' }>, note?: string): TimelineCard {
+  return { title: paper.title, meta: [paper.year ?? '年未取得', paper.venue].filter(Boolean).join(' · '), note: note || undefined, hint: paper.title };
 }
 
 /** Years (or generations) left to right, one row per lineage. Positions come from layoutTimeline; this only draws them. */
 /** years=false: the columns are generations of a hierarchy, shown without a header. */
-export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect, years = true }: { layout: TimelineLayout; label: string; card: (id: string) => TimelineCard; rowLabel?: (key: string | null) => React.ReactNode; selected: string; onSelect: (id: string) => void; years?: boolean }) {
+export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect, years = true, item = ITEM.compact }: { layout: TimelineLayout; label: string; card: (id: string) => TimelineCard; rowLabel?: (key: string | null) => React.ReactNode; selected: string; onSelect: (id: string) => void; years?: boolean; item?: { width: number; height: number } }) {
+  const NODE_W = item.width, NODE_H = item.height, COLUMN = NODE_W + GAP, LANE = NODE_H + 10;
   const HEAD = years ? 30 : 0;
   const marker = useId().replace(/:/g, '');
   const tops: number[] = [];
@@ -45,7 +49,7 @@ export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect
         <defs>{['', 'active'].map(state => <marker key={state} id={`${marker}${state}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path className={`timeline-arrow ${state}`} d="M0 0L8 4L0 8z"/></marker>)}</defs>
         {layout.edges.map(edge => { const active = edge.to === selected || edge.from === selected; return <path key={`${edge.kind}-${edge.from}-${edge.to}-${edge.row}`} className={`timeline-edge ${edge.kind} ${active ? 'active' : ''}`} d={path(edge)} markerEnd={`url(#${marker}${active ? 'active' : ''})`}/>; })}
       </svg>
-      {layout.nodes.map(n => { const c = card(n.id), b = box.get(n.id)!; return <button key={n.id} className={`timeline-node ${selected === n.id ? 'chosen' : ''}`} style={{ left: b.x, top: b.y, width: NODE_W, height: NODE_H }} title={c.hint} onClick={() => onSelect(n.id)}><strong>{c.dot && <span className={`node-dot ${c.dot}`}/>}<span>{c.title}</span></strong>{c.meta && <small>{c.meta}</small>}</button>; })}
+      {layout.nodes.map(n => { const c = card(n.id), b = box.get(n.id)!; return <button key={n.id} className={`timeline-node ${selected === n.id ? 'chosen' : ''}`} style={{ left: b.x, top: b.y, width: NODE_W, height: NODE_H }} title={c.hint} onClick={() => onSelect(n.id)}><strong>{c.dot && <span className={`node-dot ${c.dot}`}/>}<span>{c.title}</span></strong>{c.meta && <small>{c.meta}</small>}{c.note && <p className="timeline-note">{c.note}</p>}</button>; })}
     </div>
   </div>;
 }

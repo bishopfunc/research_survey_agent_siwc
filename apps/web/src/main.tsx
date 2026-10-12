@@ -9,7 +9,7 @@ import { MethodEvolution } from './MethodEvolution';
 import { CloseIcon } from './CloseIcon';
 import { buildEvolution, byPublication } from '../../../packages/domain/src/evolution';
 import { buildIssuePaperTree, buildIssueTree } from '../../../packages/domain/src/issue-tree';
-import { TimelineTree, paperCard } from './TimelineTree';
+import { ITEM, TimelineTree, paperCard } from './TimelineTree';
 import { SubTabs } from './SubTabs';
 import { skillById, type SkillId } from '../../../packages/agent/src/skills/index';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
@@ -468,7 +468,7 @@ function App() {
           {tab === 'issues' && <div className="view-toolbar"><SubTabs label="課題の表示" value={issueView} options={[['tree', '課題ツリー'], ['papers', '論文ツリー'], ['list', '一覧']]} onChange={setIssueView}/></div>}
           {issueTree && (issueTree.issues.size ? <><TimelineTree layout={issueTree.layout} label="課題ツリー" years={false} selected={selected} onSelect={setSelected} card={id => { const i = issueTree.issues.get(id)!; return { title: i.label, meta: i.english_terms?.[0], hint: i.description }; }}
             rowLabel={key => { const issue = key ? issueTree.issues.get(key) : undefined; return issue ? <button className={selected === issue.id ? 'chosen' : ''} title={issue.description} onClick={() => setSelected(issue.id)}>{issue.label}</button> : null; }}/></> : <div className="empty">課題なし</div>)}
-          {issuePapers && (issuePapers.issues.size ? <><TimelineTree layout={issuePapers.layout} label="課題の論文ツリー" selected={selected} onSelect={setSelected} card={id => paperCard(issuePapers.papers.get(id)!)}
+          {issuePapers && (issuePapers.issues.size ? <><TimelineTree layout={issuePapers.layout} label="課題の論文ツリー" item={ITEM.paper} selected={selected} onSelect={setSelected} card={id => paperCard(issuePapers.papers.get(id)!, issuePapers.claims.get(id)?.statement)}
             rowLabel={key => { const issue = key ? issuePapers.issues.get(key) : undefined; return issue ? <button className={selected === issue.id ? 'chosen' : ''} style={{ paddingLeft: issuePapers.depth.get(issue.id)! * 12 }} title={issue.description} onClick={() => setSelected(issue.id)}>{issue.label}</button> : <span className="family-none">未分類</span>; }}/></> : <div className="empty">課題なし</div>)}
           {tab === 'issues' && issueView === 'list' && <div className="issue-list">{issues.map(e => <button key={e.id} className={`issue-card ${e.id === selected ? 'chosen' : ''}`} onClick={() => setSelected(e.id)}><div className="card-top">{snapshot.relations.filter(r => r.type === 'part_of' && r.from === e.id).map(r => <small key={r.id}>↳ {linked(r.to)?.label}</small>)}</div><h3>{e.label}</h3>{!!e.english_terms?.length && <p className="english-terms">{e.english_terms.join(' · ')}</p>}<p>{e.description}</p>{(() => { const top = claimsAbout(e.id)[0]; return top && <p className="achievement-line"><span className={`status-chip ${top.status}`}>{statusLabels[top.status]}</span><span>{top.statement}</span></p>; })()}{snapshot.relations.some(r => r.type === 'addresses' && r.to === e.id) && <div className="card-bottom">{snapshot.relations.filter(r => r.type === 'addresses' && r.to === e.id).map(r => <span key={r.id}>{linked(r.from)?.label}</span>)}</div>}</button>)}{!issues.length && <div className="empty">課題なし</div>}</div>}
           {tab === 'tutorial' && <TutorialView snapshot={snapshot} preview={reviewPreview} onSelect={setSelected}/>}
