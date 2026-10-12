@@ -15,12 +15,14 @@ services:
     image: ${APP_IMAGE}
     restart: unless-stopped
     init: true
-    # Shares the app's network, so the PoC server stays on 127.0.0.1:8788.
+    # Shares the app's network, so the PoC server stays on 127.0.0.1:8788 and the token port 127.0.0.1:8090 reaches only the app.
     network_mode: service:app
     command: ["node_modules/.bin/tsx", "scripts/vps-gate.ts"]
     environment:
       PUBLIC_ORIGIN: https://${PUBLIC_HOST}
       GATE_STATE: /app/.gate/gate.json
+      # Encrypts the kept ChatGPT tokens; generated once on the VPS by scripts/deploy-vps.sh.
+      GATE_TOKEN_KEY: ${GATE_TOKEN_KEY}
     volumes:
       - gate:/app/.gate
     depends_on: [app]

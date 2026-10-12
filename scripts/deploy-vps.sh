@@ -13,7 +13,8 @@ remote() { ssh -x -o BatchMode=yes -o ControlMaster=auto -o ControlPath="$HOME/.
 switch_to() { # $1 image to run; keeps the one it replaces as PREVIOUS_IMAGE
   remote "set -e; cd ~/apps/survey
     current=\$(sed -n 's/^APP_IMAGE=//p' .env 2>/dev/null || true)
-    printf 'APP_IMAGE=%s\nPREVIOUS_IMAGE=%s\nPUBLIC_HOST=%s\n' '$1' \"\$current\" '$PUBLIC_HOST' > .env.next && mv .env.next .env
+    key=\$(sed -n 's/^GATE_TOKEN_KEY=//p' .env 2>/dev/null || true); [ -n \"\$key\" ] || key=\$(head -c 32 /dev/urandom | base64)
+    umask 077; printf 'APP_IMAGE=%s\nPREVIOUS_IMAGE=%s\nPUBLIC_HOST=%s\nGATE_TOKEN_KEY=%s\n' '$1' \"\$current\" '$PUBLIC_HOST' \"\$key\" > .env.next && mv .env.next .env
     docker compose up -d --remove-orphans"
   # One SSH session for the whole wait: repeated connections trip the VPS's SSH rate limit.
   if remote "for i in \$(seq 1 60); do curl -fsS --max-time 5 --resolve $PUBLIC_HOST:443:127.0.0.1 https://$PUBLIC_HOST/auth/health >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1"; then

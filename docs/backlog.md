@@ -44,7 +44,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | B05 | Todo | React/Vite構成、3ビュー、Inspector、Chat、履歴、進捗。fixtureで画面確認後にAPI接続 | B02、接続はB03/B04 |
 | B06 | Todo | 追加指示から局所Patch、v1/v2差分、全体/Subgraph Forkと参照閉包、独立編集の試験 | B03/B04/B05 |
 | B07 | Todo | Cloudflare受け入れ、タブ閉鎖試験、再認可・失敗回復、A01〜A09の証拠と運用手順 | B01〜B06 |
-| V01 | Doing | 自分だけが使う環境をさくらのVPSに置く。Docker、Caddy、SIWCでURLの入口を絞る、Codexへの本人のログイン（[0032](design/0032-self-hosted-vps.md)、[ADR 0020](adr/0020-self-hosted-vps.md)） | なし |
+| V01 | Doing | 自分だけが使う環境をさくらのVPSに置く。Docker、Caddy、SIWCでURLの入口を絞り、同じログインのトークンでCodexを動かす（[0032](design/0032-self-hosted-vps.md)、[ADR 0020](adr/0020-self-hosted-vps.md)） | なし |
 | C00 | Todo（保留） | 複数の利用者にするときのCloudflareへのデプロイ。[0031](design/0031-cloudflare-deploy.md)の順（C00〜C03） | V01 |
 
 次は `/lab` でUI・Prompt・DSLをユーザーと調整する。ユーザー指定によりUI＋DSL調整PoCとCodex接続を先行する。P01の結果をB02/B05に反映してからCloudflare MVPへ進む。B00で追加したCIはremoteでの実行が未確認。まず自分だけが使う環境をVPSに置く（V01）。複数の利用者にするときのCloudflareの計画は保留（C00）。

@@ -15,8 +15,8 @@
 ## 判断
 
 - 本人のさくらのVPSで、Docker Compose（Caddy、PoCのサーバーとCodex CLI、入口のgate）を動かす。
-- URLの入口は、OSS向けのSIWCの手順をそのまま使う。戻り先は `127.0.0.1:1456` で、ログインのときだけ本人がSSHで転送する。最初にログインしたChatGPTアカウントだけを通す。ChatGPTのトークンは保存しない。
-- AIの利用は、VPS上のCodex CLIへの本人のログインで行う。手元の資格情報はコピーしない。
+- URLの入口は、OSS向けのSIWCの手順をそのまま使う。戻り先は `127.0.0.1:1456` で、ログインのときだけ本人がSSHで転送する。最初にログインしたChatGPTアカウントだけを通す。
+- AIの利用は、同じログインで受け取ったChatGPTプランのトークンで行う（2026-10-12の追加の指示で、2つのログインを1つにした）。トークンは暗号化してVPSに置き、Codexには公式のapp-serverの例と同じprovider設定で渡す。Codexのモデル一覧を上書きしてlite方式をやめ、SIWCのトークンで使えるResponses APIのWeb検索に寄せる。手元の資格情報はコピーしない。
 - デプロイは、コミット済みのrevを `git archive` でVPSの `docker build` に流し、イメージのタグで切り替え・戻す。
 
 ## 代替案
@@ -26,10 +26,12 @@
 - Cloudflare Tunnel＋AccessやTailscale：入口がSIWCにならない。
 - ホストにNodeを入れてsystemdで動かす：sudo、lingerの設定、Nodeの導入が要る。このVPSではDockerが既にあり、ubuntuはdockerグループに入っている。
 - Kamal：レジストリやkamal-proxyが加わる。1台・1人には重い。
+- Codexには本人が別にログインする（デバイスコード）：ログインが2回になる。Codexの既定のWeb検索がそのまま使える利点はある。モデル一覧の上書きで問題が出たら、この形に戻す。
+- Codex lite方式のまま `supports_standalone_web_search=true`：Web検索が `/v1/alpha/search` を呼び、SIWCのトークンは401で拒否される（実測）。
 
 ## 影響
 
-VPSの運用（OSの更新、ディスク、メモリ1GB）を本人が持つ。ログインは30日ごとにSSHの転送が要る。80/443を持っていたHedgeDoc v2のCaddyは止まる。複数の利用者にするときは、0031の計画に戻る。
+VPSの運用（OSの更新、ディスク、メモリ1GB）を本人が持つ。ログインは30日ごとにSSHの転送が要る。ChatGPTのrefresh tokenがVPSに置かれる（公式のSelf-hosted VMsの手順と同じ扱い）。モデル一覧の上書きは公式の手順に無いので、Codexの更新ごとに動作を確かめる。80/443を持っていたHedgeDoc v2のCaddyは止まる。複数の利用者にするときは、0031の計画に戻る。
 
 ## 根拠
 

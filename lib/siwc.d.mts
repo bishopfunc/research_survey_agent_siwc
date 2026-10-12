@@ -9,4 +9,4 @@ export const PERMISSION: string;
 export function beginLogin(hostId: string, redirectUri: string, account?: SiwcAccount): { transaction: SiwcTransaction; url: URL };
 export function completeLogin(params: URLSearchParams, tx: SiwcTransaction, fetchImpl?: typeof fetch, verify?: SiwcVerify): Promise<SiwcLogin>;
 export function verifyIdentity(token: string, clientId: string, nonce?: string): Promise<{ sub: string; email?: string }>;
-export function usableAccount<T extends SiwcLogin>(account: T, fetchImpl?: typeof fetch, verify?: SiwcVerify): Promise<T>;
+export function usableAccount<T extends SiwcLogin>(account: T, fetchImpl?: typeof fetch, verify?: SiwcVerify, minValidMs?: number): Promise<T>;
