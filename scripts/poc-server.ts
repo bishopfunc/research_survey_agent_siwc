@@ -218,7 +218,13 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const merged = chunks.finish(readFileSync(join(directory, outputFile), 'utf8')); writeFileSync(join(directory, `stage-${stage}.json`), merged, { mode: 0o600 }); output = merged; } catch (error) { outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
-      return { ok: ok && output !== undefined, output, error: ok ? outputError : attemptError(attempt), searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
+      const error = ok ? outputError : attemptError(attempt);
+      const result = { searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
+      if (output !== undefined) return { ok: true, output, ...result };
+      // A stage that timed out or ended with an unusable final output keeps what its validated checkpoints saved (design 0034).
+      const saved = run.status === 'running' ? chunks.partial() : undefined;
+      if (saved) { writeFileSync(join(directory, `stage-${stage}.json`), saved, { mode: 0o600 }); addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存までの結果を使います` }); save(run); return { ok: true, output: saved, partial: error ?? '最終出力なし', ...result }; }
+      return { ok: false, error, ...result };
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library),

@@ -126,6 +126,13 @@ test('a failed outline fails the run; a cancelled run stops', async () => {
   const stopped = await executeStagedResearch(emptySurvey('t'), 'b', steps({ results: { outline: ok(outlinePatch()) }, run: async () => { active = false; return ok(outlinePatch()); }, active: () => active }).s, 2);
   assert.equal(stopped.status, 'stopped');
 });
+test('an outline that timed out continues from its saved checkpoints and says so in the proposal', async () => {
+  const results: Record<string, StageResult> = { outline: { ...ok(outlinePatch()), partial: '時間切れ' } };
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results }).s, 2);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.match(outcome.patch.message, /1\/8 Map(（全体像）)?は途中保存までの結果を使いました（時間切れ）/);
+});
 test('the merged snapshot as a patch rebuilds the same snapshot', () => {
   assert.deepEqual(validateSnapshot(fixture), []);
 });

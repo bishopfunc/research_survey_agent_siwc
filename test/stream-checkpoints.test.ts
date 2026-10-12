@@ -55,6 +55,15 @@ test('a final replace or remove of a checkpointed addition updates or withdraws 
   assert.equal(snapshot.entities.some(e => e.id === 'i'), false); assert.equal(snapshot.relations.length, 0);
 });
 
+test('a process that never finished offers its validated checkpoints, and nothing when none were saved', () => {
+  const none = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  assert.equal(none.partial(), undefined);
+  const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  chunks.accept(event(patch([{ op: 'add_entity', entity: domain }])));
+  chunks.accept('{"type":"item.completed","item":{"type":"agent_message","text":"SURVEY_CHECKPOINT {broken'); // rejected
+  assert.equal(applyPatch(emptySurvey('t'), JSON.parse(chunks.partial()!), 'b').entities.length, 1);
+});
+
 test('cancellation suppresses late checkpoint writes while earlier results remain', () => {
   let active = true; const saved: SurveyPatch[] = [];
   const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, p => saved.push(p), () => active);

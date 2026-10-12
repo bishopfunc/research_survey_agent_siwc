@@ -33,6 +33,10 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
         return 'saved';
       } catch { rejected = true; return 'rejected'; }
     },
+    /** The validated checkpoints of a process that did not finish, if any were saved. */
+    partial(): string | undefined {
+      return accepted && JSON.stringify(accepted);
+    },
     finish(raw: string): string {
       if (rejected) throw Error('途中保存に検証エラーがあり、結果の欠落を防ぐため段階を失敗にしました');
       const patch = normalize(JSON.parse(raw)) as SurveyPatch;

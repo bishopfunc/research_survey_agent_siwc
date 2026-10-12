@@ -21,7 +21,8 @@ export function stageTraceText(stage: StageId): string {
 }
 /** A gap for the fill step, from the server's schema check. */
 export interface CheckedGap extends SurveyGap { fill: 'existing' | 'search'; query: string | null }
-export interface StageResult { ok: boolean; output?: string; error?: string; searches: number; elapsedMs?: number; searched?: SearchMemory }
+/** `partial` is why the process did not finish; the output is then its validated checkpoints (design 0034). */
+export interface StageResult { ok: boolean; output?: string; error?: string; partial?: string; searches: number; elapsedMs?: number; searched?: SearchMemory }
 /** Only a quick failure (such as a model at capacity) is worth one retry; a timed-out worker would double the wait. */
 export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
 export interface StagedSteps {
@@ -139,9 +140,11 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const started = steps.now?.() ?? 0;
   let memory: SearchMemory = { queries: [], opened: [] };
   const record = (result: StageResult) => { searches += result.searches; if (result.searched) { memory = mergeMemory(memory, result.searched); steps.remember?.(memory); } };
+  const notes: string[] = [];
   const parse = async (stage: StageId, result: StageResult): Promise<SurveyPatch> => {
     record(result);
     if (!result.ok || result.output === undefined) throw Error(result.error ?? `${stage}の実行に失敗しました`);
+    if (result.partial) notes.push(`${stageTraceText(stage)}は途中保存までの結果を使いました（${result.partial}）`);
     const patch = await steps.prepare(steps.normalize(JSON.parse(result.output))) as SurveyPatch;
     steps.checkpoint(stage, patch);
     return patch;
@@ -149,7 +152,6 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const apply = (snapshot: SurveySnapshot, patch: SurveyPatch, id: string) => applyPatch(snapshot, { ...patch, base_commit_id: id }, id);
   const reason = (e: unknown) => (e instanceof Error ? e.message : '').split('\n')[0];
   const total = RESEARCH_STEPS.length;
-  const notes: string[] = [];
   let followUps: string[] | undefined, message = '';
   const keep = (patch: SurveyPatch) => { if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) message = patch.message; };
   // Step 1: the map of the field.

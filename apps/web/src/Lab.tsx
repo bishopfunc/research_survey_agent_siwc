@@ -153,7 +153,7 @@ export function Lab() {
               <div><dt>道具</dt><dd>Web検索（{CODEX_EXECUTION.webSearch}）だけを使う。シェル、コマンド実行、ブラウザ操作、ローカル画像の表示（view_image）は無効にしている。Web検索がcode mode経由で呼ばれるためcode modeは有効のままだが、そのスクリプトからファイルは読めない。ユーザーのスキルとAGENTS.mdは渡さない。</dd></div>
               <div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div>
               <div><dt>時間の配分</dt><dd>全体像は調査{timeBudget(STAGE_TIMEOUT_SECONDS.outline).researchSeconds / 60}分、書き出し{timeBudget(STAGE_TIMEOUT_SECONDS.outline).writeSeconds / 60}分、強制終了まで{STAGE_TIMEOUT_SECONDS.outline / 60}分。ほかの段階も上限内に書き出し時間を予約する。開始時に調査期限と強制終了期限の絶対時刻を渡す。調査期限はAgentへの指示で、サーバーは期限到達を経過に記録する。強制終了期限でSIGTERMを送り、{STOP_GRACE_MS / 1000}秒後も終了していなければSIGKILLを送る。時間切れは終了コード0でも失敗として表示する。</dd></div>
-              <div><dt>途中保存</dt><dd>新規調査では論文1本または5〜10操作を目安に、参照が完結する変更案をcommentaryで出させる。サーバーは型と参照を検証し、実行ごとの番号付きcheckpointに保存する。最終応答の残りの操作と合わせ、従来どおり変更案全体を検証する。途中保存はCommitでも成功判定でもなく、時間切れの自動再開は未実装。途中出力の頻度はモデルに依存し、出力されなければ最終応答だけを使う。</dd></div>
+              <div><dt>途中保存</dt><dd>新規調査では論文1本または5〜10操作を目安に、参照が完結する変更案をcommentaryで出させる。サーバーは型と参照を検証し、実行ごとの番号付きcheckpointに保存する。最終応答の残りの操作と合わせ、従来どおり変更案全体を検証する。後の出力が同じ段階で追加した項目を置換・削除したときは、追加の更新・取り消しとして合わせる。段階が時間切れか最終応答を使えないときは、検証済みの途中保存までを段階の結果として次へ進み、変更案の説明に明記する。途中保存はCommitではなく、時間切れの自動再開は未実装。途中出力の頻度はモデルに依存し、出力されなければ最終応答だけを使う。</dd></div>
               <div><dt>同時実行</dt><dd>調査は{CODEX_EXECUTION.maxConcurrent}件ずつ実行する。新規調査の深掘りの作業は、その1件の中で並行する。</dd></div>
               <div><dt>経過の表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示する。</dd></div>
               <div><dt>論文コンテキスト</dt><dd>選択した論文のIDをrunに保存する（最大{MAX_CONTEXT_PAPERS}本）。サーバーはその版にあるPaperか確認し、依頼の判定・調査・解説の指示に対象として加える。論文の題と本文は信頼しないデータで、Agentへの指示にはしない。待機依頼は前の変更案の保存・破棄を待って最新の版から実行し、同じ依頼IDの再送は同じrunを返す。</dd></div>
