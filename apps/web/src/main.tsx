@@ -11,6 +11,7 @@ import { CloseIcon } from './CloseIcon';
 import { byPublication } from '../../../packages/domain/src/evolution';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
 import { ConnectionMap } from './ConnectionMap';
+import { KeyFigures } from './KeyFigures';
 
 function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh'; className?: string }) {
   const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12 M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 9a9 9 0 0 1-9 9', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6', refresh:'M19.5 12a7.5 7.5 0 1 1-2.2-5.3 M19.5 4.5v4h-4' };
@@ -130,7 +131,7 @@ function PaperReading({ paper }: { paper: Paper }) {
   const reading = paper.reading;
   return <section className="paper-reading" aria-label="論文の要点">
     <h3>どんなもの？</h3><p>{paper.one_line_summary}</p>
-    {reading ? (Object.keys(readingLabels) as (keyof typeof readingLabels)[]).map(key => { const value = reading[key]; if (Array.isArray(value) ? !value.length : !value.trim()) return null; return <React.Fragment key={key}><h3>{readingLabels[key]}</h3>{Array.isArray(value) ? <ul>{value.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p>{value}</p>}</React.Fragment>; }) : <p className="muted-label">要点 未作成</p>}
+    {reading ? (Object.keys(readingLabels) as (keyof typeof readingLabels)[]).filter(key => key !== 'key_figures').map(key => { const value = reading[key]; if (Array.isArray(value) ? !value.length : !value.trim()) return null; return <React.Fragment key={key}><h3>{readingLabels[key]}</h3>{Array.isArray(value) ? <ul>{value.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p>{value}</p>}</React.Fragment>; }) : <p className="muted-label">要点 未作成</p>}
   </section>;
 }
 /** The Japanese translation first when there is one; the stored original stays one click away. */
@@ -412,6 +413,7 @@ function App() {
           {entity.type === 'Paper' && <p className="paper-byline">{[entity.authors.slice(0, 3).join(', ') + (entity.authors.length > 3 ? ' ほか' : ''), entity.year, entity.venue].filter(Boolean).join(' · ')}</p>}
           {'description' in entity && entity.description && <p>{entity.description}</p>}
           {entity.type === 'Paper' && <PaperReading paper={entity}/>}
+          {entity.type === 'Paper' && <KeyFigures key={entity.id} paper={entity} preview={reviewPreview}/>}
           {entity.type === 'Issue' && <section className="detail-section claims" aria-label="達成度"><h3>達成度</h3>{claimsAbout(entity.id).length ? <ClaimRows claims={claimsAbout(entity.id)} onSelect={setSelected}/> : <p className="muted-label">未調査</p>}</section>}
           {entity.type === 'Paper' && <div className="detail-section">{entity.representative_figure && <FigureImage figure={entity.representative_figure}/>}<button className="figure-action" disabled={historical} onClick={()=>setFigurePaper(entity)}>{entity.representative_figure ? '代表Figを差し替える' : 'PDFから代表Figを抽出'}</button></div>}
           {entity.type === 'Paper' && <PaperAbstract key={entity.id} paper={entity}/>}

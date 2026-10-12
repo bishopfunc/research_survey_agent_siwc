@@ -14,6 +14,7 @@ import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
+import { cacheName, fetchArxivFigures, parseArxivId } from './arxiv-figures';
 
 const port = Number(process.env.POC_PORT ?? 8788);
 const origin = `http://127.0.0.1:${port}`;
@@ -135,6 +136,21 @@ const server = createServer(async (req, res) => {
       const papers = parseCitationRequest(await body(req));
       const lookup = await lookupCitations(papers, target => fetch(target, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json' } }), process.env.OPENALEX_API_KEY);
       json(res, { source: CITATION_SOURCE, as_of: today(), ...lookup }); return;
+    }
+    const arxiv = url.pathname.match(/^\/api\/arxiv-figures\/([^/]+)$/);
+    if (arxiv && (req.method === 'GET' || req.method === 'POST')) {
+      const id = parseArxivId(decodeURIComponent(arxiv[1]));
+      if (!id) { json(res, { error: 'arXiv IDを確認してください' }, 400); return; }
+      const directory = resolve('.poc/arxiv'), file = join(directory, cacheName(id));
+      try { json(res, JSON.parse(readFileSync(file, 'utf8'))); return; } catch { /* not fetched yet */ }
+      if (req.method === 'GET') { json(res, { error: 'NOT_FETCHED' }, 404); return; }
+      if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
+      try {
+        const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
+        mkdirSync(directory, { recursive: true, mode: 0o700 }); writeFileSync(file, JSON.stringify(result), { mode: 0o600 });
+        json(res, result);
+      } catch (error) { json(res, { error: error instanceof Error ? error.message : 'arXivのFigを取得できませんでした' }, 502); }
+      return;
     }
     if (url.pathname === '/api/codex/status' && req.method === 'GET') {
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;

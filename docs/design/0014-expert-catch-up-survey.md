@@ -36,7 +36,7 @@
 | 手法の分類 | 系統をConcept（説明に共通の考え方）で作り、Method→Conceptのinstance_ofでつなぐ |
 | 時系列の網羅 | 各手法の提案論文の年・会議（既存）。系統ごとに古典から最新まで |
 | 論文の貢献と5つの問い | Paper.reading（任意・null可）：contributions、novelty、key_idea、validation、discussion、key_figures。「どんなもの？」は既存のone_line_summaryが答える |
-| 重要なFig | reading.key_figures（「Fig. N：何を示すか」）。画像の取り込みは別作業 |
+| 重要なFig | reading.key_figures（「Fig. N：何を示すか」）。画像はarXiv HTML版から表示（[0016](0016-paper-key-figures.md)） |
 | アブストラクトの和訳 | Paper.abstract_ja（任意）。原文のabstractは置き換えない。原文が無い和訳は拒否 |
 | 学会の略称 | Paper.venueの書き方（Promptの規則）。データ形式は変えない |
 | ナレッジ | Keyword型のまま（型名は互換のため変えない）。画面の名前を「ナレッジ」にし、categoryにsota・modelを追加、baselineを再び作成対象に。SOTAは時点（Keyword.as_of）と論文が必須 |
@@ -94,6 +94,6 @@
 
 ## 未解決事項
 
-- 重要なFigの画像の取り込み（arXivのHTML版などから）。今はFigの番号と理由だけを残す。
-- 引用数の取得（Google Scholarは公式APIが無い。OpenAlexなどを検討）。
+- 重要なFigの画像：[0016](0016-paper-key-figures.md)で対応（arXivにある論文のみ）。
+- 引用数の取得：[0015](0015-citation-counts.md)で対応（OpenAlex）。
 - 実Codexで、目的・重視点を入れたPromptの出力の質（課題の重要度、達成度の数値、系統の網羅）を評価する。

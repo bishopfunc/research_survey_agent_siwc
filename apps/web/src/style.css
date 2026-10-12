@@ -256,6 +256,15 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .paper-reading p, .paper-reading li { font-size: var(--text-caption); line-height: 1.8; color: var(--color-ink); overflow-wrap: anywhere; }
 .paper-reading ul { margin: 0; padding-left: 1.2em; }
 .paper-reading .muted-label { margin-top: var(--space-2); font-size: var(--text-small); color: var(--color-faint); }
+.key-figure { margin: 0 0 var(--space-4); }
+.figure-images { display: grid; gap: 6px; }
+.figure-images.many { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.figure-images a { display: block; }
+.figure-images img { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; padding: 6px; border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-small); background: var(--color-surface); }
+.key-figure figcaption { display: grid; gap: 2px; margin-top: 6px; font-size: var(--text-caption); line-height: 1.7; color: var(--color-ink); overflow-wrap: anywhere; }
+.key-figure figcaption small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: var(--text-small); color: var(--color-muted); }
+.more-figures>summary { cursor: pointer; margin-bottom: var(--space-2); font-size: var(--text-caption); font-weight: 600; }
+.figure-source { display: inline-block; margin-top: var(--space-1); font-size: var(--text-small); }
 .text-toggle { padding: 0; border: 0; font-size: var(--text-caption); font-weight: 500; color: var(--color-accent); background: var(--color-transparent); }
 .text-toggle:hover { color: var(--color-accent-hover); background: var(--color-transparent); text-decoration: underline; text-underline-offset: 3px; }
 .knowledge-chips, .method-families { display: flex; flex-wrap: wrap; gap: 6px; }

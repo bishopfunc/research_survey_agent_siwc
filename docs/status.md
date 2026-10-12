@@ -74,6 +74,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: P14。論文タブに「引用数を更新」を追加（OpenAlex、[0015](design/0015-citation-counts.md)）。単体試験5件PASS。実ネットワーク：ローカルサーバー経由でサンプル5本を照会し、4本が出版DOIで一致（CBS AIJ 1261、CBS AAAI 93、ECBS 279、EECBS 213、2026-10-12取得）、ICBSは論文名の違い（「The」の有無）で未発見。ヘッドレスChromeで押下→「更新中…」→カードと詳細（OpenAlex・日付）に反映→通知の「元に戻す」で戻ることを確認。
 
+2026-10-12 JST: P15。論文の詳細に「理解に重要なFig」を追加（[0016](design/0016-paper-key-figures.md)）。単体試験4件PASS。実ネットワーク：ヘッドレスChromeでarXiv 2307.15644を取得（arxiv.org/htmlを1回）、Figure 1（SVG）とFigure 2（PNG）がCodexの挙げたFig. 1・Fig. 2に並んで表示され、Figure 3は「ほかのFig」に入ることと、再読み込みで保存済みの結果が表示されボタンが消えることを確認。
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤
