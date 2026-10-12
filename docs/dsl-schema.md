@@ -56,3 +56,7 @@ localStorageや`.poc/`は個人PoC用の保存先であり、クラウドバッ�
 ## 使う関係（2026-10-12、[ADR 0015](adr/0015-core-relations.md)）
 
 新しく書く関係は part_of・specializes・extends・builds_on・instance_of・proposes・addresses・about・supports・contradicts に限る。depends_on・related_to・caused_by・tradeoff_with・assumes・refines・introduces_issue は、保存済みの調査を読むためにスキーマに残すが、Codexは書かず、画面にも出さない。
+
+## 事実と出典（2026-10-12、[ADR 0017](adr/0017-evidence-as-common-source.md)）
+
+論文と文献ガイドから取り出すものは事実と出典の組。出典はEvidence（画面では「出典」）で、任意の`origin`（論文か文献ガイドの項目のID）・`locator`・`excerpt`（原文の写し）・`source_url`・`verification`を持つ。課題・手法・系統・ナレッジ・論文の要点（Reading）は任意の`evidence`で出典を参照し、主張と論文は従来どおり`evidence`を持つ。Readingの`sources`とKeywordの`definition_excerpt`・`source_url`・`locator`は保存済みの調査のために残し、新しい出力では使わない。

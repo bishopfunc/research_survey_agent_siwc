@@ -8,7 +8,7 @@ function outlinePatch(): SurveyPatch {
   const base = snapshotAsPatch(fixture, 'b', 'outline');
   const drop = new Set(fixture.entities.filter(e => ['Claim', 'Evidence', 'Tutorial'].includes(e.type)).map(e => e.id));
   const operations = base.operations.filter(op => !(op.op === 'add_entity' && drop.has(op.entity.id)) && !(op.op === 'add_relation' && (drop.has(op.relation.from) || drop.has(op.relation.to))))
-    .map(op => op.op === 'add_entity' && op.entity.type === 'Paper' ? { ...op, entity: { ...op.entity, claims: [], evidence: [], reading: null } } : op);
+    .map(op => op.op !== 'add_entity' ? op : op.entity.type === 'Paper' ? { ...op, entity: { ...op.entity, claims: [], evidence: [], reading: null } } : 'evidence' in op.entity ? { ...op, entity: { ...op.entity, evidence: [] } } : op);
   return { ...base, operations: operations as SurveyPatch['operations'] };
 }
 const ok = (patch: unknown): StageResult => ({ ok: true, output: JSON.stringify(patch), searches: 2 });

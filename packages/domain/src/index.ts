@@ -79,6 +79,7 @@ export function validateSnapshot(value: unknown): string[] {
       if (e.abstract_source_url && !/^https?:\/\//.test(e.abstract_source_url)) errors.push(`${e.id}: アブストラクトの取得元URLはhttp/httpsのみ対応します`);
       if (e.abstract_ja?.trim() && !e.abstract?.trim()) errors.push(`${e.id}: 和訳には元のアブストラクト（原文）が必要です`);
       if (e.reading?.sources?.some(s => !/^https?:\/\//.test(s.url))) errors.push(`${e.id}: 要点の出典はhttp/httpsのみ対応します`);
+      for (const id of e.reading?.evidence ?? []) reference(`${e.id}の要点`, id, ['Evidence']);
       if (e.code_url && !/^https?:\/\//.test(e.code_url)) errors.push(`${e.id}: コードURLはhttp/httpsのみ対応します`);
       if (code === 'public' && (!e.code_url || !e.code_checked_at)) errors.push(`${e.id}: コード公開ありには公開URLと確認日が必要です`);
       if (code === 'not_found' && (!e.code_checked_at || e.code_url)) errors.push(`${e.id}: コードが見つからずには確認日が必要で、公開URLは空にしてください`);
@@ -88,7 +89,10 @@ export function validateSnapshot(value: unknown): string[] {
       for (const id of e.evidence) reference(e.id, id, ['Evidence']);
       if (e.status !== 'unknown' && (!e.evidence.length || !e.as_of)) errors.push(`${e.id}: 解決状態の評価にはEvidenceとas_ofが必要です`);
     }
+    // Facts cite their sources (design 0025): issues, methods, families and knowledge items point at Evidence.
+    if ((e.type === 'Issue' || e.type === 'Method' || e.type === 'Concept' || e.type === 'Keyword') && e.evidence) for (const id of e.evidence) reference(e.id, id, ['Evidence']);
     if (e.type === 'Evidence') {
+      if (e.origin) reference(e.id, e.origin, ['Paper', 'Resource']);
       if (!/^https?:\/\//.test(e.source_url)) errors.push(`${e.id}: 出典はhttp/https URLが必要です`);
       if (e.provenance === 'codex' && e.verification === 'verified') errors.push(`${e.id}: Codexの生成だけで原文確認済みにはできません`);
       if (e.verification === 'verified' && (!e.excerpt.trim() || !e.retrieved_at || !e.content_hash)) errors.push(`${e.id}: verifiedには本文断片・取得日・hashが必要です`);

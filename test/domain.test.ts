@@ -202,7 +202,7 @@ test('keywords keep beginner meanings with typed references, and a definition ex
   assert.match(validateSnapshot(input).join(), /公式ページ/);
   keyword.official_url = 'https://example.org/benchmark';
   assert.deepEqual(validateSnapshot(input), []);
-  assert.ok(fixture.entities.some(e => e.type === 'Keyword' && e.category === 'benchmark' && e.official_url && e.definition_excerpt && e.source_url));
+  assert.ok(fixture.entities.some(e => e.type === 'Keyword' && e.category === 'benchmark' && e.official_url && e.evidence?.length), 'the definition is a cited source now');
 });
 
 test('deleting a collection keeps shared history, drops unreachable commits and never removes the last one', () => {
@@ -304,9 +304,9 @@ test('research output may use only the current knowledge categories; older ones 
 
 test('a paper reading names the original pages it is based on; unsafe links are refused and Codex slips are tidied', () => {
   const input = structuredClone(fixture);
-  const paper = input.entities.find(e => e.id === 'paper-cbs');
+  const paper = input.entities.find(e => e.id === 'paper-cbs-2012');
   if (paper?.type !== 'Paper' || !paper.reading) throw Error('fixture changed');
-  assert.ok(paper.reading.sources?.length);
+  assert.ok(paper.reading.evidence?.length, 'the reading cites its sources');
   paper.reading.sources = [{ url: 'javascript:alert(1)', locator: 'Abstract' }];
   assert.match(validateSnapshot(input).join(), /要点の出典/);
   const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
@@ -347,4 +347,24 @@ test('a literature guide entry needs an http link and points only at issues, met
   const errors = validateSnapshot(input).join();
   assert.match(errors, /cbs は Issue 型が必要/);
   assert.match(errors, /collision は Paper 型が必要/);
+});
+
+test('facts cite sources: every fact of the sample has Evidence (except ICBS, whose text was never retrieved), copied from its origin', () => {
+  const byId = new Map(fixture.entities.map(e => [e.id, e]));
+  const facts = fixture.entities.filter(e => ['Issue', 'Method', 'Concept', 'Keyword'].includes(e.type));
+  assert.deepEqual(facts.filter(e => !(e as { evidence?: string[] }).evidence?.length).map(e => e.id), ['icbs']);
+  for (const e of fixture.entities) {
+    if (e.type !== 'Evidence' || e.verification !== 'abstract_only' || !e.origin) continue;
+    const origin = byId.get(e.origin);
+    if (origin?.type === 'Paper') assert.ok(origin.abstract?.includes(e.excerpt), `${e.id} is copied from the abstract of ${origin.id}`);
+  }
+  const input = structuredClone(fixture);
+  const issue = input.entities.find(e => e.id === 'collision');
+  const evidence = input.entities.find(e => e.id === 'src-collision');
+  if (issue?.type !== 'Issue' || evidence?.type !== 'Evidence') throw Error('fixture changed');
+  issue.evidence = ['cbs'];
+  evidence.origin = 'collision';
+  const errors = validateSnapshot(input).join();
+  assert.match(errors, /cbs は Evidence 型が必要/);
+  assert.match(errors, /collision は Paper\/Resource 型が必要/);
 });

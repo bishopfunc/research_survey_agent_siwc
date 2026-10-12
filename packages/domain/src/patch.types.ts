@@ -84,6 +84,7 @@ export interface Concept {
     | [string, string, string]
     | [string, string, string, string]
     | [string, string, string, string, string];
+  evidence?: string[];
 }
 export interface Issue {
   id: string;
@@ -102,6 +103,7 @@ export interface Issue {
     | [string, string, string]
     | [string, string, string, string]
     | [string, string, string, string, string];
+  evidence?: string[];
 }
 export interface Method {
   id: string;
@@ -119,6 +121,7 @@ export interface Method {
     | [string, string, string]
     | [string, string, string, string]
     | [string, string, string, string, string];
+  evidence?: string[];
 }
 export interface Paper {
   id: string;
@@ -163,6 +166,7 @@ export interface Reading {
     url: string;
     locator: string;
   }[];
+  evidence?: string[];
 }
 export interface Figure {
   asset_id: string;
@@ -207,6 +211,7 @@ export interface Evidence {
   verification: "unverified" | "abstract_only" | "verified";
   retrieved_at: string | null;
   content_hash: string | null;
+  origin?: string | null;
 }
 export interface Keyword {
   id: string;
@@ -235,6 +240,7 @@ export interface Keyword {
   definition_excerpt: string;
   source_url: string | null;
   locator: string | null;
+  evidence?: string[];
 }
 export interface Tutorial {
   id: string;

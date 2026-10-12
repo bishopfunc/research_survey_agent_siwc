@@ -47,7 +47,9 @@ test('new and additional research get different mode instructions over the same 
 test('shared rules limit tools to web search and keep sources verbatim, linked and unverified', () => {
   for (const id of ['tools', 'untrusted', 'library', 'evidence', 'abstract', 'bibliography', 'nofabrication']) assert.ok(PROMPT_RULES.some(r => r.id === id), id);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Research only with the web search tool\. Do not run shell commands or read local files\./);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /verification=unverified, a source_url and a locator; its excerpt is copied verbatim from a page you retrieved in this run/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Facts and sources: everything you extract from papers and literature-guide Resources is a fact with its source/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /excerpt copied verbatim \(one or two sentences\) from a page you opened in this run, origin set to the ID of the Paper or Resource/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /A statement you cannot source is not a fact/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Do not re-read cached papers unless the user explicitly asks/);
   assert.ok(CODEX_DISABLED_FEATURES.includes('shell_tool') && CODEX_DISABLED_FEATURES.includes('browser_use') && CODEX_DISABLED_FEATURES.includes('computer_use'));
 });
@@ -132,7 +134,7 @@ test('a library paper is re-read only after the user sends the follow-up that as
   assert.match(SURVEY_RULES_INSTRUCTIONS, /so that sending it is the user's approval/);
 });
 test('readings cite their original pages, arXiv papers are read in full text, and missing knowledge layers are reported', () => {
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put in reading\.sources every page the reading is based on, each with its url and a locator/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put in reading\.evidence the Evidence each statement is based on \(the facts rule\)/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /open its HTML full text \(https:\/\/arxiv\.org\/html\/<id>, or https:\/\/ar5iv\.labs\.arxiv\.org\/html\/<id> for older papers\)/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /name in the patch message each category you searched for but could not find/);
 });
@@ -153,7 +155,7 @@ test('a new survey lists tens to a hundred papers and reads ten to twenty in dep
   assert.match(NEW_SURVEY_INSTRUCTIONS, /mark about 10 to 20 of them as the ones to read in depth/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Add every paper you listed, at least 30 and up to about 100 survey and primary Papers/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /never add the same paper twice/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Fill reading \(with sources\) for the 10–20 papers you read in depth/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Fill reading \(with its Evidence\) for the 10–20 papers you read in depth/);
   assert.ok(RESEARCH_MODES.new.timeoutSeconds >= 2700 && RESEARCH_MODES.new.repairTimeoutSeconds >= 1200);
 });
 test('the paper list does not stop below thirty, every tutorial method section cites a paper and no method is unclassified', () => {

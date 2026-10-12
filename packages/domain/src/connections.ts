@@ -15,9 +15,12 @@ export function buildConnections(snapshot: SurveySnapshot, id: string): Connecti
   const byId = new Map(snapshot.entities.map(e => [e.id, e]));
   if (!byId.has(id)) return [];
   const found = new Map<string, Connection>();
+  const center = byId.get(id)!;
   const add = (other: string, type: LinkType, outgoing: boolean) => {
     const entity = byId.get(other);
     if (!entity || other === id) return;
+    // Sources have their own section; a claim still lists its evidence, and a source lists the facts citing it.
+    if (entity.type === 'Evidence' && center.type !== 'Claim') return;
     const connection = found.get(other) ?? { entity, links: [] };
     if (!connection.links.some(l => l.type === type && l.outgoing === outgoing)) connection.links.push({ type, outgoing });
     found.set(other, connection);

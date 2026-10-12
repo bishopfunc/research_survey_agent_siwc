@@ -19,6 +19,9 @@
       "english_terms": [
         "multi-agent path finding (MAPF)",
         "collision-free paths"
+      ],
+      "evidence": [
+        "src-collision"
       ]
     },
     {
@@ -31,6 +34,9 @@
       "english_terms": [
         "scalability",
         "large numbers of agents"
+      ],
+      "evidence": [
+        "evidence-ecbs-np"
       ]
     },
     {
@@ -43,6 +49,9 @@
       "english_terms": [
         "optimality",
         "bounded suboptimality"
+      ],
+      "evidence": [
+        "src-optimality"
       ]
     },
     {
@@ -54,6 +63,9 @@
       "kind": "method_dependent",
       "english_terms": [
         "constraint tree (CT)"
+      ],
+      "evidence": [
+        "src-tree"
       ]
     },
     {
@@ -66,6 +78,9 @@
         "Conflict-Based Search (CBS)",
         "constraint tree",
         "two-level search"
+      ],
+      "evidence": [
+        "src-cbs"
       ]
     },
     {
@@ -78,6 +93,9 @@
         "Enhanced CBS (ECBS)",
         "bounded-suboptimal search",
         "focal search"
+      ],
+      "evidence": [
+        "src-ecbs"
       ]
     },
     {
@@ -90,6 +108,10 @@
         "conflict-based search",
         "CBS-based solvers",
         "optimal and bounded-suboptimal MAPF"
+      ],
+      "evidence": [
+        "src-cbs",
+        "src-tree"
       ]
     },
     {
@@ -115,12 +137,7 @@
         "key_figures": [
           "制約木（CT）の展開例：衝突から2つの子ノードへの分岐"
         ],
-        "sources": [
-          {
-            "url": "https://doi.org/10.1016/j.artint.2014.11.006",
-            "locator": "Abstract・Section 3"
-          }
-        ]
+        "evidence": []
       },
       "citation_count": 1261,
       "citation_source": "OpenAlex",
@@ -181,7 +198,8 @@
       "excerpt": "In many cases this reformulation enables CBS to examine fewer states than A* while still maintaining optimality.",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-cbs-2012"
     },
     {
       "id": "icbs",
@@ -205,6 +223,9 @@
         "Explicit Estimation CBS (EECBS)",
         "explicit estimation search",
         "inadmissible heuristics"
+      ],
+      "evidence": [
+        "src-eecbs"
       ]
     },
     {
@@ -240,7 +261,8 @@
         "claim-cbs"
       ],
       "evidence": [
-        "evidence-cbs"
+        "evidence-cbs",
+        "src-cbs"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -258,11 +280,9 @@
         "validation": "様々な問題で従来の最適ソルバと比べ、最大で1桁速いことを示した（アブストラクトより）。",
         "discussion": "アブストラクトは利点と欠点の両方を解析したと述べる。衝突が多い場合に上の段の木が大きくなる点は、後続のECBS・ICBSなどが扱った。",
         "key_figures": [],
-        "sources": [
-          {
-            "url": "https://ojs.aaai.org/index.php/AAAI/article/view/8140",
-            "locator": "Abstract"
-          }
+        "evidence": [
+          "evidence-cbs",
+          "src-cbs"
         ]
       }
     },
@@ -299,7 +319,8 @@
         "claim-cbs"
       ],
       "evidence": [
-        "evidence-ecbs-np"
+        "evidence-ecbs-np",
+        "src-ecbs"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -317,11 +338,9 @@
         "validation": "解の質をわずかに犠牲にして実行時間を大幅に減らし、ほとんどの場合で既存手法を上回った（アブストラクトより）。",
         "discussion": "最適解が必要な場面には使えない。上限の倍率の選び方で速さと質が変わる。",
         "key_figures": [],
-        "sources": [
-          {
-            "url": "https://ojs.aaai.org/index.php/SOCS/article/view/18315",
-            "locator": "Abstract"
-          }
+        "evidence": [
+          "evidence-ecbs-np",
+          "src-ecbs"
         ]
       }
     },
@@ -392,7 +411,11 @@
         "scalability"
       ],
       "claims": [],
-      "evidence": [],
+      "evidence": [
+        "src-ecbs-baseline",
+        "src-eecbs",
+        "src-optimality"
+      ],
       "code_availability": "public",
       "code_url": "https://github.com/Jiaoyang-Li/EECBS",
       "code_checked_at": "2026-10-12",
@@ -412,16 +435,15 @@
         "key_figures": [
           "Figure 2: 実行時間と成功率の比較"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/2010.01367",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: 4近傍格子での対称性の例。",
           "Figure 2: 性能。左の図は、200問でのアルゴリズムの平均実行時間を示す。解けなかった問題は1分として平均に含める。右の図は、準最適係数1.02・1.10・1.20でのアルゴリズムの成功率（制限時間内に解けた問題の割合）を示す。BP・PC・SR・WDGは、それぞれ衝突の迂回、衝突の優先順位づけ、対称性の推論、WDGヒューリスティックの利用の略である。",
           "Table 3: 下界の改善量 Δlb。すなわち、EECBSが終了したときのCLEANUP中で最良のCTノードの lb+h の値から、根のCTノードの lb の値を引いたもの。WDG timeは、WDGヒューリスティックの計算に使った実行時間の割合である。"
+        ],
+        "evidence": [
+          "src-optimality",
+          "src-eecbs",
+          "src-ecbs-baseline"
         ]
       }
     },
@@ -445,7 +467,10 @@
       ],
       "definition_excerpt": "",
       "source_url": null,
-      "locator": null
+      "locator": null,
+      "evidence": [
+        "src-objectives"
+      ]
     },
     {
       "id": "kw-mapf-benchmark",
@@ -465,10 +490,13 @@
         "mapf",
         "scalability"
       ],
-      "definition_excerpt": "The goal of this page is to collect benchmark problems and maps that can be broadly used and referenced for comparison and testing purposes.",
-      "source_url": "https://movingai.com/benchmarks/mapf.html",
-      "locator": "MAPF Benchmarks ページ冒頭（2026-10-12取得）",
-      "official_url": "https://movingai.com/benchmarks/mapf.html"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "official_url": "https://movingai.com/benchmarks/mapf.html",
+      "evidence": [
+        "src-movingai"
+      ]
     },
     {
       "id": "kw-makespan",
@@ -484,7 +512,10 @@
       ],
       "definition_excerpt": "",
       "source_url": null,
-      "locator": null
+      "locator": null,
+      "evidence": [
+        "src-objectives"
+      ]
     },
     {
       "id": "kw-success-rate",
@@ -502,7 +533,10 @@
       ],
       "definition_excerpt": "",
       "source_url": null,
-      "locator": null
+      "locator": null,
+      "evidence": [
+        "src-success-rate"
+      ]
     },
     {
       "id": "kw-cbs-baseline",
@@ -522,7 +556,10 @@
       ],
       "definition_excerpt": "",
       "source_url": null,
-      "locator": null
+      "locator": null,
+      "evidence": [
+        "evidence-ml-cbs"
+      ]
     },
     {
       "id": "tutorial",
@@ -812,6 +849,9 @@
       "english_terms": [
         "priority-based sub-optimal MAPF",
         "rule-based MAPF solvers"
+      ],
+      "evidence": [
+        "src-family-prioritized"
       ]
     },
     {
@@ -824,6 +864,10 @@
         "learning-based MAPF",
         "multi-agent reinforcement learning (MARL)",
         "imitation learning"
+      ],
+      "evidence": [
+        "src-primal",
+        "src-gnn-mapf"
       ]
     },
     {
@@ -836,6 +880,9 @@
       "english_terms": [
         "decentralized multi-agent path finding",
         "partially observable MAPF (PO-MAPF)"
+      ],
+      "evidence": [
+        "src-decentralized"
       ]
     },
     {
@@ -848,6 +895,9 @@
       "english_terms": [
         "inter-robot communication",
         "learned communication policy"
+      ],
+      "evidence": [
+        "src-communication"
       ]
     },
     {
@@ -861,6 +911,9 @@
         "lifelong MAPF",
         "iterative MAPF",
         "multi-agent pickup and delivery (MAPD)"
+      ],
+      "evidence": [
+        "src-lifelong"
       ]
     },
     {
@@ -873,6 +926,9 @@
         "Priority Inheritance with Backtracking (PIBT)",
         "priority inheritance",
         "iterative MAPF"
+      ],
+      "evidence": [
+        "src-pibt"
       ]
     },
     {
@@ -885,6 +941,9 @@
         "Lazy Constraints Addition search for MAPF (LaCAM)",
         "lazy successor generation",
         "configuration generator"
+      ],
+      "evidence": [
+        "src-lacam"
       ]
     },
     {
@@ -897,6 +956,9 @@
         "LaCAM*",
         "anytime MAPF",
         "eventually optimal"
+      ],
+      "evidence": [
+        "evidence-lacam-star-optimal"
       ]
     },
     {
@@ -909,6 +971,9 @@
         "PRIMAL (Pathfinding via Reinforcement and Imitation Multi-Agent Learning)",
         "reinforcement and imitation learning",
         "fully decentralized policies"
+      ],
+      "evidence": [
+        "src-primal"
       ]
     },
     {
@@ -921,6 +986,9 @@
         "GNN-based decentralized multi-robot path planning",
         "graph neural networks (GNN)",
         "learned communication"
+      ],
+      "evidence": [
+        "src-gnn-mapf"
       ]
     },
     {
@@ -933,6 +1001,9 @@
         "ML-guided conflict selection for CBS (ML-S, ML-O)",
         "machine-learning framework for conflict selection",
         "linear ranking function"
+      ],
+      "evidence": [
+        "src-ml-cbs"
       ]
     },
     {
@@ -1001,12 +1072,6 @@
           "Algorithm 1: PIBTの手続き",
           "Figure 10: 実機ロボットでのデモ"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/1901.11282",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 6: MAPFの結果の一部。典型例として random-32-32-20 と ost003d を選んだ。すべての結果は付録にある。右上には、エージェント数を固定したグラフを示す。地図の大きさと |V| を括弧内に示す。CBS-Mの和コストとCBS/BCPのmakespanの値は省いた。ost003d の右上端のグラフでは、EECBSとEECBS-Mのプロットが重なっている。",
           "Figure 7: MAPDの実験で使った地図。グラフは21×35の4近傍格子である。灰色のセルはタスクの端点、すなわち荷物を受け取る場所と届ける場所である。",
@@ -1021,6 +1086,10 @@
           "Algorithm 1: PIBT",
           "Algorithm 2: PIBT+",
           "Algorithm 3: MAPDのためのPIBT"
+        ],
+        "evidence": [
+          "src-pibt",
+          "src-family-prioritized"
         ]
       },
       "citation_count": 148,
@@ -1043,7 +1112,10 @@
         "lifelong"
       ],
       "claims": [],
-      "evidence": [],
+      "evidence": [
+        "src-family-prioritized",
+        "src-pibt"
+      ],
       "code_availability": "public",
       "code_url": "https://github.com/Kei18/pibt2",
       "code_checked_at": "2026-10-12"
@@ -1075,12 +1147,6 @@
           "Figure 1: LaCAMの動作例",
           "Figure 3: 大量のエージェントでの結果"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/2211.13432",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: LaCAMの動作例。オレンジの矢印は探索の進む順序を表す。選ばれた下位のノードを黒、探索した下位のノードを灰色で塗る。制約は青い矢印で示す。",
           "Figure 2: MAPFベンチマークの結果。各格子の頂点数を括弧内に示す。「cost」は、和コスト（SOC）を開始点と目標点の組の距離の合計 Σ_{i∈A} dist(s_i, g_i) で割ったもので、dist(u, v) はグラフ上の u∈V から v∈V への最短経路長である。この値は準最適性の上界として働き、最小値は1である。「runtime」と「cost」は、各ソルバが解いた問題の中央値を示す。最小値と最大値は半透明の領域で示す。LaCAMの成功率は、全試行に対する成功した試行の数にもとづく。",
@@ -1089,6 +1155,9 @@
           "Table 1: 小さく複雑な問題での結果。",
           "Table 2: 敵対的な問題でのLaCAMの性能。",
           "Algorithm 1: LaCAM"
+        ],
+        "evidence": [
+          "src-lacam"
         ]
       },
       "citation_count": 77,
@@ -1107,7 +1176,9 @@
         "scalability"
       ],
       "claims": [],
-      "evidence": [],
+      "evidence": [
+        "src-lacam"
+      ],
       "code_availability": "public",
       "code_url": "https://github.com/Kei18/lacam",
       "code_checked_at": "2026-10-12"
@@ -1138,12 +1209,6 @@
           "Figure 1: MAPFベンチマークでの性能",
           "Figure 2: LaCAMの考え方（1エージェントの格子経路で説明）"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/2305.03632",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: MAPFベンチマークでの性能。上：Stern et al. (2019) から取った33個の4近傍格子地図上の13,900問のうち、解けた問題の数。エージェント数は最大1,000まで変わる。「-f」「-m」「-l」は、それぞれflowtime、makespan、sum-of-lossを最小にしようとするアルゴリズムを表す。LaCAM*の値は初期解のものである。下：代表的な、または最先端のMAPFアルゴリズム。「solution cmp.」は、解ける問題には必ず解を見つけるが、解けない問題を解けないと判定することはないアルゴリズムを表す。「bnd. sub-opt.」は有界準最適のアルゴリズムを表す。その準最適性は5に設定した。",
           "Figure 2: 1エージェントの格子の経路探索で説明したLaCAM。",
@@ -1165,6 +1230,10 @@
           "Algorithm 3: LaCAM*。C_init は「制約なし」を意味する。",
           "Algorithm 4: 入れ替え（swap）つきのPIBTの手続き",
           "Algorithm 5: LaCAM"
+        ],
+        "evidence": [
+          "evidence-lacam-star-scale",
+          "evidence-lacam-star-optimal"
         ]
       },
       "citation_count": 28,
@@ -1222,12 +1291,6 @@
           "Figure 2: 各エージェントの観測空間",
           "Figure 4: 強化学習と模倣学習を組み合わせた学習の構成"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/1809.03531",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: 100台の模擬ロボット（白い点）が、工場のような広い環境で、それぞれ衝突のない経路を計算しなければならない問題の例。",
           "Figure 2: 各エージェント（ここでは水色のエージェント）の観測空間。エージェントは色付きの正方形、その目標は同じ色の星、障害物は灰色の正方形で表す。各エージェントは自分の位置を中心とする限られた視野（FOV）だけを観測でき、その情報は次のチャネルに分かれる：障害物の位置、近くのエージェントの位置、近くのエージェントの目標の位置（視野の外にあれば視野の境界に投影する）、視野内にあれば自分の目標の位置。障害物のチャネルの最下行が障害物で埋まっているのは、その位置が世界の境界の外にあるためである。各エージェントは、目標を指す正規化したベクトル（目標は視野の外にあることが多い）とその大きさ（目標までの距離）も受け取り、進む大まかな方向を学ぶ自然な手がかりにする。",
@@ -1236,6 +1299,12 @@
           "Figure 5: 学習中の平均エピソード長（低いほどよい）。点線は、エキスパートのプランナODrM*から得た基準値を示す。環境のサンプリング、ブロックへの罰、模倣学習のどれかを除くと、方策はより悪い解に収束する。",
           "Figure 6: 3つの場面での各プランナの成功率。PRIMALは、上段の障害物のない世界ではすべてのプランナを上回り、障害物の少ない世界ではわずかに上回るが、障害物の多い世界では大きく下回る。",
           "Figure 7: 工場の模型の中で動く実機と模擬のロボットの様子。左：模型とロボットの上（上段）と横（下段）からの眺め。右：障害物（黒）、ロボット（青い円）、その目標（青い正方形）、現在の移動（緑の正方形）を示す可視化。"
+        ],
+        "evidence": [
+          "evidence-primal",
+          "src-decentralized",
+          "src-primal",
+          "src-real-robots"
         ]
       },
       "citation_count": 421,
@@ -1263,7 +1332,10 @@
         "claim-primal"
       ],
       "evidence": [
-        "evidence-primal"
+        "evidence-primal",
+        "src-decentralized",
+        "src-primal",
+        "src-real-robots"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/gsartoretti/PRIMAL",
@@ -1296,12 +1368,6 @@
           "Figure 1: 提案する枠組み",
           "Figure 2: 推論の段階"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/1912.06095",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: 提案する枠組みの説明。(i) 入力テンソルは2値の地図表現にもとづく（第1チャネル：環境の部分観測、第2チャネル：目標の位置 p_goal^i、または視野の境界への投影、第3チャネル：中心に自分（エージェント）と、視野内のほかのエージェント）。(ii) 分散の枠組みは、入力テンソルから観測を取り出すCNN、近くのエージェント間で情報を交換するGNN、行動を予測するMLPからなる。(iii) 学習は、離散の行動空間での交差エントロピー損失で行う。",
           "Figure 2: 推論の段階の説明：各ロボットについて、入力の地図 Z_t^i を学習した枠組みに入れて行動を予測する。衝突は衝突シールドで検出して防ぐ。入力の地図 Z_t^i は、ロボットが目標に着くか時間制限 T_max を超えるまで更新し続ける。",
@@ -1309,6 +1375,12 @@
           "Figure 4: 成功率とflowtimeの増加。行は各モデルを学習したときのロボット数、列は試験時のロボット数を表す。ヒートマップは性能を色に対応させ、紫が最もよく、赤が最も悪い。",
           "Figure 5: 試験したロボット数に対する成功率とflowtimeの増加の結果。10台のロボットの20×20の地図で学習（「TR10」）したGNN（K∈[2,3]）と、20台のロボットの28×28の地図で学習（「TR20」）したGNN（K=3）を比べる。試験は、ロボットの実効密度を一定に保つ地図で行った。",
           "Figure 6: 目標に着いたロボットの数ごとの問題の割合のヒストグラム。ホップ数 K∈[2,3] のネットワークを10台で学習し、60台で試験した（OEありとなし）。"
+        ],
+        "evidence": [
+          "evidence-gnn",
+          "src-communication",
+          "src-gnn-mapf",
+          "src-success-rate"
         ]
       },
       "citation_count": 276,
@@ -1333,7 +1405,10 @@
         "claim-gnn"
       ],
       "evidence": [
-        "evidence-gnn"
+        "evidence-gnn",
+        "src-communication",
+        "src-gnn-mapf",
+        "src-success-rate"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/proroklab/gnn_pathplanning",
@@ -1364,12 +1439,6 @@
         "key_figures": [
           "Figure 1: 制限時間内の成功率"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/2012.06005",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: 実行時間の制限内での成功率。",
           "Figure 2: warehouse の地図で特徴量を選んだときの成功率。ML-Sの曲線は、ML-S (5) と ML-S (-5) の曲線に一部隠れている。",
@@ -1389,6 +1458,11 @@
           "Table 4: 6つの地図での、エージェント数 k ごとの、すべてのソルバが解いた問題の成功率・平均実行時間・CTの大きさと、PAR10の値。ML-SとML-Oの成功率では、提案するソルバとCBSH2の両方が解いた問題の割合を括弧内に示す（CBSH2が解いた問題をすべて解いたものは太字）。各地図について、すべてのソルバが解いた問題での実行時間とCTの大きさ、およびPAR10の値について、CBSH2に対する提案するソルバの改善率を示す。",
           "Table 5: エージェント数 k ごとの、すべてのソルバが解いた問題の成功率・平均実行時間・CTの大きさと、PAR10の値（実行時間を分で計算）。ML-SとML-Oの成功率では、そのソルバと基準の両方が解いた問題の割合を括弧内に示す。",
           "Table 6: 特徴量とその番号。"
+        ],
+        "evidence": [
+          "evidence-ml-cbs",
+          "src-tree",
+          "src-ml-cbs"
         ]
       },
       "citation_count": 29,
@@ -1412,7 +1486,9 @@
         "claim-ml-cbs"
       ],
       "evidence": [
-        "evidence-ml-cbs"
+        "evidence-ml-cbs",
+        "src-ml-cbs",
+        "src-tree"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -1443,12 +1519,6 @@
         "key_figures": [
           "Figure 1: よくある衝突の種類"
         ],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/1906.08291",
-            "locator": "Abstract"
-          }
-        ],
         "captions_ja": [
           "Figure 1: よくある衝突の種類の説明。左から順に、辺衝突、頂点衝突、追従衝突、循環衝突、入れ替え衝突。",
           "Figure 3: 開始点と目標点を決める方法の例（[2015] から引用）。エージェントの25%には、開始点を左の空いた領域から、目標点を右の空いた領域からランダムに選び、残りのエージェントには、開始点と目標点をそれぞれ右と左の空いた領域から選んだ。",
@@ -1456,6 +1526,11 @@
           "Figure 5: 格子MAPFベンチマークにある地図の種類ごとの例。",
           "Figure 6: Aspriloの枠組みの2つのシナリオ。左の図は、箱をある場所から別の場所へ運ぶことを含む倉庫全体のシナリオ。右の図は移動だけのシナリオで、古典的なMAPF問題に対応する。",
           "Table 1: 格子MAPFベンチマークで、時間制限30秒でICBSを実行した結果。"
+        ],
+        "evidence": [
+          "src-collision",
+          "src-objectives",
+          "src-grid-benchmark"
         ]
       },
       "citation_count": 650,
@@ -1483,7 +1558,11 @@
         "collision"
       ],
       "claims": [],
-      "evidence": [],
+      "evidence": [
+        "src-collision",
+        "src-grid-benchmark",
+        "src-objectives"
+      ],
       "code_availability": "unknown",
       "code_url": null,
       "code_checked_at": null
@@ -1511,11 +1590,9 @@
         "validation": "模擬した倉庫の問題で、最大1,000エージェントまで既存の研究と比較した（アブストラクトより）。",
         "discussion": "時間窓の外の衝突は無視するため、窓の長さの選び方で解の質と計算時間が変わる。",
         "key_figures": [],
-        "sources": [
-          {
-            "url": "https://arxiv.org/abs/2005.07371",
-            "locator": "Abstract"
-          }
+        "evidence": [
+          "evidence-rhcr",
+          "src-lifelong"
         ]
       },
       "citation_count": 254,
@@ -1540,7 +1617,8 @@
         "claim-rhcr"
       ],
       "evidence": [
-        "evidence-rhcr"
+        "evidence-rhcr",
+        "src-lifelong"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/Jiaoyang-Li/RHCR",
@@ -1556,7 +1634,8 @@
       "excerpt": "Solving MAPF optimally is proven to be NP-hard, hence CBS and all other optimal solvers do not scale up.",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-ecbs"
     },
     {
       "id": "evidence-lacam-star-scale",
@@ -1568,7 +1647,8 @@
       "excerpt": "LaCAM* sub-optimally solved 99% of the instances retrieved from the MAPF benchmark, where the number of agents varied up to a thousand, within ten seconds on a standard desktop PC",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-lacam-star"
     },
     {
       "id": "evidence-lacam-star-optimal",
@@ -1580,7 +1660,8 @@
       "excerpt": "which eventually converges to optima, provided that solution costs are accumulated transition costs",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-lacam-star"
     },
     {
       "id": "evidence-primal",
@@ -1592,7 +1673,8 @@
       "excerpt": "We present results on randomized worlds with up to 1024 agents and compare success rates against state-of-the-art MAPF planners.",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-primal"
     },
     {
       "id": "evidence-rhcr",
@@ -1604,7 +1686,8 @@
       "excerpt": "it can produce high-quality solutions for up to 1,000 agents",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-rhcr"
     },
     {
       "id": "evidence-gnn",
@@ -1616,7 +1699,8 @@
       "excerpt": "The results show a performance close to that of our expert algorithm",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-gnn"
     },
     {
       "id": "evidence-ml-cbs",
@@ -1628,7 +1712,8 @@
       "excerpt": "our method significantly improves the success rates, the search tree sizes and runtimes over the current state-of-the-art CBS solver",
       "verification": "abstract_only",
       "retrieved_at": "2026-10-12T00:00:00+09:00",
-      "content_hash": null
+      "content_hash": null,
+      "origin": "paper-ml-cbs"
     },
     {
       "id": "claim-lacam-star-optimal",
@@ -1783,9 +1868,12 @@
       ],
       "official_url": null,
       "as_of": null,
-      "definition_excerpt": "Finally, we experimentally validate the learned policies in a hybrid simulation of a factory mockup, involving both real-world and simulated robots.",
-      "source_url": "https://arxiv.org/abs/1809.03531",
-      "locator": "Abstract"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "evidence": [
+        "src-real-robots"
+      ]
     },
     {
       "id": "kw-pogema",
@@ -1803,9 +1891,12 @@
       ],
       "official_url": "https://github.com/AIRI-Institute/pogema",
       "as_of": null,
-      "definition_excerpt": "a sandbox for challenging partially observable multi-agent pathfinding (PO-MAPF) problems",
-      "source_url": "https://arxiv.org/abs/2206.10944",
-      "locator": "Abstract"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "evidence": [
+        "src-pogema"
+      ]
     },
     {
       "id": "kw-gnn",
@@ -1826,9 +1917,12 @@
       ],
       "official_url": null,
       "as_of": null,
-      "definition_excerpt": "a graph neural network (GNN) that communicates these features among robots",
-      "source_url": "https://arxiv.org/abs/1912.06095",
-      "locator": "Abstract"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "evidence": [
+        "src-gnn-mapf"
+      ]
     },
     {
       "id": "kw-ecbs-baseline",
@@ -1847,9 +1941,12 @@
       ],
       "official_url": null,
       "as_of": null,
-      "definition_excerpt": "runs significantly faster than the state-of-the-art bounded-suboptimal MAPF algorithms ECBS, BCP-7, and eMDD-SAT",
-      "source_url": "https://arxiv.org/abs/2010.01367",
-      "locator": "Abstract"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "evidence": [
+        "src-ecbs-baseline"
+      ]
     },
     {
       "id": "kw-sota-large",
@@ -1868,9 +1965,12 @@
       ],
       "official_url": null,
       "as_of": "2023-05-05",
-      "definition_excerpt": "LaCAM* sub-optimally solved 99% of the instances retrieved from the MAPF benchmark, where the number of agents varied up to a thousand, within ten seconds on a standard desktop PC",
-      "source_url": "https://arxiv.org/abs/2305.03632",
-      "locator": "Abstract"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "evidence": [
+        "evidence-lacam-star-scale"
+      ]
     },
     {
       "id": "kw-grid-benchmark-paper",
@@ -1890,9 +1990,12 @@
       ],
       "official_url": null,
       "as_of": null,
-      "definition_excerpt": "In particular, we introduce a new grid-based benchmark for MAPF, and demonstrate experimentally that it poses a challenge to contemporary MAPF algorithms.",
-      "source_url": "https://arxiv.org/abs/1906.08291",
-      "locator": "Abstract"
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null,
+      "evidence": [
+        "src-grid-benchmark"
+      ]
     },
     {
       "id": "res-kei18-intro",
@@ -2034,6 +2137,338 @@
       ],
       "paper": null,
       "checked_at": "2026-10-12"
+    },
+    {
+      "id": "res-movingai",
+      "label": "Moving AI Lab: MAPF Benchmarks",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "website",
+      "title": "Moving AI Lab: MAPF Benchmarks",
+      "url": "https://movingai.com/benchmarks/mapf.html",
+      "authors": [],
+      "published": null,
+      "language": "en",
+      "summary": "MAPF用の格子地図と問題（シナリオ）を集めたベンチマークのページ。手法を同じ問題で比べるときに使う。",
+      "issues": [
+        "collision"
+      ],
+      "methods": [],
+      "paper": null,
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "src-collision",
+      "label": "MAPFの定義（Stern et al.）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract",
+      "excerpt": "the key constraint is that the agents will be able to follow these paths concurrently without colliding with each other",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "src-optimality",
+      "label": "最適性を譲る有界準最適（EECBS）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2010.01367",
+      "locator": "Abstract",
+      "excerpt": "ECBS is a bounded-suboptimal variant of CBS that uses focal search to speed up CBS by sacrificing optimality and instead guaranteeing that the costs of its solutions are within a given factor of optimal.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "src-tree",
+      "label": "衝突ごとの分岐（ML-CBS）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2012.06005",
+      "locator": "Abstract",
+      "excerpt": "At the high level, CBS repeatedly detects conflicts and resolves one of them by splitting the current problem into two subproblems.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "src-lifelong",
+      "label": "lifelong MAPFの設定（RHCR）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2005.07371",
+      "locator": "Abstract",
+      "excerpt": "we study the lifelong variant of MAPF, where agents are constantly engaged with new goal locations, such as in large-scale automated warehouses",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "src-decentralized",
+      "label": "集中型の限界（PRIMAL）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract",
+      "excerpt": "most state-of-the-art MAPF planners still rely on centralized planning and scale poorly past a few hundred agents",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-primal"
+    },
+    {
+      "id": "src-communication",
+      "label": "共有する情報の難しさ（GNN）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "it is far from obvious what information is crucial to the task at hand, and how and when it must be shared among robots",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-cbs",
+      "label": "CBSの提案（AAAI 2012）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W3359552",
+      "locator": "Abstract",
+      "excerpt": "We present a new search algorithm called Conflict Based Search (CBS). CBS is a two-level algorithm.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "src-ecbs",
+      "label": "有界準最適の変種（ECBS）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W1488757178",
+      "locator": "Abstract",
+      "excerpt": "bounded-suboptimal variants, where the returned solution is guaranteed to be within a constant factor from optimal solution cost",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "src-eecbs",
+      "label": "EECBSの提案",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2010.01367",
+      "locator": "Abstract",
+      "excerpt": "we propose Explicit Estimation CBS (EECBS), a new bounded-suboptimal variant of CBS, that uses online learning to obtain inadmissible estimates of the cost of the solution of each high-level node",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "src-ml-cbs",
+      "label": "衝突選択の学習（ML-CBS）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2012.06005",
+      "locator": "Abstract",
+      "excerpt": "we propose a machine-learning framework for conflict selection that observes the decisions made by the oracle and learns a conflict-selection strategy represented by a linear ranking function",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "src-pibt",
+      "label": "PIBTの提案",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "this study presents Priority Inheritance with Backtracking (PIBT), a novel sub-optimal algorithm to solve MAPF iteratively",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-lacam",
+      "label": "LaCAMの2段階の探索",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2211.13432",
+      "locator": "Abstract",
+      "excerpt": "LaCAM uses a two-level search to find solutions quickly, even with hundreds of agents or more.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "src-primal",
+      "label": "PRIMALの提案",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract",
+      "excerpt": "We present PRIMAL, a novel framework for MAPF that combines reinforcement and imitation learning to teach fully-decentralized policies",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-primal"
+    },
+    {
+      "id": "src-gnn-mapf",
+      "label": "CNNとGNNの構成",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "Our architecture is composed of a convolutional neural network (CNN) that extracts adequate features from local observations, and a graph neural network (GNN) that communicates these features among robots.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-family-prioritized",
+      "label": "優先度づけ（PIBT）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "PIBT relies on an adaptive prioritization scheme to focus on the adjacent movements of multiple agents",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-objectives",
+      "label": "目的関数の違い（Stern et al.）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract",
+      "excerpt": "minimize makespan or sum of agents' actions costs",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "src-success-rate",
+      "label": "成功率と和コスト（GNN）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "We measure the success rates and sum of costs over the planned paths.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-movingai",
+      "label": "ベンチマークのページ（Moving AI）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://movingai.com/benchmarks/mapf.html",
+      "locator": "MAPF Benchmarks ページ冒頭",
+      "excerpt": "The goal of this page is to collect benchmark problems and maps that can be broadly used and referenced for comparison and testing purposes.",
+      "verification": "unverified",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "res-movingai"
+    },
+    {
+      "id": "src-real-robots",
+      "label": "実機を含む検証（PRIMAL）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract",
+      "excerpt": "Finally, we experimentally validate the learned policies in a hybrid simulation of a factory mockup, involving both real-world and simulated robots.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-primal"
+    },
+    {
+      "id": "src-ecbs-baseline",
+      "label": "ECBSとの比較（EECBS）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2010.01367",
+      "locator": "Abstract",
+      "excerpt": "runs significantly faster than the state-of-the-art bounded-suboptimal MAPF algorithms ECBS, BCP-7, and eMDD-SAT",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "src-grid-benchmark",
+      "label": "格子のベンチマーク（Stern et al.）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract",
+      "excerpt": "In particular, we introduce a new grid-based benchmark for MAPF, and demonstrate experimentally that it poses a challenge to contemporary MAPF algorithms.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "res-pogema",
+      "label": "POGEMA: Partially Observable Grid Environment for Multiple Agents",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "repository",
+      "title": "POGEMA: Partially Observable Grid Environment for Multiple Agents",
+      "url": "https://arxiv.org/abs/2206.10944",
+      "authors": [
+        "Alexey Skrynnik",
+        "Anton Andreychuk",
+        "Konstantin Yakovlev",
+        "Aleksandr I. Panov"
+      ],
+      "published": "2022",
+      "language": "en",
+      "summary": "部分観測のMAPFの計画と学習の手法を試す格子の環境。分散の手法を同じ問題で比べるときに使う。",
+      "issues": [
+        "decentralized"
+      ],
+      "methods": [
+        "primal",
+        "gnn-mapf"
+      ],
+      "paper": null,
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "src-pogema",
+      "label": "POGEMAの説明",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2206.10944",
+      "locator": "Abstract",
+      "excerpt": "a sandbox for challenging partially observable multi-agent pathfinding (PO-MAPF) problems",
+      "verification": "unverified",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "res-pogema"
     }
   ],
   "relations": [

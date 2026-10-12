@@ -21,7 +21,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const issues = snapshot.entities.filter(e => e.type === 'Issue');
   const families = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && snapshot.entities.some((e): e is Concept => e.id === r.to && e.type === 'Concept')).map(r => r.to));
   const inFamily = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && families.has(r.to)).map(r => r.from));
-  const deep = papers.filter(p => p.reading && (p.reading.sources?.length ?? 0) > 0 && p.reading.contributions.length > 0);
+  const deep = papers.filter(p => p.reading && ((p.reading.evidence?.length ?? 0) > 0 || (p.reading.sources?.length ?? 0) > 0) && p.reading.contributions.length > 0);
   const identified = papers.filter(p => p.year !== null && (p.doi || p.arxiv_id || p.url));
   // A paper is placed in the map when something in the survey points at it, or it points at a method or issue.
   const cited = new Set<string>();

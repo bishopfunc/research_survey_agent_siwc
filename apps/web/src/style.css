@@ -278,8 +278,8 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .muted-label { font-size: var(--text-small); color: var(--color-faint); }
 .paper-byline, .inspector>.paper-byline { margin: 0 0 var(--space-2); font-size: var(--text-small); color: var(--color-muted); overflow-wrap: anywhere; }
 .paper-reading { margin: var(--space-2) 0 0; }
-.paper-reading h3 { margin: var(--space-3) 0 2px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); }
-.paper-reading h3:first-child { margin-top: 0; }
+.paper-reading h4 { margin: var(--space-3) 0 2px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); }
+.paper-reading h4:first-child { margin-top: 0; }
 .paper-reading p, .paper-reading li { font-size: var(--text-caption); line-height: 1.8; color: var(--color-ink); overflow-wrap: anywhere; }
 .paper-reading ul { margin: 0; padding-left: 1.2em; }
 .reading-sources ul { list-style: none; padding: 0; }
@@ -389,7 +389,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .change-body small { font-size: 11px; color: var(--color-muted); }
 .change-body p { padding: 8px 10px; border-radius: var(--radius-small); background: var(--color-surface); font-size: var(--text-small); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.start-research .suggestions { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); padding-bottom: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.start-research .suggestions { display: grid; grid-auto-flow: column; grid-template-columns: none; grid-template-rows: repeat(3, auto); grid-auto-columns: max-content; gap: var(--space-2); margin-bottom: var(--space-3); padding-bottom: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; }
 .start-research .suggestions button { flex: 0 0 auto; padding: var(--space-2) 14px; border-radius: var(--radius-pill); white-space: nowrap; scroll-snap-align: start; }
 .start-research { display: flex; flex-direction: column; gap: var(--space-3); max-width: 760px; margin: 6dvh auto 0; }
 .start-input { align-items: flex-end; }
@@ -506,3 +506,18 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .resource-open:hover h3 { color: var(--color-accent); }
 .resource-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--space-2); font-size: var(--text-small); }
 .resource-links a { margin-left: auto; color: var(--color-accent); }
+.paper-part { margin-top: var(--space-5); padding-top: var(--space-4); border-top: var(--rule-width) solid var(--color-line); }
+.paper-part:first-of-type { margin-top: var(--space-3); }
+.paper-part-heading { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.paper-part h4 { margin: var(--space-3) 0 2px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); }
+.paper-abstract p { white-space: pre-wrap; }
+.source-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.source-list blockquote { margin: 0; padding: 6px var(--space-3); border-left: 3px solid var(--color-line-strong); font-size: var(--text-caption); line-height: 1.7; color: var(--color-ink); background: var(--color-paper); }
+.source-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-2); margin-top: 4px; font-size: var(--text-small); color: var(--color-muted); }
+.source-meta a { margin-left: auto; color: var(--color-accent); }
+.fact-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.fact-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--space-2); }
+.fact-name { padding: 0; border: 0; text-align: left; font-size: var(--text-caption); color: var(--color-ink); background: var(--color-transparent); }
+.fact-name small { margin-right: 6px; font-size: 11px; color: var(--color-muted); }
+.fact-name:hover { color: var(--color-accent); background: var(--color-transparent); }
+.fact-locator { font-size: var(--text-small); color: var(--color-faint); }
