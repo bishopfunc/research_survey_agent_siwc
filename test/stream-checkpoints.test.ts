@@ -204,3 +204,14 @@ test('a replace that changes the entity type takes nothing from the stored entit
   const out = applyPatch(fixture, JSON.parse(chunks.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === resource.id);
   assert.ok(out?.type === 'Resource' && out.title === resource.title && out.label === '短い名前');
 });
+test('the Map sends a Resource without links first and adds its links last with a sparse replace', () => {
+  const resource = fixture.entities.find(e => e.type === 'Resource' && (e.issues.length || e.methods.length))!;
+  if (resource.type !== 'Resource') throw Error('fixture changed');
+  const base = { ...fixture, entities: fixture.entities.filter(e => e.id !== resource.id) };
+  const chunks = streamCheckpoints(base, 'b', p => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>), () => {});
+  assert.equal(chunks.accept(event(patch([{ op: 'add_entity', entity: { ...resource, issues: [], methods: [], paper: null } }]))), 'saved');
+  assert.equal(chunks.accept(event(patch([{ op: 'replace_entity', entity: { id: resource.id, type: 'Resource', label: resource.label, issues: resource.issues, methods: resource.methods, paper: resource.paper } }]))), 'saved');
+  // The time runs out here: the saved checkpoints already hold the linked Resource.
+  const out = applyPatch(base, JSON.parse(chunks.partial()!), 'b').entities.find(e => e.id === resource.id);
+  assert.deepEqual(out, resource);
+});
