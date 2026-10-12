@@ -68,7 +68,7 @@ function ResizeHandle({ label, width, limits, edge, column, onChange }: { label:
   }
   return <div className={`resize-handle ${edge}`} role="separator" aria-orientation="vertical" aria-label={label} aria-valuenow={width} aria-valuemin={limits.min} aria-valuemax={limits.max} tabIndex={0} onPointerDown={drag} onDoubleClick={() => onChange(limits.fallback)} onKeyDown={key}/>;
 }
-const SUGGESTIONS = ['Vision-and-Language Navigation（VLN）を網羅的にサーベイ', 'LLMエージェントの計画を網羅的にサーベイ', '学習ベースのマルチエージェント経路計画（MAPF）を網羅的にサーベイ'];
+const SUGGESTIONS = ['VLN（Vision-and-Language Navigation）', '拡散言語モデルの強化学習', 'LLMの推論（Reasoning）', 'MAPF（Multi-Agent Path Finding）', 'ロボットの歩行制御', 'ヒューマノイド', '3DGSにおける自己位置推定', '3D-CAD Agent'];
 const kindLabels = { fundamental: '本質的課題', subproblem: '部分課題', method_dependent: '手法依存' };
 const venueTypes = { conference:'国際会議', journal:'ジャーナル', preprint:'プレプリント', other:'その他' };
 const statusLabels = { open: '未解決', partially_solved: '一部解決', solved: '解決', disputed: '議論あり', unknown: '未評価' };
