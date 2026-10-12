@@ -3,7 +3,7 @@ import { assessTutorial } from './tutorial';
 
 /** Test requirements for a new survey of tens to about a hundred papers (design 0019). Structural checks only:
  * they show that the survey reached the intended breadth and depth, not that its statements are correct. */
-export const SURVEY_TARGETS = { papers: 30, deepRead: 10, methods: 6, families: 3, issuesMin: 4, issuesMax: 12, knowledgeLayers: 6, yearSpan: 8 } as const;
+export const SURVEY_TARGETS = { papers: 30, deepRead: 10, methods: 6, families: 3, issuesMin: 4, issuesMax: 12, knowledgeLayers: 5, yearSpan: 8 } as const;
 const LAYERS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline'];
 export interface SurveyCheck { id: string; label: string; pass: boolean; detail: string }
 

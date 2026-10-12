@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEvolution, buildFamilies } from '../packages/domain/src/evolution';
+import { buildEvolution, buildFamilies, buildMethodTree } from '../packages/domain/src/evolution';
 import { fixture, validateSnapshot } from '../packages/domain/src/index';
 
 test('representative papers are earliest registered editions; years and branches are preserved', () => {
@@ -8,7 +8,6 @@ test('representative papers are earliest registered editions; years and branches
   assert.deepEqual(e.years, [2012,2014,2015,2021]);
   assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.representative?.id,'paper-cbs-2012');
   assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.papers.length,2);
-  assert.notEqual(e.nodes.find(n => n.method.id === 'ecbs')?.lane,e.nodes.find(n => n.method.id === 'icbs')?.lane);
   assert.equal(e.nodes.find(n => n.method.id === 'eecbs')?.parents[0].id,'ecbs');
 });
 test('unknown years sort last and missing papers never get fabricated dates', () => {
@@ -24,8 +23,11 @@ test('same-year methods occupy distinct lanes and representative ties use stable
   next.entities.filter(e => e.type === 'Paper').find(e => e.id === 'paper-ecbs')!.proposes.push('same-year');
   const first = structuredClone(next.entities.filter(e => e.type === 'Paper').find(e => e.id === 'paper-cbs-2012')!);
   first.id = 'a-earliest-tie'; next.entities.push(first);
+  next.relations.push({id:'same-year-family',type:'instance_of',from:'same-year',to:'family-cbs'});
   const e = buildEvolution(next);
-  assert.notEqual(e.nodes.find(n => n.method.id === 'ecbs')?.lane,e.nodes.find(n => n.method.id === 'same-year')?.lane);
+  const at = (id: string) => buildMethodTree(next).layout.nodes.find(n => n.id === id)!;
+  assert.deepEqual([at('ecbs').column, at('ecbs').row], [at('same-year').column, at('same-year').row]);
+  assert.notEqual(at('ecbs').lane, at('same-year').lane);
   assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.representative?.id,'a-earliest-tie');
 });
 test('search retains ancestors and multiple parents remain explicit', () => {

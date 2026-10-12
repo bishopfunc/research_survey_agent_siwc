@@ -71,3 +71,12 @@ test('a failed outline fails the run; a cancelled run stops', async () => {
 test('the merged snapshot as a patch rebuilds the same snapshot', () => {
   assert.deepEqual(validateSnapshot(fixture), []);
 });
+test('a failed worker is retried once before its result is given up', async () => {
+  const attempts: Record<string, number> = {};
+  const outline = outlinePatch();
+  const run = steps({ run: async stage => { attempts[stage] = (attempts[stage] ?? 0) + 1; if (stage === 'outline') return ok(outline); if (stage === 'integrate') return ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'i', operations: [{ op: 'set_title', title: 't' }] }); return attempts[stage] === 1 ? { ok: false, error: 'Selected model is at capacity', searches: 0 } : ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'w', operations: [{ op: 'set_title', title: 'ignored' }] }); } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 2);
+  assert.equal(outcome.status, 'succeeded');
+  assert.ok(Object.entries(attempts).filter(([k]) => k.startsWith('deepen')).every(([, n]) => n === 2));
+});
+

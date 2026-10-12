@@ -22,8 +22,8 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
   const of = (role: TutorialSection['role']) => sections.filter(s => s.role === role);
   const cites = (list: TutorialSection[]) => new Set(list.flatMap(sectionCitations)).size;
   const methods = of('methods');
-  const firstYear = (s: TutorialSection) => Math.min(...sectionCitations(s).map(id => papers.get(id)?.year ?? Infinity));
-  const years = methods.map(firstYear);
+  const lastYear = (s: TutorialSection) => Math.max(...sectionCitations(s).map(id => papers.get(id)?.year ?? -Infinity));
+  const latest = methods.map(lastYear);
   const order = sections.map(s => TUTORIAL_ROLES.indexOf(s.role));
   const chars = sections.reduce((n, s) => n + s.body.length, 0);
   const check = (id: string, label: string, pass: boolean, detail: string): TutorialCheck => ({ id, label, pass, detail });
@@ -32,7 +32,9 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
     check('definition', '問題設定：記法と数式で定義し、出典がある', of('definition').some(s => /\$\$[\s\S]+?\$\$/.test(s.body) && sectionCitations(s).length > 0), `${of('definition').length}節`),
     check('motivation', '動機と応用：応用例を2つ以上の出典つきで', cites(of('motivation')) >= 2, `出典${cites(of('motivation'))}`),
     check('methods', '解き方：4つ以上の手法の節', methods.length >= 4, `${methods.length}節`),
-    check('progression', '解き方：素朴な方法から最新へ、論文の年の順', methods.length > 0 && years.every(Number.isFinite) && years.every((y, i) => i === 0 || y >= years[i - 1]), years.map(y => Number.isFinite(y) ? y : '年なし').join(' → ') || 'なし'),
+    // A teaching order, not a strict timeline (the ideal tutorial puts older prioritized planning after CBS): every section cites a dated paper,
+    // and the last section is about recent work (its newest paper is among the newest of all method sections).
+    check('progression', '解き方：素朴な方法から最新へ（最後の節が最新の研究）', methods.length > 0 && latest.every(Number.isFinite) && latest[latest.length - 1] >= Math.max(...latest) - 1 && latest[0] <= latest[latest.length - 1], latest.map(y => Number.isFinite(y) ? y : '年なし').join(' → ') || 'なし'),
     check('limitations', '解き方：2節目以降は前の方法の限界から始める', methods.length > 1 && methods.slice(1).every(s => hasLimitation(s.body)), `${methods.slice(1).filter(s => hasLimitation(s.body)).length}/${Math.max(0, methods.length - 1)}節`),
     check('media', '解き方：図・アルゴリズム・数式を2節以上で示す', methods.filter(shows).length >= 2, `${methods.filter(shows).length}節`),
     check('summary', 'まとめと選び方：場面ごとの推奨を出典つきで', cites(of('summary')) >= 2, `出典${cites(of('summary'))}`),

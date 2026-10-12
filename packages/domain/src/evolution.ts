@@ -1,8 +1,10 @@
 import type { Concept, Method, Paper, Relation, SurveySnapshot } from './snapshot.types';
+import { layoutTimeline, type TimelineLayout } from './timeline';
 
-export interface EvolutionNode { method: Method; papers: Paper[]; representative: Paper | null; year: number | null; parents: { id: string; type: Relation['type'] }[]; lane: number }
-export interface Evolution { nodes: EvolutionNode[]; years: (number | null)[]; laneCount: number; warnings: string[] }
+export interface EvolutionNode { method: Method; papers: Paper[]; representative: Paper | null; year: number | null; parents: { id: string; type: Relation['type'] }[] }
+export interface Evolution { nodes: EvolutionNode[]; years: (number | null)[]; warnings: string[] }
 export interface MethodFamily { family: Concept | null; nodes: EvolutionNode[] }
+export interface MethodTree { layout: TimelineLayout; nodes: Map<string, EvolutionNode>; families: Map<string, Concept>; warnings: string[] }
 export const byPublication = (a: Paper, b: Paper) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.id.localeCompare(b.id);
 
 export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution {
@@ -11,7 +13,7 @@ export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution
   const ids = new Set(methods.map(m => m.id));
   const nodes: EvolutionNode[] = methods.map(method => {
     const linked = papers.filter(p => p.proposes.includes(method.id) || snapshot.relations.some(r => r.type === 'proposes' && r.from === p.id && r.to === method.id)).sort(byPublication);
-    return { method, papers: linked, representative: linked[0] ?? null, year: linked[0]?.year ?? null, lane: 0,
+    return { method, papers: linked, representative: linked[0] ?? null, year: linked[0]?.year ?? null,
       parents: snapshot.relations.filter(r => ['extends', 'builds_on', 'specializes'].includes(r.type) && r.from === method.id && ids.has(r.to)).map(r => ({ id: r.to, type: r.type })) };
   }).sort((a,b) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.method.id.localeCompare(b.method.id));
   const map = new Map(nodes.map(n => [n.method.id, n]));
@@ -37,25 +39,7 @@ export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution
   const visible = nodes.filter(n => shown.has(n.method.id));
   const years = [...new Set(visible.filter(n => n.year !== null).map(n => n.year!))].sort((a,b) => a-b) as (number|null)[];
   if (visible.some(n => n.year === null)) years.push(null);
-  const occupied = new Map<number|null, Set<number>>();
-  const familyFirst = [...visible].sort((a,b) => a.parents.length - b.parents.length || nodes.indexOf(a) - nodes.indexOf(b));
-  let pending = [...familyFirst]; let rounds = 0;
-  const placed = new Set<string>();
-  while (pending.length && rounds++ <= visible.length) {
-    const rest: EvolutionNode[] = [];
-    for (const n of pending) {
-      const parents = n.parents.filter(p => shown.has(p.id));
-      if (parents.some(p => !placed.has(p.id)) && rounds <= visible.length) { rest.push(n); continue; }
-      const preferred = parents.map(p => map.get(p.id)!.lane);
-      const siblings = visible.filter(other => other !== n && other.parents.some(p => parents.some(parent => p.id === parent.id)) && placed.has(other.method.id));
-      const used = occupied.get(n.year) ?? new Set<number>();
-      let lane = preferred[0] ?? 0;
-      while (used.has(lane) || siblings.some(s => s.lane === lane)) lane++;
-      n.lane = lane; used.add(lane); occupied.set(n.year, used); placed.add(n.method.id);
-    }
-    pending = rest;
-  }
-  return { nodes: visible, years, laneCount: Math.max(1, ...visible.map(n => n.lane + 1)), warnings: [...new Set(warnings)] };
+  return { nodes: visible, years, warnings: [...new Set(warnings)] };
 }
 
 /** Methods grouped by the Concept they are an instance_of (their family), each in publication order.
@@ -72,4 +56,20 @@ export function buildFamilies(snapshot: SurveySnapshot): MethodFamily[] {
     .sort((a, b) => (a.nodes[0].year ?? Infinity) - (b.nodes[0].year ?? Infinity) || a.family.label.localeCompare(b.family.label));
   const rest = groups.get(null);
   return rest ? [...grouped, { family: null, nodes: rest }] : grouped;
+}
+
+/** The method tree: years left to right, one row per family. A method in several families sits in the family of
+ * one of its parents (else its first family) and the layout links it to the other family rows. */
+export function buildMethodTree(snapshot: SurveySnapshot): MethodTree {
+  const evolution = buildEvolution(snapshot);
+  const groups = buildFamilies(snapshot).filter((g): g is { family: Concept; nodes: EvolutionNode[] } => g.family !== null);
+  const familiesOf = new Map<string, string[]>();
+  for (const g of groups) for (const n of g.nodes) familiesOf.set(n.method.id, [...(familiesOf.get(n.method.id) ?? []), g.family.id]);
+  const items = evolution.nodes.map(n => {
+    const own = familiesOf.get(n.method.id) ?? [];
+    const first = own.find(f => n.parents.some(p => familiesOf.get(p.id)?.includes(f))) ?? own[0];
+    return { id: n.method.id, year: n.year, rows: first ? [first, ...own.filter(f => f !== first)] : [] };
+  });
+  const links = evolution.nodes.flatMap(n => n.parents.map(p => ({ from: p.id, to: n.method.id })));
+  return { layout: layoutTimeline(items, groups.map(g => g.family.id), links), nodes: new Map(evolution.nodes.map(n => [n.method.id, n])), families: new Map(groups.map(g => [g.family.id, g.family])), warnings: evolution.warnings };
 }

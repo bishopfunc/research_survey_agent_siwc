@@ -53,6 +53,8 @@ export function snapshotAsPatch(snapshot: SurveySnapshot, baseId: string, messag
   return { schema_version: '0.1.0', base_commit_id: baseId, message, ...(followUps?.length ? { follow_ups: followUps.slice(0, 3) as SurveyPatch['follow_ups'] } : {}), operations: operations as SurveyPatch['operations'] };
 }
 
+/** Papers each worker reads in depth; the rest of its group keeps the outline's summary. Keeps each worker's output short. */
+export const DEEP_PER_WORKER = 5;
 export async function executeStagedResearch(base: SurveySnapshot, baseId: string, steps: StagedSteps, workers: number): Promise<ResearchOutcome> {
   let searches = 0;
   const parse = async (stage: StageId, result: StageResult): Promise<SurveyPatch> => {
@@ -73,10 +75,12 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   let snapshot: SurveySnapshot;
   try { snapshot = apply(base, outlinePatch, baseId); } catch (e) { return { status: 'failed', message: `全体像の段階の変更案が検証に通りませんでした：\n${e instanceof Error ? e.message : ''}`, searches }; }
   // Stage 2: parallel in-depth reading.
-  const groups = assignWorkers(snapshot, workers);
+  const groups = assignWorkers(snapshot, workers).map(g => ({ ...g, papers: g.papers.slice(0, DEEP_PER_WORKER) }));
   steps.progress(`2/3 ${groups.length}つの作業で論文を読んでいます`);
   const outline = snapshot;
-  const results = await Promise.all(groups.map((g, i) => steps.run(`deepen-${i + 1}`, steps.prompt.deepen(outline, i + 1, groups.length, g.papers, g.issues)).then(r => ({ r, g, i }))));
+  // A worker that fails (for example a model at capacity) is retried once.
+  const deepen = async (g: { papers: string[]; issues: string[] }, i: number) => { const prompt = steps.prompt.deepen(outline, i + 1, groups.length, g.papers, g.issues); const first = await steps.run(`deepen-${i + 1}`, prompt); return first.ok || !steps.active() ? first : steps.run(`deepen-${i + 1}`, prompt); };
+  const results = await Promise.all(groups.map((g, i) => deepen(g, i).then(r => ({ r, g, i }))));
   if (!steps.active()) return { status: 'stopped' };
   for (const { r, g, i } of results) {
     try { snapshot = apply(snapshot, restrictToWorker(await parse(`deepen-${i + 1}`, r), outline, g.papers), `deepen-${i + 1}`); }
