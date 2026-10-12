@@ -5,7 +5,8 @@ import { fixture, validateSnapshot } from '../packages/domain/src/index';
 
 test('representative papers are earliest registered editions; years and branches are preserved', () => {
   const e = buildEvolution(fixture);
-  assert.deepEqual(e.years, [2012,2014,2015,2021]);
+  assert.deepEqual(e.years, [2012,2014,2015,2019,2020,2021,2023]);
+  assert.equal(e.nodes.find(n => n.method.id === 'pibt')?.representative?.id,'paper-pibt-2019','the IJCAI edition, not the later journal one');
   assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.representative?.id,'paper-cbs-2012');
   assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.papers.length,2);
   assert.equal(e.nodes.find(n => n.method.id === 'eecbs')?.parents[0].id,'ecbs');
@@ -45,7 +46,7 @@ test('cycles are rejected by domain validation and do not hang the projection', 
   const next = structuredClone(fixture); next.relations.push({id:'cycle',type:'builds_on',from:'cbs',to:'eecbs'});
   assert.match(validateSnapshot(next).join(),/派生関係に循環/);
   assert.match(buildEvolution(next).warnings.join(),/循環/);
-  assert.equal(buildEvolution(next).nodes.length,4);
+  assert.equal(buildEvolution(next).nodes.length,fixture.entities.filter(e => e.type === 'Method').length);
 });
 test('conflicting publication years produce a warning; snapshots remain unchanged', () => {
   const next = structuredClone(fixture); next.entities.filter(e => e.type === 'Paper').find(e => e.id === 'paper-ecbs')!.year = 2000;
@@ -54,13 +55,15 @@ test('conflicting publication years produce a warning; snapshots remain unchange
 });
 
 test('methods are grouped by their family (instance_of a Concept) in publication order, unclassified last', () => {
-  assert.deepEqual(buildFamilies(fixture).map(g => [g.family?.id ?? null, g.nodes.map(n => n.method.id)]), [['family-cbs', ['cbs', 'ecbs', 'icbs', 'eecbs']]]);
+  assert.deepEqual(buildFamilies(fixture).map(g => [g.family?.id ?? null, g.nodes.map(n => n.method.id)]), [
+    ['family-cbs', ['cbs', 'ecbs', 'icbs', 'eecbs', 'ml-cbs']], ['family-prioritized', ['pibt', 'lacam', 'lacam-star']], ['family-learned', ['primal', 'gnn-mapf', 'ml-cbs']],
+  ], 'ML-CBS is in two families and appears in both');
   const input = structuredClone(fixture);
-  input.entities.push({ id: 'family-learned', label: '学習ベース', provenance: 'user', type: 'Concept', description: '学習した方策で経路を決める。' }, { id: 'primal', label: 'PRIMAL', provenance: 'user', type: 'Method', description: '強化学習と模倣学習で分散方策を学ぶ。' }, { id: 'orphan', label: 'Orphan', provenance: 'user', type: 'Method', description: '系統なし' });
+  input.entities.push({ id: 'orphan', label: 'Orphan', provenance: 'user', type: 'Method', description: '系統なし' });
   input.relations = input.relations.filter(r => !(r.type === 'instance_of' && r.from === 'eecbs'));
-  input.relations.push({ id: 'i1', type: 'instance_of', from: 'primal', to: 'family-learned' }, { id: 'i2', type: 'instance_of', from: 'ecbs', to: 'family-learned' });
   assert.deepEqual(validateSnapshot(input), []);
   const groups = buildFamilies(input).map(g => [g.family?.id ?? null, g.nodes.map(n => n.method.id)]);
-  assert.deepEqual(groups, [['family-cbs', ['cbs', 'ecbs', 'icbs']], ['family-learned', ['ecbs', 'primal']], [null, ['eecbs', 'orphan']]]);
+  assert.deepEqual(groups.at(-1), [null, ['eecbs', 'orphan']]);
+  assert.deepEqual(groups[0], ['family-cbs', ['cbs', 'ecbs', 'icbs', 'ml-cbs']]);
 });
 

@@ -12,10 +12,11 @@ export interface TimelineNode { id: string; column: number; row: number; lane: n
 export interface TimelineEdge { from: string | null; to: string; row: number; kind: 'derives' | 'member'; curved: boolean }
 export interface TimelineLayout { years: (number | null)[]; rows: TimelineRow[]; nodes: TimelineNode[]; edges: TimelineEdge[] }
 
-export function layoutTimeline(items: TimelineItem[], rowKeys: string[], links: TimelineLink[]): TimelineLayout {
+/** allRows keeps rows no item belongs to (the issue tree lists every issue). */
+export function layoutTimeline(items: TimelineItem[], rowKeys: string[], links: TimelineLink[], allRows = false): TimelineLayout {
   const years = [...new Set(items.flatMap(i => i.year === null ? [] : [i.year]))].sort((a, b) => a - b) as (number | null)[];
   if (items.some(i => i.year === null)) years.push(null);
-  const used = rowKeys.filter(key => items.some(i => i.rows.includes(key)));
+  const used = allRows ? rowKeys : rowKeys.filter(key => items.some(i => i.rows.includes(key)));
   const keys: (string | null)[] = items.some(i => !i.rows.length || !rowKeys.includes(i.rows[0])) ? [...used, null] : used;
   const rowOf = (item: TimelineItem) => keys.indexOf(rowKeys.includes(item.rows[0]) ? item.rows[0] : null);
   const ids = new Set(items.map(i => i.id));

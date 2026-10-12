@@ -7,7 +7,7 @@
       "label": "MAPF",
       "provenance": "fixture",
       "type": "Domain",
-      "description": "複数エージェントの経路計画。UIとスキーマを試すサンプルです。"
+      "description": "複数のエージェントをグラフの上で、互いにぶつけずにそれぞれの目標へ動かす経路計画。"
     },
     {
       "id": "collision",
@@ -86,7 +86,7 @@
       "year": 2015,
       "venue": "AIJ",
       "venue_type": "journal",
-      "one_line_summary": "競合を制約木で解消するMAPF探索。サンプルの要約は本文未検証。",
+      "one_line_summary": "衝突を制約木で解消する2段階の最適MAPFソルバCBSのジャーナル版。",
       "reading": {
         "contributions": [
           "衝突ごとに制約を加える上位の探索（制約木）と、各エージェント単独の下位の探索に分けた2段階の最適MAPFソルバCBSを提案",
@@ -107,9 +107,9 @@
           }
         ]
       },
-      "citation_count": null,
-      "citation_source": null,
-      "citation_as_of": null,
+      "citation_count": 1261,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
       "doi": "10.1016/j.artint.2014.11.006",
       "arxiv_id": null,
       "url": "https://doi.org/10.1016/j.artint.2014.11.006",
@@ -126,49 +126,46 @@
         "collision",
         "optimality"
       ],
-      "claims": [
-        "claim-cbs"
-      ],
-      "evidence": [
-        "evidence-cbs"
-      ],
+      "claims": [],
+      "evidence": [],
       "code_availability": "unknown",
       "code_url": null,
       "code_checked_at": null
     },
     {
       "id": "claim-cbs",
-      "label": "所定の条件下で最適な解を探索",
+      "label": "最適解は求まるが規模を大きくできない",
       "provenance": "fixture",
       "type": "Claim",
-      "statement": "CBSの最適性保証について検証するためのサンプル主張。原文照合は未実施。",
-      "status": "unknown",
+      "statement": "CBSは多くの場合A*より少ない状態で最適解を求めるが、MAPFを最適に解くことはNP困難で、CBSを含む最適ソルバは規模を大きくできない。",
+      "status": "partially_solved",
       "scope": {
         "task": "MAPF",
-        "setting": "離散グラフ上の衝突回避",
-        "metric": "sum-of-costs",
+        "setting": "離散グラフ上の衝突回避、最適解",
+        "metric": "sum-of-costsの最適性と実行時間",
         "assumptions": [
-          "低レベル探索が最適解を返すことを確認する"
+          "低レベルの探索が最適な単独経路を返す"
         ],
         "limitations": [
-          "このサンプルでは本文を検証していない"
+          "アブストラクトだけで確認"
         ]
       },
-      "as_of": null,
+      "as_of": "2026-10-12",
       "evidence": [
-        "evidence-cbs"
+        "evidence-cbs",
+        "evidence-ecbs-np"
       ]
     },
     {
       "id": "evidence-cbs",
-      "label": "CBS論文の参照先",
+      "label": "CBS（AAAI 2012）のアブストラクト",
       "provenance": "fixture",
       "type": "Evidence",
-      "source_url": "https://doi.org/10.1016/j.artint.2014.11.006",
-      "locator": "論文参照先のみ。本文のページ・節は未取得",
-      "excerpt": "",
-      "verification": "unverified",
-      "retrieved_at": null,
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/view/8140",
+      "locator": "Abstract",
+      "excerpt": "In many cases this reformulation enables CBS to examine fewer states than A* while still maintaining optimality.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
       "content_hash": null
     },
     {
@@ -195,9 +192,9 @@
       "venue": "AAAI",
       "venue_type": "conference",
       "one_line_summary": "エージェントごとの経路探索と競合解消を二段階で行うCBSを提案。",
-      "citation_count": null,
-      "citation_source": null,
-      "citation_as_of": null,
+      "citation_count": 93,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
       "doi": "10.1609/aaai.v26i1.8140",
       "arxiv_id": null,
       "url": "https://ojs.aaai.org/index.php/AAAI/article/view/8140",
@@ -214,11 +211,35 @@
         "collision",
         "scalability"
       ],
-      "claims": [],
-      "evidence": [],
+      "claims": [
+        "claim-cbs"
+      ],
+      "evidence": [
+        "evidence-cbs"
+      ],
       "code_availability": "unknown",
       "code_url": null,
-      "code_checked_at": null
+      "code_checked_at": null,
+      "abstract": "In the multi agent path finding problem (MAPF) paths should be found for several agents, each with a different start and goal position such that agents do not collide. Previous optimal solvers applied global A*-based searches. We present a new search algorithm called Conflict Based Search (CBS). CBS is a two-level algorithm. At the high level, a search is performed on a tree based on conflicts between agents. At the low level, a search is performed only for a single agent at a time. In many cases this reformulation enables CBS to examine fewer states than A* while still maintaining optimality. We analyze CBS and show its benefits and drawbacks. Experimental results on various problems shows a speedup of up to a full order of magnitude over previous approaches.",
+      "abstract_source_url": "https://openalex.org/W3359552",
+      "abstract_ja": "マルチエージェント経路計画問題（MAPF）では、開始位置と目標位置がそれぞれ異なる複数のエージェントについて、互いに衝突しない経路を求める。これまでの最適ソルバは、全体に対するA*系の探索を用いていた。本論文は新しい探索アルゴリズムConflict Based Search（CBS）を提案する。CBSは2段階のアルゴリズムである。上の段では、エージェント間の衝突にもとづく木を探索する。下の段では、一度に1つのエージェントだけについて探索する。多くの場合、この定式化によりCBSはA*より少ない状態を調べながら最適性を保てる。CBSを解析し、その利点と欠点を示す。様々な問題での実験で、従来手法に比べ最大で1桁の高速化を示した。",
+      "reading": {
+        "contributions": [
+          "衝突にもとづく上の段の探索と、1エージェントずつの下の段の探索に分けた最適MAPFソルバCBSを提案",
+          "CBSの利点と欠点を解析した"
+        ],
+        "novelty": "全員の位置の組を1つの状態として探す従来のA*系の探索と違い、衝突が起きたところだけを上の段で扱う。",
+        "key_idea": "衝突を1つ見つけたら、どちらかのエージェントに「その時刻にその場所にいてはならない」制約を課す2つの子に分け、制約を受けた側だけが単独で経路を探し直す。",
+        "validation": "様々な問題で従来の最適ソルバと比べ、最大で1桁速いことを示した（アブストラクトより）。",
+        "discussion": "アブストラクトは利点と欠点の両方を解析したと述べる。衝突が多い場合に上の段の木が大きくなる点は、後続のECBS・ICBSなどが扱った。",
+        "key_figures": [],
+        "sources": [
+          {
+            "url": "https://ojs.aaai.org/index.php/AAAI/article/view/8140",
+            "locator": "Abstract"
+          }
+        ]
+      }
     },
     {
       "id": "paper-ecbs",
@@ -230,9 +251,9 @@
       "venue": "SoCS",
       "venue_type": "conference",
       "one_line_summary": "CBSの最適性条件を緩め、解の品質と計算時間を調整する探索法。",
-      "citation_count": null,
-      "citation_source": null,
-      "citation_as_of": null,
+      "citation_count": 279,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
       "doi": "10.1609/socs.v5i1.18315",
       "arxiv_id": null,
       "url": "https://ojs.aaai.org/index.php/SOCS/article/view/18315",
@@ -249,11 +270,35 @@
         "collision",
         "scalability"
       ],
-      "claims": [],
-      "evidence": [],
+      "claims": [
+        "claim-cbs"
+      ],
+      "evidence": [
+        "evidence-ecbs-np"
+      ],
       "code_availability": "unknown",
       "code_url": null,
-      "code_checked_at": null
+      "code_checked_at": null,
+      "abstract": "The task in the multi-agent path finding problem (MAPF) is to find paths for multiple agents, each with a different start and goal position, such that agents do not collide. A successful optimal MAPF solver is the conflict-based search (CBS) algorithm. CBS is a two level algorithm where special conditions ensure it returns the optimal solution. Solving MAPF optimally is proven to be NP-hard, hence CBS and all other optimal solvers do not scale up. We propose several ways to relax the optimality conditions of CBS trading solution quality for runtime as well as bounded-suboptimal variants, where the returned solution is guaranteed to be within a constant factor from optimal solution cost. Experimental results show the benefits of our new approach; a massive reduction in running time is presented while sacrificing a minor loss in solution quality. Our new algorithms outperform other existing algorithms in most of the cases.",
+      "abstract_source_url": "https://openalex.org/W1488757178",
+      "abstract_ja": "マルチエージェント経路計画問題（MAPF）の課題は、開始位置と目標位置がそれぞれ異なる複数のエージェントについて、互いに衝突しない経路を求めることである。成功した最適MAPFソルバにconflict-based search（CBS）がある。CBSは2段階のアルゴリズムで、特別な条件により最適解を返すことが保証される。MAPFを最適に解くことはNP困難であると証明されており、CBSを含むすべての最適ソルバは規模を大きくできない。本論文では、解の質と実行時間を交換するようにCBSの最適性の条件を緩める方法をいくつか提案し、返す解のコストが最適解のコストの定数倍以内であることを保証する有界準最適の変種も提案する。実験では、解の質をわずかに犠牲にするだけで実行時間を大幅に減らせることを示した。新しいアルゴリズムは、ほとんどの場合で既存のアルゴリズムを上回る。",
+      "reading": {
+        "contributions": [
+          "CBSの最適性の条件を緩めて解の質と実行時間を交換する方法を提案",
+          "解のコストが最適値の定数倍以内であることを保証する有界準最適の変種（ECBSなど）を提案"
+        ],
+        "novelty": "最適ソルバはNP困難ゆえに規模を大きくできないという前提から、保証つきで最適性を譲る方向を示した。",
+        "key_idea": "CBSの上の段と下の段で、コストの上限を満たす候補の中から衝突の少ないものを優先して広げる（フォーカル探索）。",
+        "validation": "解の質をわずかに犠牲にして実行時間を大幅に減らし、ほとんどの場合で既存手法を上回った（アブストラクトより）。",
+        "discussion": "最適解が必要な場面には使えない。上限の倍率の選び方で速さと質が変わる。",
+        "key_figures": [],
+        "sources": [
+          {
+            "url": "https://ojs.aaai.org/index.php/SOCS/article/view/18315",
+            "locator": "Abstract"
+          }
+        ]
+      }
     },
     {
       "id": "paper-icbs",
@@ -264,7 +309,7 @@
       "year": 2015,
       "venue": "IJCAI",
       "venue_type": "conference",
-      "one_line_summary": "競合の優先順位づけとmerge-and-restartを既存のCBS改善と組み合わせる。",
+      "one_line_summary": "衝突の優先順位づけとmerge-and-restartを既存のCBS改善と組み合わせる。",
       "citation_count": null,
       "citation_source": null,
       "citation_as_of": null,
@@ -303,11 +348,11 @@
       "venue": "AAAI",
       "venue_type": "conference",
       "one_line_summary": "オンラインのコスト見積もりとExplicit Estimation SearchをCBSへ適用。",
-      "citation_count": null,
-      "citation_source": null,
-      "citation_as_of": null,
+      "citation_count": 213,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
       "doi": "10.1609/aaai.v35i14.17466",
-      "arxiv_id": null,
+      "arxiv_id": "2010.01367",
       "url": "https://ojs.aaai.org/index.php/AAAI/article/view/17466",
       "authors": [
         "Jiaoyang Li",
@@ -325,7 +370,30 @@
       "evidence": [],
       "code_availability": "public",
       "code_url": "https://github.com/Jiaoyang-Li/EECBS",
-      "code_checked_at": "2026-10-12"
+      "code_checked_at": "2026-10-12",
+      "abstract": "Multi-Agent Path Finding (MAPF), i.e., finding collision-free paths for multiple robots, is important for many applications where small runtimes are necessary, including the kind of automated warehouses operated by Amazon. CBS is a leading two-level search algorithm for solving MAPF optimally. ECBS is a bounded-suboptimal variant of CBS that uses focal search to speed up CBS by sacrificing optimality and instead guaranteeing that the costs of its solutions are within a given factor of optimal. In this paper, we study how to decrease its runtime even further using inadmissible heuristics. Motivated by Explicit Estimation Search (EES), we propose Explicit Estimation CBS (EECBS), a new bounded-suboptimal variant of CBS, that uses online learning to obtain inadmissible estimates of the cost of the solution of each high-level node and uses EES to choose which high-level node to expand next. We also investigate recent improvements of CBS and adapt them to EECBS. We find that EECBS with the improvements runs significantly faster than the state-of-the-art bounded-suboptimal MAPF algorithms ECBS, BCP-7, and eMDD-SAT on a variety of MAPF instances. We hope that the scalability of EECBS enables additional applications for bounded-suboptimal MAPF algorithms.",
+      "abstract_source_url": "https://arxiv.org/abs/2010.01367",
+      "abstract_ja": "マルチエージェント経路計画（MAPF）、すなわち複数のロボットの衝突しない経路を求めることは、Amazonが運用するような自動倉庫をはじめ、短い実行時間が必要な多くの応用で重要である。CBSはMAPFを最適に解く代表的な2段階の探索アルゴリズムである。ECBSはCBSの有界準最適の変種で、フォーカル探索を用いて、最適性を犠牲にする代わりに解のコストが最適値の所定の倍率以内であることを保証しながらCBSを速くする。本論文では、許容的でないヒューリスティックを使って実行時間をさらに減らす方法を調べる。Explicit Estimation Search（EES）に着想を得て、新しい有界準最適のCBSの変種Explicit Estimation CBS（EECBS）を提案する。EECBSはオンライン学習で上の段の各ノードの解のコストを許容的でない見積もりとして求め、EESで次に展開するノードを選ぶ。CBSの最近の改良も調べてEECBSに適用する。改良を加えたEECBSは、様々なMAPFの問題で最先端の有界準最適MAPFアルゴリズムECBS・BCP-7・eMDD-SATより大幅に速いことがわかった。EECBSのスケーラビリティにより、有界準最適MAPFアルゴリズムの応用が広がることを期待する。",
+      "reading": {
+        "contributions": [
+          "Explicit Estimation SearchをCBSの上の段に持ち込んだ有界準最適ソルバEECBSを提案",
+          "上の段の各ノードの解のコストをオンライン学習で見積もる",
+          "CBSの最近の改良をEECBSに適用した"
+        ],
+        "novelty": "ECBSと同じ準最適の保証のもとで、許容的でない見積もりを使って展開するノードを選び、ECBS・BCP-7・eMDD-SATより大幅に速い。",
+        "key_idea": "下界・見積もり・衝突の数の3つを使い分けるEESの規則で、上の段で次に広げるノードを選ぶ。",
+        "validation": "様々なMAPFの問題で、ECBS・BCP-7・eMDD-SATと実行時間を比較した。",
+        "discussion": "最適解は保証しない（有界準最適）。見積もりの学習がうまくいかない問題での振る舞いは、アブストラクトからはわからない。",
+        "key_figures": [
+          "Figure 2: 実行時間と成功率の比較"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/2010.01367",
+            "locator": "Abstract"
+          }
+        ]
+      }
     },
     {
       "id": "kw-soc",
@@ -360,7 +428,9 @@
       ],
       "category": "benchmark",
       "meaning": "MAPF用のグリッド地図と問題を集めたベンチマーク。手法どうしを同じ問題で比べるときによく使われる。",
-      "papers": [],
+      "papers": [
+        "paper-mapf-benchmark"
+      ],
       "related": [
         "mapf",
         "scalability"
@@ -433,18 +503,23 @@
         {
           "role": "definition",
           "heading": "問題設定",
-          "body": "マルチエージェント経路計画（MAPF）は、グラフの上で複数のエージェントを、互いにぶつけずにそれぞれの目標へ動かす計画問題である [@paper-cbs]。地図をグラフ $G=(V,E)$ で表し、エージェント $i \\in A$ ごとに開始点 $s_i$ と目標点 $g_i$ を与える。時刻は離散で、各時刻にエージェントは隣の頂点へ移るか、その場にとどまる。\n\n解は各エージェントの経路の組で、エージェント $i$ の時刻 $t$ の位置を $\\pi_i[t]$ と書く。2台が同じ時刻に同じ頂点にいる頂点衝突と、隣り合う2台が入れ替わる辺衝突（すれ違い）を禁じる。\n\n$$\\pi_i[t] \\neq \\pi_j[t], \\qquad \\neg(\\pi_i[t] = \\pi_j[t+1] \\wedge \\pi_i[t+1] = \\pi_j[t]) \\quad (i \\neq j)$$\n\n解の良さは、全員の到着時刻の合計（Sum-of-costs）[@kw-soc] か、最後の1台が着く時刻（Makespan）[@kw-makespan] で測ることが多い。どちらを最小にするかで、最適な解も、使うべき手法も変わる。\n\n$$\\mathrm{SOC} = \\sum_{i \\in A} T_i, \\qquad \\mathrm{makespan} = \\max_{i \\in A} T_i$$\n\nここで $T_i$ はエージェント $i$ が目標に着いて以後とどまり続ける最初の時刻である。",
+          "body": "マルチエージェント経路計画（MAPF）は、グラフの上で複数のエージェントを、互いにぶつけずにそれぞれの目標へ動かす計画問題である [@paper-cbs]。地図をグラフ $G=(V,E)$ で表し、エージェント $i \\in A$ ごとに開始点 $s_i$ と目標点 $g_i$ を与える。時刻は離散で、各時刻にエージェントは隣の頂点へ移るか、その場にとどまる。\n\n解は各エージェントの経路の組で、エージェント $i$ の時刻 $t$ の位置を $\\pi_i[t]$ と書く。2台が同じ時刻に同じ頂点にいる頂点衝突と、隣り合う2台が入れ替わる辺衝突（すれ違い）を禁じる。どの衝突を禁じるかは論文ごとに違い、用語をそろえる試みもある [@paper-mapf-benchmark]。\n\n$$\\pi_i[t] \\neq \\pi_j[t], \\qquad \\neg(\\pi_i[t] = \\pi_j[t+1] \\wedge \\pi_i[t+1] = \\pi_j[t]) \\quad (i \\neq j)$$\n\n解の良さは、全員の到着時刻の合計（Sum-of-costs）[@kw-soc] か、最後の1台が着く時刻（Makespan）[@kw-makespan] で測ることが多い。どちらを最小にするかで、最適な解も、使うべき手法も変わる。\n\n$$\\mathrm{SOC} = \\sum_{i \\in A} T_i, \\qquad \\mathrm{makespan} = \\max_{i \\in A} T_i$$\n\nここで $T_i$ はエージェント $i$ が目標に着いて以後とどまり続ける最初の時刻である。",
           "refs": [
             "mapf",
             "collision"
           ],
-          "media": [],
+          "media": [
+            {
+              "paper": "paper-mapf-benchmark",
+              "label": "Figure 1"
+            }
+          ],
           "links": []
         },
         {
           "role": "motivation",
           "heading": "なぜ面白い問題か",
-          "body": "MAPFは、倉庫で多数の搬送ロボットを同時に動かす場面や、ゲームで多数のキャラクタを移動させる場面に現れる [@mapf]。研究の比較には、ゲームの地図や倉庫を模した格子地図を集めた共通のベンチマークが使われる [@kw-mapf-benchmark]。\n\nエージェントが少なければ素直に解けるが、台数が増えると衝突の組合せが急に増える [@scalability]。最適な解を求めるのは計算が重く、どこまで最適性を保ち、どこから速さを取るかの折り合いが、この分野の中心的な問いになっている [@optimality]。",
+          "body": "MAPFは、倉庫で多数の搬送ロボットを同時に動かす場面や、ゲームで多数のキャラクタを移動させる場面に現れる [@mapf]。倉庫では着いたロボットに次の荷物が割り当てられ続けるので、計画を短時間で作り直し続ける必要がある [@paper-rhcr] [@paper-pibt]。研究の比較には、ゲームの地図や倉庫を模した格子地図を集めた共通のベンチマークが使われる [@kw-mapf-benchmark]。\n\nエージェントが少なければ素直に解けるが、台数が増えると衝突の組合せが急に増える [@scalability]。最適な解を求めるのは計算が重く、どこまで最適性を保ち、どこから速さを取るかの折り合いが、この分野の中心的な問いになっている [@optimality]。",
           "refs": [],
           "media": [],
           "links": []
@@ -452,16 +527,11 @@
         {
           "role": "methods",
           "heading": "2段階の探索：CBS",
-          "body": "最初に思いつくのは、全員の位置の組を1つの状態とみなし、その空間をA*で探す方法である。しかし台数が増えると、1手で選べる動きの組が台数の指数で増え、すぐに探索できなくなる。\n\nCBS（Conflict-Based Search）はこの爆発を避けるため、探索を2段に分ける [@paper-cbs-2012]。下の段では各エージェントが他を無視して最短経路を探す。上の段では得られた経路の組の中から衝突を1つ選び、「エージェント $i$ は時刻 $t$ に頂点 $v$ にいてはならない」という制約を一方に課す2つの子に分ける。こうしてできる制約木を、コストの小さい順に広げていく。\n\n衝突が少ない地図では、結合した状態空間を探すより桁違いに速い。CBSは和コストについて最適で、解があれば見つける（完全）[@paper-cbs]。\n\n小さな例で考える。細い通路の両端から2台が向かい合って進むと、最短経路どうしは通路の途中で衝突する。CBSはこの衝突を見つけると、「1台目はその時刻にその頂点にいてはならない」子と「2台目は…」子を作る。それぞれの子で制約を受けた側だけが経路を探し直し、待つか回り道をする。コストの小さい子から調べるので、最初に見つかる衝突のない解が最適になる。\n\nこの考え方の弱点は、衝突が多いと子が次々に増え、上の段の木が大きくなることである。次の節からは、この弱点への2つの答え（最適性を少し譲る、木そのものを小さくする）を見ていく。",
+          "body": "最初に思いつくのは、全員の位置の組を1つの状態とみなし、その空間をA*で探す方法である。しかし台数が増えると、1手で選べる動きの組が台数の指数で増え、すぐに探索できなくなる。\n\nCBS（Conflict-Based Search）はこの爆発を避けるため、探索を2段に分ける [@paper-cbs-2012]。下の段では各エージェントが他を無視して最短経路を探す。上の段では得られた経路の組の中から衝突を1つ選び、「エージェント $i$ は時刻 $t$ に頂点 $v$ にいてはならない」という制約を一方に課す2つの子に分ける。こうしてできる制約木を、コストの小さい順に広げていく。親の制約の集合を $C$ とすると、2つの子の制約は次のようになる。\n\n$$C \\cup \\{(i, v, t)\\} \\quad \\text{and} \\quad C \\cup \\{(j, v, t)\\}$$\n\n衝突が少ない地図では、結合した状態空間を探すより桁違いに速い。CBSは和コストについて最適で、解があれば見つける（完全）[@paper-cbs]。\n\n小さな例で考える。細い通路の両端から2台が向かい合って進むと、最短経路どうしは通路の途中で衝突する。CBSはこの衝突を見つけると、「1台目はその時刻にその頂点にいてはならない」子と「2台目は…」子を作る。それぞれの子で制約を受けた側だけが経路を探し直し、待つか回り道をする。コストの小さい子から調べるので、最初に見つかる衝突のない解が最適になる。\n\nこの考え方の弱点は、衝突が多いと子が次々に増え、上の段の木が大きくなることである。次の節からは、この弱点への2つの答え（最適性を少し譲る、木そのものを小さくする）を見ていく。",
           "refs": [
             "cbs"
           ],
-          "media": [
-            {
-              "paper": "paper-cbs-2012",
-              "label": "Algorithm 1"
-            }
-          ],
+          "media": [],
           "links": []
         },
         {
@@ -491,13 +561,65 @@
           "refs": [
             "eecbs"
           ],
-          "media": [],
+          "media": [
+            {
+              "paper": "paper-eecbs",
+              "label": "Figure 2"
+            }
+          ],
+          "links": []
+        },
+        {
+          "role": "methods",
+          "heading": "判断を学習に任せる：PRIMAL・GNN・ML-CBS",
+          "body": "ここまでの方法はすべて、中央の計算機が全員の経路をまとめて計画する。しかし、ロボットが自分の周りしか見えない場面や、雑音のために経路をオンラインで計算し直し続ける場面では、集中計画が間に合わない [@decentralized]。\n\nPRIMALは、各エージェントが自分の周りの観測だけから行動を決める方策を、強化学習とエキスパートのプランナの模倣学習を組み合わせて学ぶ [@paper-primal]。学習した方策は何台にでもコピーでき、最大1024エージェントの世界で評価された。GNNを使う方法は、近くのロボットとどの情報を共有するかも一緒に学ぶ [@paper-gnn]。\n\n学習は探索の中の判断にも使える。ML-CBSは、CBSで次にどの衝突を解消するかを、遅いが良い選択をするオラクルの真似で学び、探索木を小さくする [@paper-ml-cbs]。ただし、分散の方策は衝突のない解や目標への到達を保証しない。",
+          "refs": [],
+          "media": [
+            {
+              "paper": "paper-primal",
+              "label": "Figure 2"
+            },
+            {
+              "paper": "paper-gnn",
+              "label": "Figure 1"
+            }
+          ],
+          "links": []
+        },
+        {
+          "role": "methods",
+          "heading": "優先度で1歩ずつ：PIBT",
+          "body": "しかし、学習した方策には保証がなく、集中型のプランナの多くは数百台を超えると規模を大きくできない [@paper-primal]。倉庫のように数百台が動き続ける場面では、とにかく毎時刻すぐに次の1歩を返せることが重要になる [@lifelong]。\n\nPIBTは、各時刻に優先度の高いエージェントから行き先を決める [@paper-pibt-2019]。行きたい頂点を優先度の低いエージェントが占めていれば、そのエージェントに優先度を継承させて先に退かせ、退けなければ引き返して別の頂点を試す（バックトラック）。隣り合う頂点の組がどれも単純閉路に属するグラフでは、台数によらず全員が有限時間で目的地に着くことが証明されている [@paper-pibt]。\n\n数百台でもほぼ即座に解を返すが、解の質の上限は保証しない。",
+          "refs": [],
+          "media": [
+            {
+              "paper": "paper-pibt",
+              "label": "Algorithm 1"
+            }
+          ],
+          "links": []
+        },
+        {
+          "role": "methods",
+          "heading": "探索と組み合わせる：LaCAM・LaCAM*",
+          "body": "PIBTの弱点は1歩先しか見ないことで、狭い場所で詰まると抜け出せないことがあり、解があっても見つかるとは限らない。\n\nLaCAMは、全員の位置の組を上の段で探索し、次の位置の組をPIBTで1つずつ作る [@paper-lacam]。すべての次の組を列挙する代わりに、下の段で「エージェント $i$ は次に頂点 $v$ へ行く」という制約を必要なときだけ加える（遅延）。このため探索は完全で、しかも数百台以上でも速い。\n\nLaCAM*はこの探索を初期解で止めずに続け、時間をかけると最適解に収束する [@paper-lacam-star]。エージェントが最大1000のベンチマークの問題の99%を10秒以内に解いたと報告している。速さと最適性の折り合いを、1つの任意時間アルゴリズムで扱えるようになった。",
+          "refs": [],
+          "media": [
+            {
+              "paper": "paper-lacam",
+              "label": "Figure 1"
+            },
+            {
+              "paper": "paper-lacam-star",
+              "label": "Figure 1"
+            }
+          ],
           "links": []
         },
         {
           "role": "summary",
           "heading": "まとめと選び方",
-          "body": "最適解と完全性が欲しく、台数が中規模までならCBSとその改良（ICBS）を使う [@paper-cbs] [@paper-icbs]。少し解の質を譲って大きな問題を解きたいなら、有界準最適のECBS・EECBSが候補になる [@paper-ecbs] [@paper-eecbs]。どの手法も、共通のベンチマークで成功率 [@kw-success-rate] と解のコストを並べて比べるのがよい。CBSは改良手法の比較の基準としてもよく使われる [@kw-cbs-baseline]。",
+          "body": "最適解と完全性が欲しく、台数が中規模までならCBSとその改良（ICBS）を使う [@paper-cbs] [@paper-icbs]。少し解の質を譲って大きな問題を解きたいなら、有界準最適のECBS・EECBSが候補になる [@paper-ecbs] [@paper-eecbs]。どの手法も、共通のベンチマークで成功率 [@kw-success-rate] と解のコストを並べて比べるのがよい。CBSは改良手法の比較の基準としてもよく使われる [@kw-cbs-baseline]。\n\n数百台以上を短時間で動かしたいならLaCAM・LaCAM* [@paper-lacam-star]、毎時刻すぐに次の1歩が欲しいならPIBT [@paper-pibt] が候補になる。目標が次々に与えられる倉庫ではRHCRのように時間窓で区切って計画し直す [@paper-rhcr]。ロボットが周りしか見えず中央で計画できないなら、学習した分散方策を検討する [@paper-primal]。",
           "refs": [],
           "media": [],
           "links": []
@@ -505,7 +627,7 @@
         {
           "role": "variants",
           "heading": "派生問題",
-          "body": "- 台数が増えるほど難しくなる大規模化の問題 [@scalability]\n- 衝突を解消するたびに探索木が大きくなる問題（制約木の増大）[@tree]\n- 最適性と計算時間の折り合い（有界準最適など）[@optimality]\n\nこのサンプルでは扱っていないが、目標が次々に与えられる設定や、移動時間に不確かさがある設定、連続時間で考える設定などの派生問題もある。",
+          "body": "- 台数が増えるほど難しくなる大規模化の問題 [@scalability]\n- 衝突を解消するたびに探索木が大きくなる問題（制約木の増大）[@tree]\n- 最適性と計算時間の折り合い（有界準最適・任意時間）[@optimality]\n- 着いたエージェントに次の目標が与えられ続けるlifelong MAPF [@lifelong] [@paper-rhcr]\n- 各エージェントが周りしか見えない部分観測・分散の設定 [@decentralized] [@kw-pogema]\n\n衝突の定義や目的関数の違いによる変種は、用語を整理した論文が詳しい [@paper-mapf-benchmark]。",
           "refs": [],
           "media": [],
           "links": []
@@ -513,20 +635,32 @@
         {
           "role": "hands_on",
           "heading": "手を動かす",
-          "body": "まずは小さな格子地図で、CBSの上の段と下の段を自分で実装してみると、制約木がどう広がるかがよく分かる。比較には共通のベンチマークの地図と問題を使う [@kw-mapf-benchmark]。",
+          "body": "まずは小さな格子地図で、CBSの上の段と下の段を自分で実装してみると、制約木がどう広がるかがよく分かる。比較には共通のベンチマークの地図と問題を使う [@kw-mapf-benchmark]。大規模の挙動は、公開されているLaCAM*やEECBSの実装を同じ地図で動かして比べるとよい。部分観測の設定はPOGEMAで試せる [@kw-pogema]。",
           "refs": [],
           "media": [],
           "links": [
             {
               "url": "https://movingai.com/benchmarks/mapf.html",
               "title": "Moving AI Lab MAPF Benchmarks"
+            },
+            {
+              "url": "https://github.com/Kei18/lacam2",
+              "title": "LaCAM*の実装（Kei18/lacam2）"
+            },
+            {
+              "url": "https://github.com/Jiaoyang-Li/EECBS",
+              "title": "EECBSの実装（Jiaoyang-Li/EECBS）"
+            },
+            {
+              "url": "https://github.com/AIRI-Institute/pogema",
+              "title": "POGEMA"
             }
           ]
         },
         {
           "role": "further_reading",
           "heading": "さらに学ぶ",
-          "body": "日本語で全体像をつかむには、問題設定から最新の手法までを1本でたどる入門記事が参考になる。原論文はCBSのジャーナル版から読むとよい [@paper-cbs]。",
+          "body": "日本語で全体像をつかむには、問題設定から最新の手法までを1本でたどる入門記事が参考になる。原論文はCBSのジャーナル版から読むとよい [@paper-cbs]。前提と目的関数の用語は定義とベンチマークの論文で整理されている [@paper-mapf-benchmark]。",
           "refs": [
             "paper-cbs-2012"
           ],
@@ -541,12 +675,973 @@
         {
           "role": "conclusion",
           "heading": "おわりに",
-          "body": "MAPFは定義が簡潔なのに、最適性・速さ・規模の折り合いが深い問題である。このサンプルはCBS系に絞っているので、追加調査で優先度に基づく方法や学習を使う方法を加えると、分野の全体像に近づく。",
+          "body": "MAPFは定義が簡潔なのに、最適性・速さ・規模・分散の折り合いが深い問題である。CBS系は最適性の保証から出発して速さを足し、PIBT系は速さから出発して完全性と最適性を足してきた。学習ベースは、中央で計画できない場面と、探索の中の判断の両方に入り込みつつある。",
           "refs": [],
           "media": [],
           "links": []
         }
       ]
+    },
+    {
+      "id": "family-prioritized",
+      "label": "優先度で動かす（PIBT系）",
+      "provenance": "fixture",
+      "type": "Concept",
+      "description": "各時刻に優先度の高いエージェントから1歩ずつ行き先を決める。最適性は保証しないが、数百台以上でもすぐに解を返す。PIBTを部品として探索に組み込むLaCAM系もここに入る。"
+    },
+    {
+      "id": "family-learned",
+      "label": "学習ベース",
+      "provenance": "fixture",
+      "type": "Concept",
+      "description": "エキスパートのプランナを模倣したり強化学習で学んだりして、判断を学習したモデルに任せる。各エージェントが局所観測で動く分散方策と、探索の中の判断（衝突の選び方など）を学習で置き換える方法がある。"
+    },
+    {
+      "id": "decentralized",
+      "label": "部分観測での分散実行",
+      "provenance": "fixture",
+      "type": "Issue",
+      "kind": "fundamental",
+      "description": "各エージェントが自分の周りしか観測できず、中央でまとめて計画せずにオンラインで動く場面で、衝突を避けながら目標へ着く。",
+      "english_terms": [
+        "decentralized multi-agent path finding",
+        "partially observable MAPF (PO-MAPF)"
+      ]
+    },
+    {
+      "id": "communication",
+      "label": "ロボット間で共有する情報の設計",
+      "provenance": "fixture",
+      "type": "Issue",
+      "kind": "method_dependent",
+      "description": "分散して動くときに、どの情報を、いつ、どのロボットと共有すれば協調できるか。手作りの規則では決めにくい。",
+      "english_terms": [
+        "inter-robot communication",
+        "learned communication policy"
+      ]
+    },
+    {
+      "id": "lifelong",
+      "label": "次々に目標が与えられる運用",
+      "provenance": "fixture",
+      "type": "Issue",
+      "kind": "subproblem",
+      "description": "倉庫の搬送のように、着いたエージェントに新しい目標が与え続けられる設定（lifelong MAPF）で、計画を繰り返し短時間で作り直す。",
+      "english_terms": [
+        "lifelong MAPF",
+        "iterative MAPF",
+        "multi-agent pickup and delivery (MAPD)"
+      ]
+    },
+    {
+      "id": "pibt",
+      "label": "PIBT",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "各時刻に優先度の高いエージェントから行き先を決め、ふさがっていれば相手に優先度を継承させて退かせる（優先度継承とバックトラック）。"
+    },
+    {
+      "id": "lacam",
+      "label": "LaCAM",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "全員の位置の組を上の段で探索し、下の段では位置の制約を必要なときだけ遅延して加える2段階の探索。次の位置の組はPIBTで作る。完全で、数百台以上でも速い。"
+    },
+    {
+      "id": "lacam-star",
+      "label": "LaCAM*",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "LaCAMを任意時間アルゴリズムにし、初期解を素早く出したあと、時間をかけると最適解に収束する。"
+    },
+    {
+      "id": "primal",
+      "label": "PRIMAL",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "強化学習と、エキスパートのプランナの模倣学習を組み合わせて、局所観測で動く完全分散の方策を学ぶ。"
+    },
+    {
+      "id": "gnn-mapf",
+      "label": "GNN通信方策",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "CNNで局所観測の特徴を取り出し、GNNで近くのロボットと共有して行動を決める分散方策を、エキスパートの模倣で学ぶ。"
+    },
+    {
+      "id": "ml-cbs",
+      "label": "ML-CBS",
+      "provenance": "fixture",
+      "type": "Method",
+      "description": "CBSで次に解消する衝突の選び方を、遅いオラクルの判断を模倣する線形ランキング関数で学ぶ。"
+    },
+    {
+      "id": "paper-pibt-2019",
+      "label": "PIBT · IJCAI 2019",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Priority Inheritance with Backtracking for Iterative Multi-agent Path Finding",
+      "year": 2019,
+      "venue": "IJCAI",
+      "venue_type": "conference",
+      "one_line_summary": "優先度継承とバックトラックで各時刻の1歩を決め、繰り返し解くMAPFを素早く解く。",
+      "abstract": null,
+      "abstract_source_url": null,
+      "abstract_ja": null,
+      "reading": null,
+      "citation_count": 55,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.24963/ijcai.2019/76",
+      "arxiv_id": null,
+      "url": "https://www.ijcai.org/proceedings/2019/76",
+      "authors": [
+        "Keisuke Okumura",
+        "Manao Machida",
+        "Xavier Défago",
+        "Yasumasa Tamura"
+      ],
+      "proposes": [
+        "pibt"
+      ],
+      "addresses": [
+        "scalability",
+        "lifelong"
+      ],
+      "claims": [],
+      "evidence": [],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
+    },
+    {
+      "id": "paper-pibt",
+      "label": "PIBT · AIJ 2022",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Priority Inheritance with Backtracking for Iterative Multi-agent Path Finding",
+      "year": 2022,
+      "venue": "AIJ",
+      "venue_type": "journal",
+      "one_line_summary": "PIBTのジャーナル版。到達の保証、自動倉庫での繰り返しの搬送、実機のデモを含む。",
+      "abstract": "In the Multi-Agent Path Finding (MAPF) problem, a set of agents moving on a graph must reach their own respective destinations without inter-agent collisions. In practical MAPF applications such as navigation in automated warehouses, where occasionally there are hundreds or more agents, MAPF must be solved iteratively online on a lifelong basis. Such scenarios rule out simple adaptations of offline compute-intensive optimal approaches; and scalable sub-optimal algorithms are hence appealing for such settings. Ideal algorithms are scalable, applicable to iterative scenarios, and output plausible solutions in predictable computation time. For the aforementioned purpose, this study presents Priority Inheritance with Backtracking (PIBT), a novel sub-optimal algorithm to solve MAPF iteratively. PIBT relies on an adaptive prioritization scheme to focus on the adjacent movements of multiple agents; hence it can be applied to several domains. We prove that, regardless of their number, all agents are guaranteed to reach their destination within finite time when the environment is a graph such that all pairs of adjacent nodes belong to a simple cycle (e.g., biconnected). Experimental results covering various scenarios, including a demonstration with real robots, reveal the benefits of the proposed method. Even with hundreds of agents, PIBT yields acceptable solutions almost immediately and can solve large instances that other established MAPF methods cannot. In addition, PIBT outperforms an existing approach on an iterative scenario of conveying packages in an automated warehouse in both runtime and solution quality.",
+      "abstract_source_url": "https://arxiv.org/abs/1901.11282",
+      "abstract_ja": "マルチエージェント経路計画（MAPF）問題では、グラフ上を動く複数のエージェントが、互いに衝突せずにそれぞれの目的地へ着かなければならない。自動倉庫での移動のような実用的なMAPFの応用では、ときに数百以上のエージェントがいて、MAPFをオンラインで繰り返し（lifelongに）解く必要がある。このような場面では、オフラインで計算の重い最適な手法を単純に適用することはできず、スケーラブルな準最適アルゴリズムが望ましい。理想的なアルゴリズムはスケーラブルで、繰り返しの場面に使え、予測できる計算時間でもっともらしい解を出す。この目的のため、本研究はMAPFを繰り返し解く新しい準最適アルゴリズムPriority Inheritance with Backtracking（PIBT）を提案する。PIBTは適応的な優先度づけにより、複数のエージェントの隣接する移動に注目するため、いくつかの領域に適用できる。隣り合うすべての頂点の組が単純閉路に属するグラフ（例：2連結グラフ）では、エージェントの数によらず、すべてのエージェントが有限時間で目的地に着くことを証明する。実機ロボットのデモを含む様々な場面の実験で、提案手法の利点を示す。数百のエージェントでもPIBTはほぼ即座に許容できる解を出し、他の確立されたMAPF手法が解けない大きな問題を解ける。さらに、自動倉庫で荷物を運ぶ繰り返しの場面で、既存の手法を実行時間と解の質の両方で上回る。",
+      "reading": {
+        "contributions": [
+          "MAPFを繰り返し解く準最適アルゴリズムPIBTを提案",
+          "2連結のようなグラフでは、台数によらず全員が有限時間で目的地に着くことを証明",
+          "実機ロボットのデモと、自動倉庫での繰り返しの搬送の実験"
+        ],
+        "novelty": "計算の重い最適な手法ではなく、各時刻の隣接する移動だけを優先度で決めるため、数百台でもほぼ即座に解を出す。",
+        "key_idea": "優先度の高いエージェントが行きたい頂点を低いエージェントが占めていれば、低い方に優先度を継承させて先に退かせ、退けなければバックトラックする。",
+        "validation": "様々なMAPFの場面と、自動倉庫で荷物を運ぶ繰り返しの場面で、既存手法と実行時間・解の質を比較した。",
+        "discussion": "準最適で、解の質の上限は保証しない。全員が着く保証はグラフの条件（隣り合う頂点の組が単純閉路に属する）に依存する。",
+        "key_figures": [
+          "Algorithm 1: PIBTの手続き",
+          "Figure 10: 実機ロボットでのデモ"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/1901.11282",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 148,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1016/j.artint.2022.103752",
+      "arxiv_id": "1901.11282",
+      "url": "https://arxiv.org/abs/1901.11282",
+      "authors": [
+        "Keisuke Okumura",
+        "Manao Machida",
+        "Xavier Défago",
+        "Yasumasa Tamura"
+      ],
+      "proposes": [
+        "pibt"
+      ],
+      "addresses": [
+        "scalability",
+        "lifelong"
+      ],
+      "claims": [],
+      "evidence": [],
+      "code_availability": "public",
+      "code_url": "https://github.com/Kei18/pibt2",
+      "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "paper-lacam",
+      "label": "LaCAM · AAAI 2023",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "LaCAM: Search-Based Algorithm for Quick Multi-Agent Pathfinding",
+      "year": 2023,
+      "venue": "AAAI",
+      "venue_type": "conference",
+      "one_line_summary": "制約を遅延して加える2段階の探索で、数百台以上のMAPFを完全かつ素早く解く。",
+      "abstract": "We propose a novel complete algorithm for multi-agent pathfinding (MAPF) called lazy constraints addition search for MAPF (LaCAM). MAPF is a problem of finding collision-free paths for multiple agents on graphs and is the foundation of multi-robot coordination. LaCAM uses a two-level search to find solutions quickly, even with hundreds of agents or more. At the low-level, it searches constraints about agents' locations. At the high-level, it searches a sequence of all agents' locations, following the constraints specified by the low-level. Our exhaustive experiments reveal that LaCAM is comparable to or outperforms state-of-the-art sub-optimal MAPF algorithms in a variety of scenarios, regarding success rate, planning time, and solution quality of sum-of-costs.",
+      "abstract_source_url": "https://arxiv.org/abs/2211.13432",
+      "abstract_ja": "マルチエージェント経路計画（MAPF）のための新しい完全なアルゴリズムlazy constraints addition search for MAPF（LaCAM）を提案する。MAPFはグラフ上の複数のエージェントの衝突しない経路を求める問題で、複数ロボットの協調の基礎である。LaCAMは2段階の探索を使い、数百以上のエージェントでも素早く解を見つける。下の段では、エージェントの位置に関する制約を探索する。上の段では、下の段が指定した制約に従って、全エージェントの位置の列を探索する。網羅的な実験により、LaCAMは成功率・計画時間・和コストの解の質について、様々な場面で最先端の準最適MAPFアルゴリズムと同等かそれ以上であることを示す。",
+      "reading": {
+        "contributions": [
+          "完全なMAPFアルゴリズムLaCAMを提案",
+          "位置の制約を下の段で必要なときだけ加える（遅延）2段階の探索",
+          "成功率・計画時間・和コストで最先端の準最適手法と同等以上"
+        ],
+        "novelty": "全員の位置の組を探索するのに、次の位置の組をすべて列挙せず、制約を遅延して加えながら1つずつ作るため、数百台以上でも探索が速い。",
+        "key_idea": "上の段のノードは全員の位置の組。下の段で「エージェントiは次にvへ行く」という制約を少しずつ増やし、その制約に従う次の位置の組を作る。",
+        "validation": "様々な場面で、最先端の準最適MAPFアルゴリズムと成功率・計画時間・和コストを比較した。",
+        "discussion": "和コストの最適性は保証しない（後続のLaCAM*が任意時間で最適へ収束させた）。",
+        "key_figures": [
+          "Figure 1: LaCAMの動作例",
+          "Figure 3: 大量のエージェントでの結果"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/2211.13432",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 77,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1609/aaai.v37i10.26377",
+      "arxiv_id": "2211.13432",
+      "url": "https://arxiv.org/abs/2211.13432",
+      "authors": [
+        "Keisuke Okumura"
+      ],
+      "proposes": [
+        "lacam"
+      ],
+      "addresses": [
+        "scalability"
+      ],
+      "claims": [],
+      "evidence": [],
+      "code_availability": "public",
+      "code_url": "https://github.com/Kei18/lacam",
+      "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "paper-lacam-star",
+      "label": "LaCAM* · IJCAI 2023",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Improving LaCAM for Scalable Eventually Optimal Multi-Agent Pathfinding",
+      "year": 2023,
+      "venue": "IJCAI",
+      "venue_type": "conference",
+      "one_line_summary": "LaCAMを任意時間化して最適解へ収束させ、初期解の生成も速くする。",
+      "abstract": "This study extends the recently-developed LaCAM algorithm for multi-agent pathfinding (MAPF). LaCAM is a sub-optimal search-based algorithm that uses lazy successor generation to dramatically reduce the planning effort. We present two enhancements. First, we propose its anytime version, called LaCAM*, which eventually converges to optima, provided that solution costs are accumulated transition costs. Second, we improve the successor generation to quickly obtain initial solutions. Exhaustive experiments demonstrate their utility. For instance, LaCAM* sub-optimally solved 99% of the instances retrieved from the MAPF benchmark, where the number of agents varied up to a thousand, within ten seconds on a standard desktop PC, while ensuring eventual convergence to optima; developing a new horizon of MAPF algorithms.",
+      "abstract_source_url": "https://arxiv.org/abs/2305.03632",
+      "abstract_ja": "本研究は、最近開発されたマルチエージェント経路計画（MAPF）のアルゴリズムLaCAMを拡張する。LaCAMは準最適の探索ベースのアルゴリズムで、後続状態を遅延して生成することで計画の手間を劇的に減らす。2つの改良を示す。第1に、その任意時間版LaCAM*を提案する。解のコストが遷移コストの累積であれば、LaCAM*は最終的に最適解に収束する。第2に、初期解を素早く得るために後続状態の生成を改良する。網羅的な実験でこれらの有用性を示す。たとえばLaCAM*は、エージェント数が最大1000まで変わるMAPFベンチマークの問題の99%を、標準的なデスクトップPCで10秒以内に準最適に解き、しかも最終的な最適解への収束を保証した。MAPFアルゴリズムの新しい地平を開くものである。",
+      "reading": {
+        "contributions": [
+          "LaCAMの任意時間版LaCAM*を提案し、最終的に最適解に収束することを示す",
+          "後続状態の生成を改良して初期解を素早く得る"
+        ],
+        "novelty": "大規模でも素早く解を出す準最適の探索に、時間をかければ最適解へ収束する保証を加えた。",
+        "key_idea": "LaCAMの探索を初期解で止めずに続け、より良い位置の組の列が見つかるたびに解を更新する。",
+        "validation": "MAPFベンチマーク（エージェント最大1000）の問題の99%を、標準的なデスクトップPCで10秒以内に準最適に解いた（アブストラクトより）。",
+        "discussion": "最適解への収束は、解のコストが遷移コストの累積である場合に限る。収束までの時間は問題による。",
+        "key_figures": [
+          "Figure 1: MAPFベンチマークでの性能",
+          "Figure 2: LaCAMの考え方（1エージェントの格子経路で説明）"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/2305.03632",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 28,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.24963/ijcai.2023/28",
+      "arxiv_id": "2305.03632",
+      "url": "https://arxiv.org/abs/2305.03632",
+      "authors": [
+        "Keisuke Okumura"
+      ],
+      "proposes": [
+        "lacam-star"
+      ],
+      "addresses": [
+        "scalability",
+        "optimality"
+      ],
+      "claims": [
+        "claim-lacam-star-optimal",
+        "claim-lacam-star-scale"
+      ],
+      "evidence": [
+        "evidence-lacam-star-optimal",
+        "evidence-lacam-star-scale"
+      ],
+      "code_availability": "public",
+      "code_url": "https://github.com/Kei18/lacam2",
+      "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "paper-primal",
+      "label": "PRIMAL · RA-L 2019",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "PRIMAL: Pathfinding via Reinforcement and Imitation Multi-Agent Learning",
+      "year": 2019,
+      "venue": "IEEE RA-L",
+      "venue_type": "journal",
+      "one_line_summary": "強化学習と模倣学習を組み合わせ、局所観測で動く完全分散の方策を学ぶ。",
+      "abstract": "Multi-agent path finding (MAPF) is an essential component of many large-scale, real-world robot deployments, from aerial swarms to warehouse automation. However, despite the community's continued efforts, most state-of-the-art MAPF planners still rely on centralized planning and scale poorly past a few hundred agents. Such planning approaches are maladapted to real-world deployments, where noise and uncertainty often require paths be recomputed online, which is impossible when planning times are in seconds to minutes. We present PRIMAL, a novel framework for MAPF that combines reinforcement and imitation learning to teach fully-decentralized policies, where agents reactively plan paths online in a partially-observable world while exhibiting implicit coordination. This framework extends our previous work on distributed learning of collaborative policies by introducing demonstrations of an expert MAPF planner during training, as well as careful reward shaping and environment sampling. Once learned, the resulting policy can be copied onto any number of agents and naturally scales to different team sizes and world dimensions. We present results on randomized worlds with up to 1024 agents and compare success rates against state-of-the-art MAPF planners. Finally, we experimentally validate the learned policies in a hybrid simulation of a factory mockup, involving both real-world and simulated robots.",
+      "abstract_source_url": "https://arxiv.org/abs/1809.03531",
+      "abstract_ja": "マルチエージェント経路計画（MAPF）は、空中のスウォームから倉庫の自動化まで、多くの大規模な実世界のロボット運用に欠かせない要素である。しかし、コミュニティの継続的な努力にもかかわらず、最先端のMAPFプランナの多くはいまだ集中型の計画に頼っており、数百のエージェントを超えると規模を大きくできない。このような計画は実世界の運用に適さない。実世界では雑音や不確かさのため経路をオンラインで計算し直す必要が多いが、計画時間が数秒から数分かかるとそれができない。本論文はPRIMALを提案する。PRIMALは強化学習と模倣学習を組み合わせて完全分散の方策を教えるMAPFの枠組みで、エージェントは部分観測の世界でオンラインに反応的に経路を計画し、暗黙の協調を示す。この枠組みは、協調的な方策の分散学習に関する我々の以前の研究を拡張し、学習中にエキスパートのMAPFプランナの実演を取り入れ、報酬の設計と環境のサンプリングを工夫した。学習した方策は任意の数のエージェントにコピーでき、チームの大きさや世界の大きさが変わっても自然にスケールする。最大1024エージェントのランダムな世界での結果を示し、最先端のMAPFプランナと成功率を比べる。最後に、実機と模擬のロボットを含む工場の模型のハイブリッドシミュレーションで、学習した方策を実験的に検証する。",
+      "reading": {
+        "contributions": [
+          "強化学習と模倣学習を組み合わせて完全分散の方策を学ぶMAPFの枠組みPRIMALを提案",
+          "エキスパートのMAPFプランナの実演、報酬の設計、環境のサンプリングを学習に導入",
+          "最大1024エージェントでの評価と、実機を含むハイブリッドシミュレーションでの検証"
+        ],
+        "novelty": "集中型のプランナが数百台を超えると規模を大きくできないのに対し、学習した方策を各エージェントにコピーして部分観測でオンラインに動かす。",
+        "key_idea": "各エージェントは自分の周りの観測から行動を出すニューラルネットの方策に従う。学習では強化学習に、エキスパートの計画を真似る模倣学習を混ぜる。",
+        "validation": "最大1024エージェントのランダムな世界で、最先端のMAPFプランナと成功率を比較した。実機と模擬ロボットを含む工場の模型で検証した。",
+        "discussion": "学習した方策は衝突のない解や目標への到達を保証しない。成功率は集中型のプランナとの比較で評価している。",
+        "key_figures": [
+          "Figure 2: 各エージェントの観測空間",
+          "Figure 4: 強化学習と模倣学習を組み合わせた学習の構成"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/1809.03531",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 421,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1109/lra.2019.2903261",
+      "arxiv_id": "1809.03531",
+      "url": "https://arxiv.org/abs/1809.03531",
+      "authors": [
+        "Guillaume Sartoretti",
+        "Justin Kerr",
+        "Yunfei Shi",
+        "Glenn Wagner",
+        "T. K. Satish Kumar",
+        "Sven Koenig",
+        "Howie Choset"
+      ],
+      "proposes": [
+        "primal"
+      ],
+      "addresses": [
+        "decentralized"
+      ],
+      "claims": [
+        "claim-primal"
+      ],
+      "evidence": [
+        "evidence-primal"
+      ],
+      "code_availability": "public",
+      "code_url": "https://github.com/gsartoretti/PRIMAL",
+      "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "paper-gnn",
+      "label": "GNN · IROS 2020",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Graph Neural Networks for Decentralized Multi-Robot Path Planning",
+      "year": 2020,
+      "venue": "IROS",
+      "venue_type": "conference",
+      "one_line_summary": "CNNで局所観測の特徴を取り、GNNでロボット間に共有する分散方策をエキスパートの模倣で学ぶ。",
+      "abstract": "Effective communication is key to successful, decentralized, multi-robot path planning. Yet, it is far from obvious what information is crucial to the task at hand, and how and when it must be shared among robots. To side-step these issues and move beyond hand-crafted heuristics, we propose a combined model that automatically synthesizes local communication and decision-making policies for robots navigating in constrained workspaces. Our architecture is composed of a convolutional neural network (CNN) that extracts adequate features from local observations, and a graph neural network (GNN) that communicates these features among robots. We train the model to imitate an expert algorithm, and use the resulting model online in decentralized planning involving only local communication and local observations. We evaluate our method in simulations {by navigating teams of robots to their destinations in 2D} cluttered workspaces. We measure the success rates and sum of costs over the planned paths. The results show a performance close to that of our expert algorithm, demonstrating the validity of our approach. In particular, we show our model's capability to generalize to previously unseen cases (involving larger environments and larger robot teams).",
+      "abstract_source_url": "https://arxiv.org/abs/1912.06095",
+      "abstract_ja": "効果的な通信は、分散した複数ロボットの経路計画を成功させる鍵である。しかし、目の前のタスクにどの情報が重要で、それをどのように、いつロボット間で共有すべきかは自明からほど遠い。これらの問題を避け、手作りのヒューリスティックを超えるため、制約のある作業空間を移動するロボットの局所的な通信と意思決定の方策を自動で合成するモデルを提案する。提案するアーキテクチャは、局所観測から適切な特徴を取り出す畳み込みニューラルネットワーク（CNN）と、その特徴をロボット間で通信するグラフニューラルネットワーク（GNN）からなる。エキスパートのアルゴリズムを模倣するようにモデルを学習し、得られたモデルを、局所的な通信と局所観測だけを使う分散の計画にオンラインで用いる。障害物の多い2次元の作業空間でロボットのチームを目的地へ導くシミュレーションで評価し、計画した経路の成功率とコストの和を測る。結果はエキスパートのアルゴリズムに近い性能を示し、手法の妥当性を示す。特に、学習時に見ていない場合（より大きな環境やより大きなロボットのチーム）へ汎化できることを示す。",
+      "reading": {
+        "contributions": [
+          "局所観測の特徴をCNNで取り出し、GNNでロボット間に共有する分散の経路計画モデルを提案",
+          "エキスパートのアルゴリズムを模倣して学習し、局所通信だけでオンラインに計画",
+          "学習時より大きな環境・チームへの汎化を示した"
+        ],
+        "novelty": "どの情報をいつ共有するかを手作りの規則で決めず、通信の内容と行動の方策を一緒に学ぶ。",
+        "key_idea": "各ロボットの観測をCNNで特徴に変え、通信できる範囲のロボットどうしをグラフで結んでGNNで特徴を集約し、行動を出す。",
+        "validation": "障害物の多い2次元の作業空間のシミュレーションで、成功率と経路のコストの和を測り、エキスパートと比較した。",
+        "discussion": "性能はエキスパートに近いが、上回ってはいない。保証のある手法ではない。",
+        "key_figures": [
+          "Figure 1: 提案する枠組み",
+          "Figure 2: 推論の段階"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/1912.06095",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 276,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1109/iros45743.2020.9341668",
+      "arxiv_id": "1912.06095",
+      "url": "https://arxiv.org/abs/1912.06095",
+      "authors": [
+        "Qingbiao Li",
+        "Fernando Gama",
+        "Alejandro Ribeiro",
+        "Amanda Prorok"
+      ],
+      "proposes": [
+        "gnn-mapf"
+      ],
+      "addresses": [
+        "communication"
+      ],
+      "claims": [
+        "claim-gnn"
+      ],
+      "evidence": [
+        "evidence-gnn"
+      ],
+      "code_availability": "public",
+      "code_url": "https://github.com/proroklab/gnn_pathplanning",
+      "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "paper-ml-cbs",
+      "label": "ML-CBS · AAAI 2021",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Learning to Resolve Conflicts for Multi-Agent Path Finding with Conflict-Based Search",
+      "year": 2021,
+      "venue": "AAAI",
+      "venue_type": "conference",
+      "one_line_summary": "CBSで解消する衝突の選び方を、オラクルを模倣するランキング関数で学ぶ。",
+      "abstract": "Conflict-Based Search (CBS) is a state-of-the-art algorithm for multi-agent path finding. At the high level, CBS repeatedly detects conflicts and resolves one of them by splitting the current problem into two subproblems. Previous work chooses the conflict to resolve by categorizing the conflict into three classes and always picking a conflict from the highest-priority class. In this work, we propose an oracle for conflict selection that results in smaller search tree sizes than the one used in previous work. However, the computation of the oracle is slow. Thus, we propose a machine-learning framework for conflict selection that observes the decisions made by the oracle and learns a conflict-selection strategy represented by a linear ranking function that imitates the oracle's decisions accurately and quickly. Experiments on benchmark maps indicate that our method significantly improves the success rates, the search tree sizes and runtimes over the current state-of-the-art CBS solver.",
+      "abstract_source_url": "https://arxiv.org/abs/2012.06005",
+      "abstract_ja": "Conflict-Based Search（CBS）はマルチエージェント経路計画の最先端のアルゴリズムである。上の段でCBSは衝突を繰り返し検出し、そのうちの1つを、現在の問題を2つの部分問題に分けることで解消する。これまでの研究は、衝突を3つのクラスに分類し、常に優先度の最も高いクラスから衝突を選んでいた。本研究では、従来より小さな探索木になる衝突選択のオラクルを提案する。しかしオラクルの計算は遅い。そこで、オラクルの判断を観察し、その判断を正確かつ速く真似る線形ランキング関数で表した衝突選択の戦略を学ぶ機械学習の枠組みを提案する。ベンチマークの地図での実験では、提案手法が現在の最先端のCBSソルバに比べて、成功率・探索木の大きさ・実行時間を大幅に改善することを示した。",
+      "reading": {
+        "contributions": [
+          "従来より小さな探索木になる衝突選択のオラクルを提案",
+          "オラクルの判断を線形ランキング関数で模倣する機械学習の枠組みを提案"
+        ],
+        "novelty": "衝突を3クラスに分けて最優先のクラスから選ぶ従来の規則を、学習した選び方に置き換えた。",
+        "key_idea": "遅いが良い選択をするオラクルの判断を記録し、衝突の特徴量から順位を出す線形関数を学んで、探索中は学習した関数で選ぶ。",
+        "validation": "ベンチマークの地図で、最先端のCBSソルバと成功率・探索木の大きさ・実行時間を比較した。",
+        "discussion": "学習した選び方は最適性を変えない（CBSの枠組みのまま）が、学習した地図と違う地図での効き方は検証の範囲に依存する。",
+        "key_figures": [
+          "Figure 1: 制限時間内の成功率"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/2012.06005",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 29,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1609/aaai.v35i13.17341",
+      "arxiv_id": "2012.06005",
+      "url": "https://arxiv.org/abs/2012.06005",
+      "authors": [
+        "Taoan Huang",
+        "Sven Koenig",
+        "Bistra Dilkina"
+      ],
+      "proposes": [
+        "ml-cbs"
+      ],
+      "addresses": [
+        "tree"
+      ],
+      "claims": [
+        "claim-ml-cbs"
+      ],
+      "evidence": [
+        "evidence-ml-cbs"
+      ],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
+    },
+    {
+      "id": "paper-mapf-benchmark",
+      "label": "MAPF定義 · SoCS 2019",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Multi-Agent Pathfinding: Definitions, Variants, and Benchmarks",
+      "year": 2019,
+      "venue": "SoCS",
+      "venue_type": "conference",
+      "one_line_summary": "MAPFの前提と目的関数の用語を統一し、格子地図のベンチマークを紹介する。",
+      "abstract": "The MAPF problem is the fundamental problem of planning paths for multiple agents, where the key constraint is that the agents will be able to follow these paths concurrently without colliding with each other. Applications of MAPF include automated warehouses and autonomous vehicles. Research on MAPF has been flourishing in the past couple of years. Different MAPF research papers make different assumptions, e.g., whether agents can traverse the same road at the same time, and have different objective functions, e.g., minimize makespan or sum of agents' actions costs. These assumptions and objectives are sometimes implicitly assumed or described informally. This makes it difficult to establish appropriate baselines for comparison in research papers, as well as making it difficult for practitioners to find the papers relevant to their concrete application. This paper aims to fill this gap and support researchers and practitioners by providing a unifying terminology for describing common MAPF assumptions and objectives. In addition, we also provide pointers to two MAPF benchmarks. In particular, we introduce a new grid-based benchmark for MAPF, and demonstrate experimentally that it poses a challenge to contemporary MAPF algorithms.",
+      "abstract_source_url": "https://arxiv.org/abs/1906.08291",
+      "abstract_ja": "MAPF問題は、複数のエージェントの経路を計画する基本的な問題で、主な制約は、エージェントが互いに衝突せずにこれらの経路を同時にたどれることである。MAPFの応用には自動倉庫や自動運転車がある。MAPFの研究はここ数年で盛んになっている。MAPFの論文ごとに異なる前提（例：複数のエージェントが同じ道を同時に通れるか）や異なる目的関数（例：makespanを最小にするか、エージェントの行動のコストの和を最小にするか）が置かれる。これらの前提や目的は暗黙のうちに置かれたり、非形式的に書かれたりすることがある。そのため、論文で比較の基準を適切に定めることも、実務者が自分の応用に関係する論文を探すことも難しい。本論文はこの隙間を埋め、研究者と実務者を支えるため、MAPFのよくある前提と目的を記述する統一的な用語を提供する。加えて、2つのMAPFベンチマークへの手がかりを示す。特に、新しい格子ベースのMAPFベンチマークを紹介し、それが現在のMAPFアルゴリズムにとって難しいことを実験で示す。",
+      "reading": {
+        "contributions": [
+          "MAPFのよくある前提（衝突の種類など）と目的関数（makespan・和コスト）を記述する統一的な用語を提供",
+          "新しい格子ベースのMAPFベンチマークを紹介し、現在のアルゴリズムに難しいことを示した"
+        ],
+        "novelty": "論文ごとに暗黙に違っていた前提と目的をそろえて書けるようにし、比較の基準を定めやすくした。",
+        "key_idea": "頂点衝突・辺衝突・追従などの衝突の種類と、目的関数の違いを名前で区別する。",
+        "validation": "新しいベンチマークで現在のMAPFアルゴリズムを実験した。",
+        "discussion": "手法の提案ではなく、定義とベンチマークの論文。",
+        "key_figures": [
+          "Figure 1: よくある衝突の種類"
+        ],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/1906.08291",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 650,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1609/socs.v10i1.18510",
+      "arxiv_id": "1906.08291",
+      "url": "https://arxiv.org/abs/1906.08291",
+      "authors": [
+        "Roni Stern",
+        "Nathan Sturtevant",
+        "Ariel Felner",
+        "Sven Koenig",
+        "Hang Ma",
+        "Thayne Walker",
+        "Jiaoyang Li",
+        "Dor Atzmon",
+        "Liron Cohen",
+        "T. K. Satish Kumar",
+        "Eli Boyarski",
+        "Roman Barták"
+      ],
+      "proposes": [],
+      "addresses": [
+        "collision"
+      ],
+      "claims": [],
+      "evidence": [],
+      "code_availability": "unknown",
+      "code_url": null,
+      "code_checked_at": null
+    },
+    {
+      "id": "paper-rhcr",
+      "label": "RHCR · AAAI 2021",
+      "provenance": "fixture",
+      "type": "Paper",
+      "title": "Lifelong Multi-Agent Path Finding in Large-Scale Warehouses",
+      "year": 2021,
+      "venue": "AAAI",
+      "venue_type": "conference",
+      "one_line_summary": "時間窓の中だけ衝突を解消する計画を繰り返し、次々に目標が与えられるMAPFを解く。",
+      "abstract": "Multi-Agent Path Finding (MAPF) is the problem of moving a team of agents to their goal locations without collisions. In this paper, we study the lifelong variant of MAPF, where agents are constantly engaged with new goal locations, such as in large-scale automated warehouses. We propose a new framework Rolling-Horizon Collision Resolution (RHCR) for solving lifelong MAPF by decomposing the problem into a sequence of Windowed MAPF instances, where a Windowed MAPF solver resolves collisions among the paths of the agents only within a bounded time horizon and ignores collisions beyond it. RHCR is particularly well suited to generating pliable plans that adapt to continually arriving new goal locations. We empirically evaluate RHCR with a variety of MAPF solvers and show that it can produce high-quality solutions for up to 1,000 agents (= 38.9\\% of the empty cells on the map) for simulated warehouse instances, significantly outperforming existing work.",
+      "abstract_source_url": "https://arxiv.org/abs/2005.07371",
+      "abstract_ja": "マルチエージェント経路計画（MAPF）は、エージェントのチームを衝突させずに目標位置へ動かす問題である。本論文では、大規模な自動倉庫のように、エージェントに新しい目標位置が絶えず与えられるlifelongの変種を扱う。lifelong MAPFを、時間窓つきMAPFの列に分解して解く新しい枠組みRolling-Horizon Collision Resolution（RHCR）を提案する。時間窓つきMAPFのソルバは、限られた時間の範囲の中だけでエージェントの経路の衝突を解消し、その先の衝突は無視する。RHCRは、次々に到着する新しい目標位置に合わせて柔軟な計画を作るのに特に適している。様々なMAPFソルバでRHCRを実験的に評価し、模擬した倉庫の問題で最大1,000エージェント（地図の空きセルの38.9%）まで高品質な解を作れること、既存の研究を大きく上回ることを示す。",
+      "reading": {
+        "contributions": [
+          "lifelong MAPFを時間窓つきMAPFの列に分解する枠組みRHCRを提案",
+          "様々なMAPFソルバと組み合わせて評価"
+        ],
+        "novelty": "先の衝突まで解かず、限られた時間の範囲の衝突だけを解消して計画を繰り返すため、新しい目標が次々に来ても計画を作り直しやすい。",
+        "key_idea": "一定の間隔ごとに、時間窓の中だけ衝突を解消した経路を計画し、エージェントを動かし、また計画する。",
+        "validation": "模擬した倉庫の問題で、最大1,000エージェントまで既存の研究と比較した（アブストラクトより）。",
+        "discussion": "時間窓の外の衝突は無視するため、窓の長さの選び方で解の質と計算時間が変わる。",
+        "key_figures": [],
+        "sources": [
+          {
+            "url": "https://arxiv.org/abs/2005.07371",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "citation_count": 254,
+      "citation_source": "OpenAlex",
+      "citation_as_of": "2026-10-12",
+      "doi": "10.1609/aaai.v35i13.17344",
+      "arxiv_id": "2005.07371",
+      "url": "https://arxiv.org/abs/2005.07371",
+      "authors": [
+        "Jiaoyang Li",
+        "Andrew Tinka",
+        "Scott Kiesel",
+        "Joseph W. Durham",
+        "T. K. Satish Kumar",
+        "Sven Koenig"
+      ],
+      "proposes": [],
+      "addresses": [
+        "lifelong"
+      ],
+      "claims": [
+        "claim-rhcr"
+      ],
+      "evidence": [
+        "evidence-rhcr"
+      ],
+      "code_availability": "public",
+      "code_url": "https://github.com/Jiaoyang-Li/RHCR",
+      "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "evidence-ecbs-np",
+      "label": "ECBS（SoCS 2014）のアブストラクト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/view/18315",
+      "locator": "Abstract",
+      "excerpt": "Solving MAPF optimally is proven to be NP-hard, hence CBS and all other optimal solvers do not scale up.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "evidence-lacam-star-scale",
+      "label": "LaCAM*のアブストラクト（規模）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2305.03632",
+      "locator": "Abstract",
+      "excerpt": "LaCAM* sub-optimally solved 99% of the instances retrieved from the MAPF benchmark, where the number of agents varied up to a thousand, within ten seconds on a standard desktop PC",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "evidence-lacam-star-optimal",
+      "label": "LaCAM*のアブストラクト（最適性）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2305.03632",
+      "locator": "Abstract",
+      "excerpt": "which eventually converges to optima, provided that solution costs are accumulated transition costs",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "evidence-primal",
+      "label": "PRIMALのアブストラクト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract",
+      "excerpt": "We present results on randomized worlds with up to 1024 agents and compare success rates against state-of-the-art MAPF planners.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "evidence-rhcr",
+      "label": "RHCRのアブストラクト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2005.07371",
+      "locator": "Abstract",
+      "excerpt": "it can produce high-quality solutions for up to 1,000 agents",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "evidence-gnn",
+      "label": "GNN通信方策のアブストラクト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "The results show a performance close to that of our expert algorithm",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "evidence-ml-cbs",
+      "label": "ML-CBSのアブストラクト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2012.06005",
+      "locator": "Abstract",
+      "excerpt": "our method significantly improves the success rates, the search tree sizes and runtimes over the current state-of-the-art CBS solver",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null
+    },
+    {
+      "id": "claim-lacam-star-optimal",
+      "label": "時間をかければ最適解へ収束",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "LaCAM*は、解のコストが遷移コストの累積であれば、最終的に最適解へ収束する任意時間アルゴリズムである。",
+      "status": "partially_solved",
+      "scope": {
+        "task": "MAPF",
+        "setting": "任意時間の探索",
+        "metric": "sum-of-costsの最適性（収束）",
+        "assumptions": [
+          "解のコストが遷移コストの累積"
+        ],
+        "limitations": [
+          "収束までの時間は保証しない",
+          "アブストラクトだけで確認"
+        ]
+      },
+      "as_of": "2023-05-05",
+      "evidence": [
+        "evidence-lacam-star-optimal"
+      ]
+    },
+    {
+      "id": "claim-lacam-star-scale",
+      "label": "最大1000台の99%を10秒以内",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "LaCAM*は、エージェント数が最大1000のMAPFベンチマークの問題の99%を、標準的なデスクトップPCで10秒以内に準最適に解いた。",
+      "status": "partially_solved",
+      "scope": {
+        "task": "MAPF",
+        "setting": "MAPFベンチマーク（Moving AI）、エージェント最大1000、標準的なデスクトップPC",
+        "metric": "10秒以内に解けた問題の割合",
+        "assumptions": [],
+        "limitations": [
+          "準最適の解",
+          "アブストラクトだけで確認"
+        ]
+      },
+      "as_of": "2023-05-05",
+      "evidence": [
+        "evidence-lacam-star-scale"
+      ]
+    },
+    {
+      "id": "claim-primal",
+      "label": "最大1024台の分散方策",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "PRIMALは、最大1024エージェントのランダムな世界で、学習した分散方策の成功率を最先端のMAPFプランナと比べた。",
+      "status": "partially_solved",
+      "scope": {
+        "task": "MAPF",
+        "setting": "部分観測、完全分散、ランダムな格子世界",
+        "metric": "成功率",
+        "assumptions": [],
+        "limitations": [
+          "到達は保証しない",
+          "アブストラクトだけで確認"
+        ]
+      },
+      "as_of": "2018-09-10",
+      "evidence": [
+        "evidence-primal"
+      ]
+    },
+    {
+      "id": "claim-rhcr",
+      "label": "倉庫で最大1,000台",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "RHCRは、模擬した倉庫の問題で、最大1,000エージェントまで高品質な解を作れた。",
+      "status": "partially_solved",
+      "scope": {
+        "task": "lifelong MAPF",
+        "setting": "模擬した大規模倉庫",
+        "metric": "解の質（スループット）",
+        "assumptions": [],
+        "limitations": [
+          "実倉庫での検証ではない",
+          "アブストラクトだけで確認"
+        ]
+      },
+      "as_of": "2020-05-15",
+      "evidence": [
+        "evidence-rhcr"
+      ]
+    },
+    {
+      "id": "claim-gnn",
+      "label": "エキスパートに近い性能",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "学習した通信と意思決定の方策は、障害物の多い2次元の作業空間で、エキスパートのアルゴリズムに近い成功率と経路のコストを示した。",
+      "status": "partially_solved",
+      "scope": {
+        "task": "分散の複数ロボット経路計画",
+        "setting": "局所観測と局所通信、2次元の格子",
+        "metric": "成功率、経路のコストの和",
+        "assumptions": [],
+        "limitations": [
+          "エキスパートを上回ってはいない",
+          "アブストラクトだけで確認"
+        ]
+      },
+      "as_of": "2019-12-12",
+      "evidence": [
+        "evidence-gnn"
+      ]
+    },
+    {
+      "id": "claim-ml-cbs",
+      "label": "学習した衝突の選び方で探索木が小さく",
+      "provenance": "fixture",
+      "type": "Claim",
+      "statement": "CBSで解消する衝突の選び方を学習すると、最先端のCBSソルバより成功率・探索木の大きさ・実行時間が大幅に改善した。",
+      "status": "partially_solved",
+      "scope": {
+        "task": "MAPF",
+        "setting": "ベンチマークの地図、CBSの最適な探索",
+        "metric": "成功率、探索木の大きさ、実行時間",
+        "assumptions": [],
+        "limitations": [
+          "アブストラクトだけで確認"
+        ]
+      },
+      "as_of": "2020-12-10",
+      "evidence": [
+        "evidence-ml-cbs"
+      ]
+    },
+    {
+      "id": "kw-real-robots",
+      "label": "実機ロボットでの検証",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "real robots",
+        "hybrid simulation"
+      ],
+      "category": "hardware",
+      "meaning": "学習した方策やアルゴリズムを、実機のロボットと模擬のロボットを混ぜた環境や実機のデモで確かめる。格子の上での評価との差を見る。",
+      "papers": [
+        "paper-primal",
+        "paper-pibt"
+      ],
+      "related": [
+        "decentralized"
+      ],
+      "official_url": null,
+      "as_of": null,
+      "definition_excerpt": "Finally, we experimentally validate the learned policies in a hybrid simulation of a factory mockup, involving both real-world and simulated robots.",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract"
+    },
+    {
+      "id": "kw-pogema",
+      "label": "POGEMA",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "Partially Observable Grid Environment for Multiple Agents"
+      ],
+      "category": "simulator",
+      "meaning": "部分観測のMAPFを試す格子の環境。計画と学習の手法を同じ問題で比べられる。",
+      "papers": [],
+      "related": [
+        "decentralized"
+      ],
+      "official_url": "https://github.com/AIRI-Institute/pogema",
+      "as_of": null,
+      "definition_excerpt": "a sandbox for challenging partially observable multi-agent pathfinding (PO-MAPF) problems",
+      "source_url": "https://arxiv.org/abs/2206.10944",
+      "locator": "Abstract"
+    },
+    {
+      "id": "kw-gnn",
+      "label": "グラフニューラルネットワーク（GNN）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "GNN"
+      ],
+      "category": "model",
+      "meaning": "近くのロボットどうしをグラフで結び、特徴を集約して行動を決めるモデル。分散の経路計画で、共有する情報を学ぶのに使われる。",
+      "papers": [
+        "paper-gnn"
+      ],
+      "related": [
+        "communication",
+        "gnn-mapf"
+      ],
+      "official_url": null,
+      "as_of": null,
+      "definition_excerpt": "a graph neural network (GNN) that communicates these features among robots",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract"
+    },
+    {
+      "id": "kw-ecbs-baseline",
+      "label": "ECBS（準最適の比較対象）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [],
+      "category": "baseline",
+      "meaning": "有界準最適のMAPFソルバを比べるときの基準。新しい準最適ソルバはECBSより速いかで評価されることが多い。",
+      "papers": [
+        "paper-eecbs"
+      ],
+      "related": [
+        "ecbs",
+        "optimality"
+      ],
+      "official_url": null,
+      "as_of": null,
+      "definition_excerpt": "runs significantly faster than the state-of-the-art bounded-suboptimal MAPF algorithms ECBS, BCP-7, and eMDD-SAT",
+      "source_url": "https://arxiv.org/abs/2010.01367",
+      "locator": "Abstract"
+    },
+    {
+      "id": "kw-sota-large",
+      "label": "大規模MAPFの準最適ソルバ：LaCAM*",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [],
+      "category": "sota",
+      "meaning": "エージェントが最大1000のベンチマークで、ほぼすべての問題を10秒以内に解き、時間をかければ最適解に近づく。時点つきの値で、後の研究で更新されうる。",
+      "papers": [
+        "paper-lacam-star"
+      ],
+      "related": [
+        "scalability",
+        "lacam-star"
+      ],
+      "official_url": null,
+      "as_of": "2023-05-05",
+      "definition_excerpt": "LaCAM* sub-optimally solved 99% of the instances retrieved from the MAPF benchmark, where the number of agents varied up to a thousand, within ten seconds on a standard desktop PC",
+      "source_url": "https://arxiv.org/abs/2305.03632",
+      "locator": "Abstract"
+    },
+    {
+      "id": "kw-grid-benchmark-paper",
+      "label": "格子地図と開始・目標の組（シナリオ）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "MAPF benchmark scenarios"
+      ],
+      "category": "dataset",
+      "meaning": "地図ごとに、エージェントの開始点と目標点の組を多数用意した問題集。台数を増やしながら、どこまで解けるかを比べる。",
+      "papers": [
+        "paper-mapf-benchmark"
+      ],
+      "related": [
+        "collision"
+      ],
+      "official_url": null,
+      "as_of": null,
+      "definition_excerpt": "In particular, we introduce a new grid-based benchmark for MAPF, and demonstrate experimentally that it poses a challenge to contemporary MAPF algorithms.",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract"
     }
   ],
   "relations": [
@@ -681,6 +1776,180 @@
       "type": "instance_of",
       "from": "eecbs",
       "to": "family-cbs"
+    },
+    {
+      "id": "instance_of-pibt-family-prioritized",
+      "type": "instance_of",
+      "from": "pibt",
+      "to": "family-prioritized"
+    },
+    {
+      "id": "instance_of-lacam-family-prioritized",
+      "type": "instance_of",
+      "from": "lacam",
+      "to": "family-prioritized"
+    },
+    {
+      "id": "instance_of-lacam-star-family-prioritized",
+      "type": "instance_of",
+      "from": "lacam-star",
+      "to": "family-prioritized"
+    },
+    {
+      "id": "instance_of-primal-family-learned",
+      "type": "instance_of",
+      "from": "primal",
+      "to": "family-learned"
+    },
+    {
+      "id": "instance_of-gnn-mapf-family-learned",
+      "type": "instance_of",
+      "from": "gnn-mapf",
+      "to": "family-learned"
+    },
+    {
+      "id": "instance_of-ml-cbs-family-cbs",
+      "type": "instance_of",
+      "from": "ml-cbs",
+      "to": "family-cbs"
+    },
+    {
+      "id": "instance_of-ml-cbs-family-learned",
+      "type": "instance_of",
+      "from": "ml-cbs",
+      "to": "family-learned"
+    },
+    {
+      "id": "builds_on-lacam-pibt",
+      "type": "builds_on",
+      "from": "lacam",
+      "to": "pibt"
+    },
+    {
+      "id": "extends-lacam-star-lacam",
+      "type": "extends",
+      "from": "lacam-star",
+      "to": "lacam"
+    },
+    {
+      "id": "builds_on-ml-cbs-cbs",
+      "type": "builds_on",
+      "from": "ml-cbs",
+      "to": "cbs"
+    },
+    {
+      "id": "addresses-pibt-scalability",
+      "type": "addresses",
+      "from": "pibt",
+      "to": "scalability"
+    },
+    {
+      "id": "addresses-pibt-lifelong",
+      "type": "addresses",
+      "from": "pibt",
+      "to": "lifelong"
+    },
+    {
+      "id": "addresses-lacam-scalability",
+      "type": "addresses",
+      "from": "lacam",
+      "to": "scalability"
+    },
+    {
+      "id": "addresses-lacam-star-scalability",
+      "type": "addresses",
+      "from": "lacam-star",
+      "to": "scalability"
+    },
+    {
+      "id": "addresses-lacam-star-optimality",
+      "type": "addresses",
+      "from": "lacam-star",
+      "to": "optimality"
+    },
+    {
+      "id": "addresses-primal-decentralized",
+      "type": "addresses",
+      "from": "primal",
+      "to": "decentralized"
+    },
+    {
+      "id": "addresses-gnn-mapf-communication",
+      "type": "addresses",
+      "from": "gnn-mapf",
+      "to": "communication"
+    },
+    {
+      "id": "addresses-gnn-mapf-decentralized",
+      "type": "addresses",
+      "from": "gnn-mapf",
+      "to": "decentralized"
+    },
+    {
+      "id": "addresses-ml-cbs-tree",
+      "type": "addresses",
+      "from": "ml-cbs",
+      "to": "tree"
+    },
+    {
+      "id": "part_of-decentralized-mapf",
+      "type": "part_of",
+      "from": "decentralized",
+      "to": "mapf"
+    },
+    {
+      "id": "part_of-communication-decentralized",
+      "type": "part_of",
+      "from": "communication",
+      "to": "decentralized"
+    },
+    {
+      "id": "part_of-lifelong-collision",
+      "type": "part_of",
+      "from": "lifelong",
+      "to": "collision"
+    },
+    {
+      "id": "about-claim-lacam-star-optimal-optimality",
+      "type": "about",
+      "from": "claim-lacam-star-optimal",
+      "to": "optimality"
+    },
+    {
+      "id": "about-claim-lacam-star-scale-scalability",
+      "type": "about",
+      "from": "claim-lacam-star-scale",
+      "to": "scalability"
+    },
+    {
+      "id": "about-claim-primal-decentralized",
+      "type": "about",
+      "from": "claim-primal",
+      "to": "decentralized"
+    },
+    {
+      "id": "about-claim-rhcr-lifelong",
+      "type": "about",
+      "from": "claim-rhcr",
+      "to": "lifelong"
+    },
+    {
+      "id": "about-claim-gnn-communication",
+      "type": "about",
+      "from": "claim-gnn",
+      "to": "communication"
+    },
+    {
+      "id": "about-claim-ml-cbs-tree",
+      "type": "about",
+      "from": "claim-ml-cbs",
+      "to": "tree"
+    },
+    {
+      "id": "introduces_issue-primal-communication",
+      "type": "introduces_issue",
+      "from": "primal",
+      "to": "communication"
     }
   ]
 }

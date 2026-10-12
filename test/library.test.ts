@@ -5,6 +5,9 @@ import { emptySurvey, fixture } from '../packages/domain/src/index';
 
 test('the library holds the other surveys\' papers once each, richest copy first, without IDs or references', () => {
   const other = structuredClone(fixture);
+  const poorer = other.entities.find(e => e.id === 'paper-ecbs');
+  if (poorer?.type !== 'Paper') throw Error('fixture changed');
+  poorer.abstract = null; poorer.abstract_source_url = null; poorer.abstract_ja = null;
   const richer = structuredClone(fixture);
   const ecbs = richer.entities.find(e => e.id === 'paper-ecbs');
   if (ecbs?.type !== 'Paper') throw Error('fixture changed');

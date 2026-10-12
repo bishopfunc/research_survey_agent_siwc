@@ -14,13 +14,13 @@ test('connections merge a reference array and the same typed relation into one l
 });
 test('connections follow paper claims and evidence, skip dangling ids, and return nothing for unknown entities', () => {
   const input = structuredClone(fixture);
-  const paper = input.entities.find(e => e.id === 'paper-cbs');
+  const paper = input.entities.find(e => e.id === 'paper-cbs-2012');
   assert.ok(paper && paper.type === 'Paper');
   paper.addresses = [...paper.addresses, 'missing-issue'];
-  const links = buildConnections(input, 'paper-cbs');
+  const links = buildConnections(input, 'paper-cbs-2012');
   assert.ok(links.some(c => c.entity.id === 'claim-cbs' && c.links.some(l => l.type === 'claims' && l.outgoing)));
   assert.ok(!links.some(c => c.entity.id === 'missing-issue'));
-  assert.ok(buildConnections(input, 'claim-cbs').some(c => c.entity.id === 'paper-cbs' && c.links.some(l => l.type === 'claims' && !l.outgoing)));
+  assert.ok(buildConnections(input, 'claim-cbs').some(c => c.entity.id === 'paper-cbs-2012' && c.links.some(l => l.type === 'claims' && !l.outgoing)));
   assert.deepEqual(buildConnections(input, 'no-such-entity'), []);
 });
 test('a keyword merged from several papers connects to each of them and to the issues it relates to', () => {

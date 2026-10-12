@@ -12,6 +12,9 @@ export const citationsIn = (body: string) => [...body.matchAll(/\[@([^\]\s]+)\]/
 export const sectionCitations = (section: TutorialSection) => [...new Set([...citationsIn(section.body), ...section.refs])];
 /** A section shows something concrete: a figure, algorithm or equation from a paper, or a display equation of its own. */
 const shows = (s: TutorialSection) => s.media.length > 0 || /\$\$[\s\S]+?\$\$/.test(s.body);
+/** A section shows an image: a figure of a cited paper that is on arXiv, where the app takes figures from the HTML version. */
+const onArxiv = (paper: Paper | undefined) => !!paper && (!!paper.arxiv_id || /arxiv\.org\/(abs|pdf|html)\//i.test(paper.url ?? ''));
+const showsFigure = (s: TutorialSection, papers: Map<string, Paper>) => s.media.some(m => /fig|図/i.test(m.label) && onArxiv(papers.get(m.paper)));
 const hasLimitation = (body: string) => /限界|問題点|弱点|欠点|しかし|ただし|難し|スケールしない|爆発/.test(body);
 
 /** The test requirements for a tutorial. Each check is structural, so it can run on every Codex result. */
@@ -37,6 +40,7 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
     check('progression', '解き方：素朴な方法から最新へ（最後の節が最新の研究）', methods.length > 0 && latest.every(Number.isFinite) && latest[latest.length - 1] >= Math.max(...latest) - 1 && latest[0] <= latest[latest.length - 1], latest.map(y => Number.isFinite(y) ? y : '年なし').join(' → ') || 'なし'),
     check('limitations', '解き方：2節目以降は前の方法の限界から始める', methods.length > 1 && methods.slice(1).every(s => hasLimitation(s.body)), `${methods.slice(1).filter(s => hasLimitation(s.body)).length}/${Math.max(0, methods.length - 1)}節`),
     check('media', '解き方：図・アルゴリズム・数式を2節以上で示す', methods.filter(shows).length >= 2, `${methods.filter(shows).length}節`),
+    check('figures', '図：arXivにある論文の図（画像）を、問題設定か解き方の2節以上で示す', sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length >= 2, `${sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length}節`),
     check('summary', 'まとめと選び方：場面ごとの推奨を出典つきで', cites(of('summary')) >= 2, `出典${cites(of('summary'))}`),
     check('variants', '派生問題：3つ以上を出典つきで', cites(of('variants')) >= 3, `出典${cites(of('variants'))}`),
     check('hands_on', '手を動かす：コードや資料へのリンク', of('hands_on').some(s => s.links.length > 0), `リンク${of('hands_on').reduce((n, s) => n + s.links.length, 0)}`),

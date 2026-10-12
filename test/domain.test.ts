@@ -22,7 +22,8 @@ test('research runs may only emit unverified Evidence without a content hash', (
 
 test('fixture is valid; unknown citation count is distinct from zero', () => {
   assert.deepEqual(validateSnapshot(fixture), []);
-  const next = structuredClone(fixture); const paper = next.entities.find(e => e.type === 'Paper')!;
+  const next = structuredClone(fixture); const paper = next.entities.find(e => e.id === 'paper-icbs')!;
+  if (paper.type !== 'Paper') throw Error('fixture changed');
   assert.equal(paper.citation_count, null);
   paper.citation_count = 0;
   assert.match(validateSnapshot(next).join(), /source/);
@@ -107,8 +108,9 @@ test('code availability preserves legacy Papers and rejects incomplete or unsafe
 });
 
 test('paper abstracts are optional, keep their source link, and reject unsafe or orphaned links', () => {
+  // A survey saved before abstracts existed has no abstract fields at all.
   const legacy = structuredClone(fixture);
-  assert.ok(legacy.entities.filter(e => e.type === 'Paper').every(p => p.type === 'Paper' && p.abstract === undefined));
+  for (const p of legacy.entities) if (p.type === 'Paper') { delete p.abstract; delete p.abstract_source_url; delete p.abstract_ja; }
   assert.deepEqual(validateSnapshot(legacy), []);
   const paper = legacy.entities.find(e => e.type === 'Paper')!;
   if (paper.type !== 'Paper') throw Error('Expected Paper');
@@ -134,9 +136,9 @@ test('abstract-only evidence must keep the original passage alongside its link',
   const input = structuredClone(fixture);
   const evidence = input.entities.find(e => e.type === 'Evidence')!;
   if (evidence.type !== 'Evidence') throw Error('Expected Evidence');
-  assert.equal(evidence.verification, 'unverified');
+  assert.equal(evidence.verification, 'abstract_only');
   assert.deepEqual(validateSnapshot(input), []);
-  evidence.verification = 'abstract_only';
+  evidence.excerpt = '';
   assert.match(validateSnapshot(input).join(), /要旨の原文/);
   evidence.excerpt = 'Passage copied from the source abstract.';
   assert.deepEqual(validateSnapshot(input), []);
@@ -235,7 +237,7 @@ test('expert-survey fields: English issue terms, a translation tied to its origi
   issue.english_terms = ['a', 'b', 'c', 'd', 'e', 'f'] as unknown as typeof issue.english_terms;
   assert.match(validateSnapshot(input).join(), /english_terms/);
   issue.english_terms = ['scalability'];
-  paper.abstract_ja = '和訳だけ';
+  paper.abstract = null; paper.abstract_source_url = null; paper.abstract_ja = '和訳だけ';
   assert.match(validateSnapshot(input).join(), /和訳には元のアブストラクト/);
   paper.abstract = 'Original abstract.'; paper.abstract_source_url = 'https://example.org/abs';
   assert.deepEqual(validateSnapshot(input), []);

@@ -66,10 +66,12 @@ export function useArxivData(id: string | null, preview: boolean) {
   useEffect(() => {
     // A changed arXiv ID (edit or saved proposal) must not keep showing the previous paper's figures.
     setData(null); setState('idle');
-    if (!id || preview) return;
+    if (!id) return;
     const signal = { active: true };
     // Opening a paper reads the saved result, or fetches its arXiv HTML once; the server spaces requests and keeps the result.
-    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (!signal.active) return; if (value) setData(value); else void load(signal); }).catch(() => { if (signal.active) void load(signal); });
+    // The review preview only reads saved results and never reaches arXiv.
+    const fetchOnce = () => { if (signal.active && !preview) void load(signal); };
+    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (!signal.active) return; if (value) setData(value); else fetchOnce(); }).catch(fetchOnce);
     return () => { signal.active = false; };
   }, [id, preview]);
   return { data, state, load };

@@ -46,43 +46,52 @@ test('an item in several rows is placed once and linked from the last earlier it
 });
 
 test('the method tree puts a method in its parent family and links its other family without duplicating', () => {
+  const tree = buildMethodTree(fixture);
+  const rowOf = (id: string) => tree.layout.rows[at(tree.layout, id).row].key;
+  assert.deepEqual(tree.layout.rows.map(r => r.key), ['family-cbs', 'family-prioritized', 'family-learned']);
+  assert.equal(rowOf('ml-cbs'), 'family-cbs', 'its parent CBS is in the CBS family');
+  assert.equal(tree.layout.nodes.filter(n => n.id === 'ml-cbs').length, 1);
+  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'member').map(e => [e.from, e.to, tree.layout.rows[e.row].key]), [['gnn-mapf', 'ml-cbs', 'family-learned']], 'the last earlier method of the learned family');
+  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'derives').map(e => `${e.from}>${e.to}`).sort(), ['cbs>ecbs', 'cbs>icbs', 'cbs>ml-cbs', 'ecbs>eecbs', 'lacam>lacam-star', 'pibt>lacam']);
   const input = structuredClone(fixture);
-  input.entities.push({ id: 'family-learned', label: '学習ベース', provenance: 'user', type: 'Concept', description: '学習した方策' }, { id: 'primal', label: 'PRIMAL', provenance: 'user', type: 'Method', description: '' });
-  input.relations.push({ id: 'i1', type: 'instance_of', from: 'primal', to: 'family-learned' }, { id: 'i2', type: 'instance_of', from: 'eecbs', to: 'family-learned' });
-  assert.deepEqual(validateSnapshot(input), []);
-  const tree = buildMethodTree(input);
-  const learned = tree.layout.rows.findIndex(r => r.key === 'family-learned');
-  assert.equal(tree.layout.rows[at(tree.layout, 'eecbs').row].key, 'family-cbs');
-  assert.equal(tree.layout.nodes.filter(n => n.id === 'eecbs').length, 1);
-  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'member').map(e => [e.from, e.to, e.row]), [[null, 'eecbs', learned]]);
-  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'derives').map(e => `${e.from}>${e.to}`).sort(), ['cbs>ecbs', 'cbs>icbs', 'ecbs>eecbs']);
-  input.relations.push({ id: 'b1', type: 'builds_on', from: 'eecbs', to: 'primal' });
-  const linked = buildMethodTree(input);
-  assert.equal(linked.layout.edges.filter(e => e.kind === 'member').length, 0, 'a parent in the other family already shows the link');
+  input.relations.push({ id: 'b1', type: 'builds_on', from: 'ml-cbs', to: 'primal' });
+  assert.equal(buildMethodTree(input).layout.edges.filter(e => e.kind === 'member').length, 0, 'a parent in the other family already shows the link');
 });
 
-test('issue years include descendants, rows are root issues, and a second parent links across rows', () => {
+test('the issue tree has one row per issue, parents first, and one item per paper in its most specific issue', () => {
   const tree = buildIssueTree(fixture);
-  assert.equal(tree.years.get('collision'), 2012);
-  assert.equal(tree.years.get('tree'), 2015, 'through ICBS, the representative paper of a method addressing it');
-  assert.deepEqual(tree.layout.rows.map(r => r.key), ['collision']);
-  assert.ok(at(tree.layout, 'collision').column <= at(tree.layout, 'scalability').column);
-  const input = structuredClone(fixture);
-  input.entities.push({ id: 'memory', label: 'メモリ', provenance: 'user', type: 'Issue', description: '', kind: 'fundamental' }, { id: 'both', label: '両方', provenance: 'user', type: 'Issue', description: '', kind: 'subproblem' });
-  input.relations.push({ id: 'p1', type: 'part_of', from: 'both', to: 'tree' }, { id: 'p2', type: 'part_of', from: 'both', to: 'memory' });
-  assert.deepEqual(validateSnapshot(input), []);
-  const next = buildIssueTree(input);
-  assert.deepEqual(next.layout.rows.map(r => r.key), ['collision', 'memory'], 'an issue nobody works on yet is unknown and comes last');
-  assert.equal(next.years.get('memory'), null);
-  assert.equal(next.layout.rows[at(next.layout, 'both').row].key, 'collision');
-  assert.equal(edge(next.layout, 'memory', 'both')?.curved, true);
+  assert.deepEqual(tree.layout.rows.map(r => r.key), ['collision', 'scalability', 'tree', 'optimality', 'lifelong', 'decentralized', 'communication']);
+  assert.deepEqual(['collision', 'scalability', 'tree', 'communication'].map(id => tree.depth.get(id)), [0, 1, 2, 1]);
+  const rowOf = (id: string) => tree.layout.rows[at(tree.layout, id).row].key;
+  assert.equal(rowOf('paper-cbs-2012'), 'scalability', 'collision is the parent of scalability, so it is implied');
+  assert.equal(rowOf('paper-cbs'), 'optimality');
+  assert.equal(rowOf('paper-mapf-benchmark'), 'collision');
+  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'member').map(e => [e.from, e.to, tree.layout.rows[e.row].key]), [
+    [null, 'paper-pibt-2019', 'lifelong'], ['paper-rhcr', 'paper-pibt', 'lifelong'], ['paper-cbs', 'paper-lacam-star', 'optimality'],
+  ], 'a paper on two unrelated issues is linked from the last earlier paper of the other row, or its heading');
+  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'derives').map(e => `${e.from}>${e.to}`).sort(), [
+    'paper-cbs-2012>paper-ecbs', 'paper-cbs-2012>paper-icbs', 'paper-cbs-2012>paper-ml-cbs', 'paper-ecbs>paper-eecbs', 'paper-lacam>paper-lacam-star', 'paper-pibt-2019>paper-lacam',
+  ], 'arrows follow method derivation through representative papers');
+  assert.deepEqual(tree.methods.get('paper-ecbs'), ['ECBS']);
 });
 
-test('an issue cycle still lays out every issue', () => {
+test('a paper naming no issue uses its methods; issues without papers keep their row', () => {
+  const input = structuredClone(fixture);
+  input.entities.push({ id: 'memory', label: 'メモリ', provenance: 'user', type: 'Issue', description: '', kind: 'fundamental' });
+  const icbs = input.entities.find(e => e.id === 'paper-icbs');
+  if (icbs?.type === 'Paper') icbs.addresses = [];
+  assert.deepEqual(validateSnapshot(input), []);
+  const tree = buildIssueTree(input);
+  assert.ok(tree.layout.rows.some(r => r.key === 'memory'));
+  assert.equal(tree.layout.rows[at(tree.layout, 'paper-icbs').row].key, 'tree', 'ICBS addresses tree and optimality; tree is deeper');
+});
+
+test('an issue cycle still lists every issue and lays out every paper', () => {
   const input = structuredClone(fixture);
   input.relations.push({ id: 'loop', type: 'part_of', from: 'collision', to: 'tree' });
   const tree = buildIssueTree(input);
-  assert.equal(tree.layout.nodes.length, 4);
+  assert.equal(tree.layout.rows.length, fixture.entities.filter(e => e.type === 'Issue').length);
+  assert.equal(tree.layout.nodes.length, fixture.entities.filter(e => e.type === 'Paper').length);
 });
 
 test('a straight line never runs behind another item: siblings and blocked lanes move to a new lane', () => {
