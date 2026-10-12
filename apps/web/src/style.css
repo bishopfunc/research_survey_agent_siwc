@@ -389,7 +389,8 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .change-body small { font-size: 11px; color: var(--color-muted); }
 .change-body p { padding: 8px 10px; border-radius: var(--radius-small); background: var(--color-surface); font-size: var(--text-small); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.start-research .suggestions { margin-bottom: var(--space-3); }
+.start-research .suggestions { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); padding-bottom: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.start-research .suggestions button { flex: 0 0 auto; padding: var(--space-2) 14px; border-radius: var(--radius-pill); white-space: nowrap; scroll-snap-align: start; }
 .start-research { display: flex; flex-direction: column; gap: var(--space-3); max-width: 760px; margin: 6dvh auto 0; }
 .start-input { align-items: flex-end; }
 .start-input textarea { min-height: 84px; font-size: 15px; }
