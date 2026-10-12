@@ -138,6 +138,7 @@ export interface Reading {
   discussion: string;
   key_figures: string[];
   key_formulas?: string[];
+  captions_ja?: string[];
   sources?: {
     url: string;
     locator: string;

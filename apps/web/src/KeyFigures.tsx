@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Entity } from '../../../packages/domain/src/index';
 import { MathText, Tex } from './Tex';
 
@@ -6,7 +6,24 @@ type Paper = Extract<Entity, { type: 'Paper' }>;
 export type ArxivFigure = { number: number | null; label: string; caption: string; images: string[] };
 export type ArxivAlgorithm = { number: number | null; label: string; caption: string; lines: string[] };
 export type ArxivEquation = { number: number | null; label: string | null; tex: string };
-export type ArxivFigures = { source_url: string; figures: ArxivFigure[]; algorithms?: ArxivAlgorithm[]; equations?: ArxivEquation[] };
+export type ArxivTable = { number: number | null; label: string; caption: string; rows: { text: string; colspan: number; rowspan: number; head: boolean }[][] };
+export type ArxivFigures = { source_url: string; figures: ArxivFigure[]; algorithms?: ArxivAlgorithm[]; equations?: ArxivEquation[]; tables?: ArxivTable[] };
+/** "Figure 3" / "Fig. 3" / "Table 2" / "Algorithm 1" → "figure:3", "table:2", "algorithm:1". */
+export function labelKey(text: string): string | null {
+  const m = text.match(/^\s*(fig(?:ure)?\.?|table|tab\.|algorithm|alg\.|図|表)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)/i);
+  if (!m) return null;
+  const kind = /^(fig|図)/i.test(m[1]) ? 'figure' : /^(tab|表)/i.test(m[1]) ? 'table' : 'algorithm';
+  return `${kind}:${m[2].toLowerCase()}`;
+}
+/** The Japanese caption Codex wrote for a label (reading.captions_ja), without the label itself. */
+export function japaneseCaption(paper: Paper, label: string): string | null {
+  const key = labelKey(label);
+  const entry = key ? (paper.reading?.captions_ja ?? []).find(c => labelKey(c) === key) : undefined;
+  return entry ? entry.replace(/^[^:：]*[:：]\s*/, '') : null;
+}
+export function Table({ table }: { table: ArxivTable }) {
+  return <div className="arxiv-table"><table><tbody>{table.rows.map((row, i) => <tr key={i}>{row.map((cell, j) => React.createElement(cell.head ? 'th' : 'td', { key: j, colSpan: cell.colspan > 1 ? cell.colspan : undefined, rowSpan: cell.rowspan > 1 ? cell.rowspan : undefined }, <MathText text={cell.text}/>))}</tr>)}</tbody></table></div>;
+}
 
 /** The arXiv identifier from the paper's field or its arxiv.org link (the server checks it again). */
 export function arxivIdOf(paper: Paper): string | null {
@@ -17,8 +34,8 @@ export function arxivIdOf(paper: Paper): string | null {
 /** "Algorithm 2" → 2, "Eq. (3)" / "式(3)" / "Equation 3" → 3. */
 export const algorithmNumber = (text: string) => Number(text.match(/algorithm\s*(\d+)/i)?.[1] ?? NaN);
 export const equationNumber = (text: string) => Number(text.match(/(?:eq(?:uation)?\.?|式)\s*\(?(\d+)\)?/i)?.[1] ?? NaN);
-export function Algorithm({ algorithm }: { algorithm: ArxivAlgorithm }) {
-  return <div className="algorithm"><div className="algorithm-title"><b>{algorithm.label}</b> {algorithm.caption}</div><ol>{algorithm.lines.map((line, i) => <li key={i}><MathText text={line}/></li>)}</ol></div>;
+export function Algorithm({ algorithm, ja }: { algorithm: ArxivAlgorithm; ja?: string | null }) {
+  return <div className="algorithm"><div className="algorithm-title"><b>{algorithm.label}</b> {ja ?? algorithm.caption}</div><ol>{algorithm.lines.map((line, i) => <li key={i}><MathText text={line}/></li>)}</ol></div>;
 }
 export function Equation({ equation }: { equation: ArxivEquation }) {
   return <div className="equation"><Tex tex={equation.tex} display/>{equation.label && <span className="equation-label">{equation.label}</span>}</div>;
@@ -65,12 +82,14 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
   const formulaNotes = paper.reading?.key_formulas ?? [];
   const { data, state, load } = useArxivData(id, preview);
   if (!notes.length && !id) return null;
-  const byKey = new Map<string, ArxivFigure[]>();
-  for (const f of data?.figures ?? []) { const key = figureKey(f.label); if (key) byKey.set(key, [...(byKey.get(key) ?? []), f]); }
-  // An ambiguous label (two figures with the same number) gets no image rather than a wrong one.
-  const named = notes.map(note => { const key = figureKey(note); const found = key ? byKey.get(key) : undefined; return { note, figure: found?.length === 1 ? found[0] : undefined }; });
-  const used = new Set(named.flatMap(n => n.figure ? [n.figure] : []));
-  const rest = (data?.figures ?? []).filter(f => !used.has(f));
+  // Figures and tables named in the reading, matched by label; an ambiguous label gets nothing rather than a wrong item.
+  const figuresBy = new Map<string, ArxivFigure[]>(), tablesBy = new Map<string, ArxivTable[]>();
+  for (const f of data?.figures ?? []) { const key = labelKey(f.label); if (key) figuresBy.set(key, [...(figuresBy.get(key) ?? []), f]); }
+  for (const t of data?.tables ?? []) { const key = labelKey(t.label); if (key) tablesBy.set(key, [...(tablesBy.get(key) ?? []), t]); }
+  const named = notes.map(note => { const key = labelKey(note); const figures = key ? figuresBy.get(key) : undefined, tables = key ? tablesBy.get(key) : undefined; return { note, figure: figures?.length === 1 ? figures[0] : undefined, table: tables?.length === 1 ? tables[0] : undefined }; });
+  const used = new Set<unknown>(named.flatMap(n => [n.figure, n.table].filter(Boolean)));
+  const rest = (data?.figures ?? []).filter(f => !used.has(f)), restTables = (data?.tables ?? []).filter(t => !used.has(t));
+  const caption = (label: string, original: string) => { const ja = japaneseCaption(paper, label); return <>{ja ? <span className="caption-ja">{label}: {ja}</span> : null}<small>{label}: {original}</small></>; };
   const algorithms = data?.algorithms ?? [], equations = (data?.equations ?? []).filter(e => e.label);
   const unique = <T extends { number: number | null }>(list: T[], n: number) => { const found = list.filter(x => x.number === n); return found.length === 1 ? found[0] : undefined; };
   const namedFormulas = formulaNotes.map(note => ({ note, algorithm: unique(algorithms, algorithmNumber(note)), equation: unique(equations, equationNumber(note)) }));
@@ -78,14 +97,15 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
   const otherAlgorithms = algorithms.filter(a => !usedAlgorithms.has(a)), otherEquations = equations.filter(e => !usedEquations.has(e));
   const formulas = (formulaNotes.length > 0 || algorithms.length > 0 || equations.length > 0) && <section className="detail-section key-formulas" aria-label="アルゴリズムと数式">
     <h3>{formulaNotes.length ? '理解に重要なアルゴリズム・数式' : 'アルゴリズム・数式'}</h3>
-    {namedFormulas.map(({ note, algorithm, equation }, i) => <div key={i} className="key-formula">{algorithm && <Algorithm algorithm={algorithm}/>}{equation && <Equation equation={equation}/>}<p>{note}</p></div>)}
-    {otherAlgorithms.length > 0 && <details className="more-figures" open={!formulaNotes.length}><summary>{formulaNotes.length ? 'ほかのアルゴリズム' : 'アルゴリズム'}</summary>{otherAlgorithms.map((a, i) => <Algorithm key={i} algorithm={a}/>)}</details>}
+    {namedFormulas.map(({ note, algorithm, equation }, i) => <div key={i} className="key-formula">{algorithm && <Algorithm algorithm={algorithm} ja={japaneseCaption(paper, algorithm.label)}/>}{equation && <Equation equation={equation}/>}<p>{note}</p></div>)}
+    {otherAlgorithms.length > 0 && <details className="more-figures" open={!formulaNotes.length}><summary>{formulaNotes.length ? 'ほかのアルゴリズム' : 'アルゴリズム'}</summary>{otherAlgorithms.map((a, i) => <Algorithm key={i} algorithm={a} ja={japaneseCaption(paper, a.label)}/>)}</details>}
     {otherEquations.length > 0 && <details className="more-figures"><summary>{formulaNotes.length ? 'ほかの数式' : '数式'}</summary>{otherEquations.map((e, i) => <Equation key={i} equation={e}/>)}</details>}
   </section>;
   return <><section className="detail-section key-figures" aria-label={notes.length ? '理解に重要なFig' : 'Fig'}>
     <h3>{notes.length ? '理解に重要なFig' : 'Fig'}</h3>
-    {named.map(({ note, figure }, i) => <figure key={i} className="key-figure">{figure && <Images figure={figure}/>}<figcaption><span>{note}</span>{figure && <small>{figure.label}: {figure.caption}</small>}</figcaption></figure>)}
-    {data && rest.length > 0 && <details className="more-figures" open={!notes.length}><summary>{notes.length ? 'ほかのFig' : 'arXivのFig'}</summary>{rest.map((figure, i) => <figure key={i} className="key-figure"><Images figure={figure}/><figcaption><small>{figure.label}: {figure.caption}</small></figcaption></figure>)}</details>}
+    {named.map(({ note, figure, table }, i) => <figure key={i} className="key-figure">{figure && <Images figure={figure}/>}{table && <Table table={table}/>}<figcaption><span>{note}</span>{figure && caption(figure.label, figure.caption)}{table && caption(table.label, table.caption)}</figcaption></figure>)}
+    {data && rest.length > 0 && <details className="more-figures" open={!notes.length}><summary>{notes.length ? 'ほかのFig' : 'arXivのFig'}</summary>{rest.map((figure, i) => <figure key={i} className="key-figure"><Images figure={figure}/><figcaption>{caption(figure.label, figure.caption)}</figcaption></figure>)}</details>}
+    {data && restTables.length > 0 && <details className="more-figures"><summary>{notes.length ? 'ほかの表' : '表'}</summary>{restTables.map((table, i) => <figure key={i} className="key-figure"><Table table={table}/><figcaption>{caption(table.label, table.caption)}</figcaption></figure>)}</details>}
     {data && !data.figures.length && <p className="muted-label">arXivのFigなし</p>}
     {!data && id && !preview && state === 'loading' && <p className="muted-label">arXivから取得中…</p>}
     {state === 'error' && <button className="toolbar-button" onClick={() => void load()}>Figを再取得</button>}

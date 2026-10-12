@@ -73,7 +73,7 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
     }
     const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
     if (reading && typeof reading === 'object') {
-      for (const key of ['contributions', 'key_figures', 'key_formulas']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }
+      for (const key of ['contributions', 'key_figures', 'key_formulas', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }
       for (const key of ['novelty', 'key_idea', 'validation', 'discussion']) if (typeof reading[key] === 'string') reading[key] = (reading[key] as string).trim();
       if (Array.isArray(reading.sources)) {
         const seen = new Set<string>();

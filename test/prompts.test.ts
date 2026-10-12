@@ -119,7 +119,7 @@ test('numbers, SOTA and paper reading come only from text retrieved in this run;
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Where no retrieved text reports a number, still write the Claim/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /an Evidence whose excerpt copies the sentence or table row containing the number/);
   assert.ok(!/\d+%/.test(SURVEY_RULES_INSTRUCTIONS), 'no concrete example numbers that could be copied as data');
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /key_figures lists only figures whose captions you read in this run/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /key_figures lists only figures and tables whose captions you read in this run/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /from an abstract alone, validation, discussion and key_figures are usually empty/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /whether it comes from a leaderboard or results page retrieved in this run or is only the best among the surveyed papers/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /copy its stored english_terms, abstract_ja and reading unchanged/);
@@ -176,5 +176,9 @@ test('the prompt says which parts of a paper to read for issues, claims, evidenc
   assert.match(SURVEY_RULES_INSTRUCTIONS, /for issues, read the problem statement in the introduction/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /For claims, collect candidates from the abstract and the contribution list at the end of the introduction, then check them against the main results tables/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Take Evidence from where the number or guarantee is stated/);
+});
+test('readings translate every caption read and may name tables among the key figures', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /captions_ja translates every figure, table and algorithm caption you read faithfully into Japanese/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /key_figures lists only figures and tables whose captions you read in this run/);
 });
 

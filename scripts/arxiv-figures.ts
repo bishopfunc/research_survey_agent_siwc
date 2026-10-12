@@ -10,12 +10,14 @@ export const ARXIV_MIN_INTERVAL_MS = 15_000;
 
 export interface ArxivFigure { number: number | null; label: string; caption: string; images: string[] }
 /** Bumped when extraction changes, so results saved by an older parser are fetched again. */
-export const FIGURE_PARSER_VERSION = 4;
+export const FIGURE_PARSER_VERSION = 5;
+/** A table float: label, caption and cells (rowspan/colspan kept), with math as $TeX$. */
+export interface ArxivTable { number: number | null; label: string; caption: string; rows: { text: string; colspan: number; rowspan: number; head: boolean }[][] }
 /** An algorithm float: its label, title and listing lines, with math kept as $TeX$. */
 export interface ArxivAlgorithm { number: number | null; label: string; caption: string; lines: string[] }
 /** A display equation row: its number label such as "(3)" and its TeX. */
 export interface ArxivEquation { number: number | null; label: string | null; tex: string }
-export interface ArxivFigures { parser: number; arxiv_id: string; source_url: string; retrieved_at: string; figures: ArxivFigure[]; algorithms: ArxivAlgorithm[]; equations: ArxivEquation[] }
+export interface ArxivFigures { parser: number; arxiv_id: string; source_url: string; retrieved_at: string; figures: ArxivFigure[]; algorithms: ArxivAlgorithm[]; equations: ArxivEquation[]; tables: ArxivTable[] }
 export type PageFetcher = (url: string) => Promise<{ ok: boolean; status: number; url: string; headers: { get(name: string): string | null }; text(): Promise<string> }>;
 
 const ID = /^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?$/i;
@@ -128,6 +130,27 @@ export function extractEquations(html: string): ArxivEquation[] {
   return out;
 }
 
+const MAX_TABLES = 30, MAX_ROWS = 40, MAX_COLS = 20;
+/** Table floats (LaTeXML ltx_table), each with its first tabular as rows of cells. */
+export function extractTables(html: string): ArxivTable[] {
+  const out: ArxivTable[] = [];
+  const visit = (nodes: FigureNode[]) => { for (const node of nodes) {
+    if (!/\bltx_table\b/.test(attribute(node.open, 'class') ?? '')) { visit(node.children); continue; }
+    if (out.length >= MAX_TABLES) return;
+    const segment = html.slice(node.inner, node.end);
+    const caption = numberedTable(captions(segment)) ?? captions(segment)[0] ?? '';
+    const tag = caption.match(/^Table\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)\s*[:.]?\s*/i);
+    const tabular = segment.match(/<table\b[^>]*\bltx_tabular\b[^>]*>([\s\S]*?)<\/table>/i)?.[1] ?? '';
+    const rows = [...tabular.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].slice(0, MAX_ROWS).map(tr => [...tr[1].matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1>/gi)].slice(0, MAX_COLS).map(c => ({
+      text: plain(c[3], tex => `$${tex}$`).slice(0, 200), colspan: Math.min(MAX_COLS, Number(attribute(c[2], 'colspan')) || 1), rowspan: Math.min(MAX_ROWS, Number(attribute(c[2], 'rowspan')) || 1), head: c[1].toLowerCase() === 'th' || /ltx_th\b/.test(attribute(c[2], 'class') ?? '') })));
+    if (!rows.length) continue;
+    out.push({ number: tag && /^\d+$/.test(tag[1]) ? Number(tag[1]) : null, label: tag ? `Table ${tag[1]}` : 'Table', caption: (tag ? caption.slice(tag[0].length) : caption).slice(0, 1500), rows });
+  } };
+  visit(figureTree(html));
+  return out;
+}
+const numberedTable = (list: string[]) => [...list].reverse().find(c => /^Table\s*\d/i.test(c));
+
 let last = 0;
 let queue: Promise<unknown> = Promise.resolve();
 /** Serializes arXiv requests with a minimum gap between them. */
@@ -150,11 +173,11 @@ export async function fetchArxivFigures(id: string, fetcher: PageFetcher, retrie
     if (!(response.headers.get('content-type') ?? '').includes('text/html')) continue;
     const html = await response.text();
     if (html.length > MAX_HTML_CHARS) throw Error('ページが大きすぎます');
-    const result = { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href), algorithms: extractAlgorithms(html), equations: extractEquations(html) };
-    if (result.figures.length || result.algorithms.length || result.equations.length) return result;
+    const result = { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href), algorithms: extractAlgorithms(html), equations: extractEquations(html), tables: extractTables(html) };
+    if (result.figures.length || result.algorithms.length || result.equations.length || result.tables.length) return result;
     empty ??= result;
   }
-  return empty ?? { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [], algorithms: [], equations: [] };
+  return empty ?? { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [], algorithms: [], equations: [], tables: [] };
 }
 /** File name for the cache; old-style IDs contain a slash. */
 export const cacheName = (id: string) => `${id.replace('/', '_')}.json`;

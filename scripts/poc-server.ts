@@ -8,15 +8,20 @@ import { createInterface } from 'node:readline';
 import { createServer as createVite } from 'vite';
 import { applyPatch, snapshotSchema, validateSnapshot, type SurveySnapshot, type SurveyPatch } from '../packages/domain/src/index';
 import { patchSchema } from '../packages/domain/src/index';
-import { buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, promptVersion, REPAIR_PROMPT_VERSION, RESEARCH_MODES, type ResearchMode } from '../packages/agent/src/prompt';
+import { buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, promptVersion, REPAIR_PROMPT_VERSION, RESEARCH_MODES, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
+import { deepenInstructions, INTEGRATE_INSTRUCTIONS, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
-import { executeResearch, type CodexAttempt } from './research-run';
+import { executeResearch, type CodexAttempt, type ResearchOutcome } from './research-run';
+import { executeStagedResearch } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 import { sanitizeLibrary } from '../packages/agent/src/library';
 import { enrichPatch } from './enrich';
+import { openSqlite, fileBlobStore } from '../packages/storage/src/node';
+import { libraryKey, paperLibrary } from '../packages/storage/src/index';
+import { LIBRARY_FIELDS, MAX_LIBRARY_CHARS, MAX_LIBRARY_PAPERS } from '../packages/agent/src/library';
 import type { LibraryPaper } from '../packages/agent/src/prompt';
 
 const port = Number(process.env.POC_PORT ?? 8788);
@@ -51,30 +56,59 @@ async function body(req: IncomingMessage) {
 /** The arXiv API asks for at most one request every three seconds. */
 let arxivApiLast = 0;
 const arxivApi = async <T,>(task: () => Promise<T>) => { const wait = arxivApiLast + 3_000 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait)); arxivApiLast = Date.now(); return task(); };
+// Paper library (design 0021): local SQLite and file blobs here, D1 and R2 on Cloudflare, behind the same interfaces.
+const papersDb = paperLibrary(openSqlite(resolve('.poc/library.sqlite')));
+await papersDb.migrate(readFileSync(resolve('packages/storage/migrations/0001_paper_library.sql'), 'utf8'));
+const blobs = fileBlobStore(resolve('.poc/blobs'));
 const arxivDirectory = resolve('.poc/arxiv');
-function readArxivCache(id: string) {
-  try { const saved = JSON.parse(readFileSync(join(arxivDirectory, cacheName(id)), 'utf8')); return saved.parser === FIGURE_PARSER_VERSION ? saved : null; } catch { return null; }
+async function readArxivCache(id: string) {
+  const parse = (text: string | null) => { try { const saved = text ? JSON.parse(text) : null; return saved?.parser === FIGURE_PARSER_VERSION ? saved : null; } catch { return null; } };
+  return parse(await blobs.get(`arxiv/${cacheName(id)}`)) ?? parse((() => { try { return readFileSync(join(arxivDirectory, cacheName(id)), 'utf8'); } catch { return null; } })());
 }
 async function fetchAndCacheArxiv(id: string) {
   const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
-  mkdirSync(arxivDirectory, { recursive: true, mode: 0o700 }); writeFileSync(join(arxivDirectory, cacheName(id)), JSON.stringify(result), { mode: 0o600 });
+  await blobs.put(`arxiv/${cacheName(id)}`, JSON.stringify(result), { contentType: 'application/json' });
   return result;
 }
 /** After a run, the figures of the papers Codex chose figures for are fetched in the background (spaced by the arXiv queue),
  * so the representative figure shows as soon as the proposal is opened. */
+/** Codex's interpretations (one-line summary, translation, reading) become a new reading version of each paper. */
+async function saveReadings(patch: SurveyPatch, runId: string, promptVersion: string) {
+  const now = new Date().toISOString();
+  for (const op of patch.operations) {
+    if (!('entity' in op) || op.entity.type !== 'Paper') continue;
+    const key = libraryKey(op.entity); if (!key) continue;
+    await papersDb.addReading(key, op.entity, { id: randomUUID(), run_id: runId, prompt_version: promptVersion, created_at: now }).catch(() => undefined);
+  }
+}
+/** The papers stored in the library that the current survey lacks, plus the browser's entries the library does not have yet. */
+async function libraryForRun(snapshot: SurveySnapshot, fromBrowser: Record<string, unknown>[]) {
+  const present = new Set(snapshot.entities.flatMap(e => e.type === 'Paper' ? [libraryKey(e)] : []).filter((k): k is string => !!k));
+  const stored = (await papersDb.libraryFor(present, MAX_LIBRARY_PAPERS)).map(p => Object.fromEntries(LIBRARY_FIELDS.filter(f => p[f] !== undefined).map(f => [f, p[f]])));
+  const seen = new Set([...present, ...stored.map(p => libraryKey(p)).filter((k): k is string => !!k)]);
+  const out: Record<string, unknown>[] = []; let chars = 0;
+  for (const entry of [...stored, ...fromBrowser.filter(p => { const k = libraryKey(p); return !k || !seen.has(k); })]) {
+    const size = JSON.stringify(entry).length;
+    if (out.length >= MAX_LIBRARY_PAPERS || chars + size > MAX_LIBRARY_CHARS) break;
+    out.push(entry); chars += size;
+  }
+  return out;
+}
 function warmFigures(patch: SurveyPatch) {
-  const ids = patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' && op.entity.reading?.key_figures?.length ? [parseArxivId(op.entity.arxiv_id, op.entity.url)] : []).filter((id): id is string => !!id && !readArxivCache(id));
-  void (async () => { for (const id of [...new Set(ids)]) { try { await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ } } })();
+  const ids = patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' && op.entity.reading?.key_figures?.length ? [parseArxivId(op.entity.arxiv_id, op.entity.url)] : []).filter((id): id is string => !!id);
+  void (async () => { for (const id of [...new Set(ids)]) { try { if (!(await readArxivCache(id))) await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ } } })();
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
-function runCodexStep(run: Run, directory: string, step: 'research' | 'repair', prompt: string, timeoutSeconds: number): Promise<CodexAttempt> {
+/** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean } = {}): Promise<CodexAttempt> {
   return new Promise(done => {
     const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
     // Run outside the repository and without project docs, so the developer AGENTS.md never reaches the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
-    const webSearch = step === 'research' ? CODEX_EXECUTION.webSearch : 'disabled';
-    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, 'output-schema.json'), '--output-last-message', join(directory, outputs[step]), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-    children.set(run.id, child);
+    const webSearch = step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch;
+    const output = options.output ?? outputs[step as keyof typeof outputs] ?? `stage-${step}.json`;
+    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, 'output-schema.json'), '--output-last-message', join(directory, output), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    children.set(`${run.id}:${step}`, child);
     const log = join(directory, 'events.jsonl');
     appendFileSync(log, JSON.stringify({ type: 'app.step', step }) + '\n', { mode: 0o600 });
     let state = initialCodexState(); let stderr = ''; const before = run.searches;
@@ -88,11 +122,15 @@ function runCodexStep(run: Run, directory: string, step: 'research' | 'repair', 
       state = next;
     });
     child.stderr?.on('data', (chunk: Buffer) => { if (stderr.length < MAX_LOG_BYTES) stderr += chunk.toString('utf8'); });
-    const timer = setTimeout(() => { if (run.status === 'running') { run.status = 'failed'; run.message = `${timeoutSeconds / 60}分の実行上限に達しました`; save(run); child.kill('SIGTERM'); } }, timeoutSeconds * 1000);
+    const timer = setTimeout(() => {
+      if (options.failRunOnTimeout !== false && run.status === 'running') { run.status = 'failed'; run.message = `${timeoutSeconds / 60}分の実行上限に達しました`; save(run); }
+      if (options.failRunOnTimeout === false) addTrace(run, { kind: 'error', text: `${step}が${timeoutSeconds / 60}分の上限に達しました` });
+      child.kill('SIGTERM');
+    }, timeoutSeconds * 1000);
     let settled = false;
     const finish = (attempt: CodexAttempt) => {
       if (settled) return; settled = true;
-      clearTimeout(timer); children.delete(run.id);
+      clearTimeout(timer); children.delete(`${run.id}:${step}`);
       appendFileSync(join(directory, 'codex-stderr.log'), `--- ${step}\n${redact(stderr.slice(0, MAX_LOG_BYTES))}\n`, { mode: 0o600 });
       rmSync(workdir, { recursive: true, force: true });
       done(attempt);
@@ -107,30 +145,54 @@ const outputs = { research: 'patch.json', repair: 'patch-repair.json' } as const
 const logged = new Map<string, number>();
 function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null; useLibrary: boolean; library: LibraryPaper[] }): Run {
   const id = randomUUID(); const directory = join(storage, id); mkdirSync(directory, { mode: 0o700 });
-  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: promptVersion(input.mode), searches: 0, message: 'Codexが調査しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length };
+  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode), searches: 0, message: 'Codexが調査しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length };
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
-  void executeResearch({
+  const normalize = (patch: unknown) => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
+  const prepare = async (patch: unknown) => {
+    if (!(patch as SurveyPatch)?.operations) return patch;
+    if (run.status === 'running') { run.message = 'Codexの結果に書誌とアブストラクトを補完しています'; save(run); }
+    const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi);
+    if (result.error) addTrace(run, { kind: 'error', text: result.error });
+    const now = new Date().toISOString();
+    for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
+    return result.patch;
+  };
+  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, instructions });
+  const research: Promise<ResearchOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
+    run: async (stage, prompt) => {
+      addTrace(run, { kind: 'step', text: stage === 'outline' ? '1/3 全体像' : stage === 'integrate' ? '3/3 統合' : `2/3 深掘り（${stage.replace('deepen-', '作業')}）` }); save(run);
+      const timeout = STAGE_TIMEOUT_SECONDS[stage === 'outline' || stage === 'integrate' ? stage : 'deepen'];
+      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: `stage-${stage}.json`, failRunOnTimeout: false });
+      const ok = !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
+      let output: string | undefined; try { output = readFileSync(join(directory, `stage-${stage}.json`), 'utf8'); } catch { /* no output */ }
+      return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches };
+    },
+    prompt: {
+      outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library),
+      deepen: (snapshot, worker, workers, papers, issues) => stagePrompt(deepenInstructions(worker, workers, papers, issues), snapshot),
+      integrate: snapshot => stagePrompt(INTEGRATE_INSTRUCTIONS, snapshot),
+    },
+    normalize, prepare,
+    checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),
+    active: () => run.status === 'running',
+    progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
+  }, MAX_PARALLEL_WORKERS) : executeResearch({
     research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library }), RESEARCH_MODES[input.mode].timeoutSeconds),
     repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), RESEARCH_MODES[input.mode].repairTimeoutSeconds); },
     output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
-    normalize: patch => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>),
+    normalize,
     // Bibliography and abstracts come from arXiv and OpenAlex instead of Codex's output; a failure keeps Codex's values.
-    prepare: async patch => {
-      if (!(patch as SurveyPatch)?.operations) return patch;
-      if (run.status === 'running') { run.message = 'Codexの結果に書誌とアブストラクトを補完しています'; save(run); }
-      const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi);
-      if (result.error) addTrace(run, { kind: 'error', text: result.error });
-      return result.patch;
-    },
+    prepare,
     validate: patch => { const next = applyPatch(input.snapshot, patch, input.base_commit_id); assertFigureAssets(next, resolve('.poc/figures')); },
     active: () => run.status === 'running',
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
-  }).then(outcome => {
+  });
+  void research.then(outcome => {
     if (outcome.status === 'stopped' || run.status !== 'running') return;
-    if (outcome.status === 'succeeded') { warmFigures(outcome.patch); run.patch = outcome.patch; run.follow_ups = outcome.patch.follow_ups; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
+    if (outcome.status === 'succeeded') { warmFigures(outcome.patch); void saveReadings(outcome.patch, run.id, run.prompt_version); run.patch = outcome.patch; run.follow_ups = outcome.patch.follow_ups; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
     else if (outcome.status === 'unchanged') { run.status = 'succeeded'; run.follow_ups = outcome.follow_ups; run.message = `変更はありません：${outcome.message}`.slice(0, 1600); }
     else { run.status = 'failed'; run.message = outcome.message.slice(0, 1600); }
     save(run);
@@ -170,7 +232,7 @@ const server = createServer(async (req, res) => {
     if (arxiv && (req.method === 'GET' || req.method === 'POST')) {
       const id = parseArxivId(decodeURIComponent(arxiv[1]));
       if (!id) { json(res, { error: 'arXiv IDを確認してください' }, 400); return; }
-      const cached = readArxivCache(id);
+      const cached = await readArxivCache(id);
       if (cached) { json(res, cached); return; }
       if (req.method === 'GET') { json(res, { error: 'NOT_FETCHED' }, 404); return; }
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
@@ -187,12 +249,12 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/api/codex/runs' && req.method === 'POST') {
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
-      if (children.size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
+      if (new Set([...children.keys()].map(k => k.split(':')[0])).size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
       const input = await body(req);
       if (typeof input.instruction !== 'string' || !input.instruction.trim() || input.instruction.length > 8000 || typeof input.base_commit_id !== 'string' || !input.base_commit_id || input.base_commit_id.length > 200) throw Error('INVALID_INPUT');
       const errors = validateSnapshot(input.snapshot); if (errors.length) { json(res, { error: errors.join('\n') }, 400); return; }
       if (input.use_library !== undefined && typeof input.use_library !== 'boolean') throw Error('INVALID_INPUT');
-      const useLibrary = input.use_library ?? true, library = useLibrary ? sanitizeLibrary(input.library) : [];
+      const useLibrary = input.use_library ?? true, library = useLibrary ? await libraryForRun(input.snapshot as SurveySnapshot, sanitizeLibrary(input.library)) : [];
       // One 調査 button for both cases: an empty survey gets the new-survey prompt, otherwise additional research.
       const mode: ResearchMode = (input.snapshot as SurveySnapshot).entities.length ? 'additional' : 'new';
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
@@ -205,7 +267,7 @@ const server = createServer(async (req, res) => {
       const run = runs.get(match[1]); if (!run) { json(res, { error: 'RUN_NOT_FOUND' }, 404); return; }
       if (match[2] && req.method === 'POST') {
         if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
-        if (run.status === 'running') { run.status = 'cancelled'; run.message = '実行を取り消しました'; save(run); children.get(run.id)?.kill('SIGTERM'); }
+        if (run.status === 'running') { run.status = 'cancelled'; run.message = '実行を取り消しました'; save(run); for (const [key, child] of children) if (key.startsWith(`${run.id}:`)) child.kill('SIGTERM'); }
         json(res, run); return;
       }
       if (!match[2] && req.method === 'GET') { json(res, run); return; }
@@ -218,6 +280,6 @@ const server = createServer(async (req, res) => {
 });
 server.listen(port, '127.0.0.1', () => console.log(`Survey Studio: ${origin}`));
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
-  for (const [id, child] of children) { const run = runs.get(id)!; run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); child.kill('SIGTERM'); }
+  for (const [key, child] of children) { const run = runs.get(key.split(':')[0]); if (run) { run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); } child.kill('SIGTERM'); }
   server.close(); void vite.close().then(() => process.exit(0));
 });

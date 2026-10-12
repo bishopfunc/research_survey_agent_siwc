@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ARXIV_MIN_INTERVAL_MS, cacheName, extractAlgorithms, extractEquations, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
+import { ARXIV_MIN_INTERVAL_MS, cacheName, extractAlgorithms, extractEquations, extractTables, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
 
 const page = 'https://arxiv.org/html/2307.15644';
 const html = `<html><body>
@@ -86,3 +86,15 @@ test('display equations give one entry per row with its number label; inline mat
   assert.deepEqual(extractEquations(html), [{ number: 1, label: '(1)', tex: '\\argmax_{r} P(r)' }, { number: null, label: '(2a)', tex: 'L =a+b' }, { number: null, label: null, tex: 'M=c' }]);
 });
 test('arXiv requests keep the robots.txt crawl delay', () => { assert.equal(ARXIV_MIN_INTERVAL_MS, 15_000); });
+test('table floats keep their label, caption and cells with spans and math', () => {
+  const html = `<figure id="S4.T1" class="ltx_table"><figcaption class="ltx_caption"><span class="ltx_tag ltx_tag_table">Table 1: </span>Comparison on R2R.</figcaption>
+    <table class="ltx_tabular"><tr class="ltx_tr"><td class="ltx_td" rowspan="2">Methods</td><td class="ltx_td" colspan="2">Val-Unseen</td></tr>
+    <tr class="ltx_tr"><th class="ltx_th">SR<math alttext="\\uparrow"></math></th><td class="ltx_td">SPL</td></tr><tr><td>Ours</td><td>72.9</td><td>62.8</td></tr></table></figure>
+  <figure class="ltx_figure"><img src="x/a.png"><figcaption>Figure 1: not a table</figcaption></figure>`;
+  assert.deepEqual(extractTables(html), [{ number: 1, label: 'Table 1', caption: 'Comparison on R2R.', rows: [
+    [{ text: 'Methods', colspan: 1, rowspan: 2, head: false }, { text: 'Val-Unseen', colspan: 2, rowspan: 1, head: false }],
+    [{ text: 'SR $\\uparrow$', colspan: 1, rowspan: 1, head: true }, { text: 'SPL', colspan: 1, rowspan: 1, head: false }],
+    [{ text: 'Ours', colspan: 1, rowspan: 1, head: false }, { text: '72.9', colspan: 1, rowspan: 1, head: false }, { text: '62.8', colspan: 1, rowspan: 1, head: false }],
+  ] }]);
+});
+

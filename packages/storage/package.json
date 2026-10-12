@@ -1,0 +1,6 @@
+{
+  "name": "@survey/storage",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts"
+}

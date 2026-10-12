@@ -16,3 +16,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0010](0010-reuse-types-for-expert-survey.md) | 参入者向けの調査は既存の型に載せ、型名を変えない | Accepted |
 | [0011](0011-katex-math-rendering.md) | 論文の数式はKaTeXで描画する | Accepted |
 | [0012](0012-tutorial-entity.md) | チュートリアルは調査のEntityとして持つ | Accepted |
+| [0013](0013-storage-sqlite-d1-compatible.md) | ストレージはSQLite互換のSQLとD1形のアダプタで書く | Accepted |

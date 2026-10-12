@@ -23,7 +23,8 @@
 | [調査の6段階と論文キャッシュ](design/0017-research-flow-and-paper-cache.md) | 抽象→具体→抽象→発散→具体→抽象、全課題の達成度、ほかの調査の論文を使うトグル |
 | [チュートリアルタブ](design/0018-tutorial.md) | 参入者向けの読み物と試験要件（採点表） |
 | [数十〜百本規模の調査](design/0019-survey-scale.md) | 論文の深さの2段、操作上限、調査の試験要件と採点スクリプト |
-| [書誌の補完と並行実行](design/0020-paper-enrichment-and-parallel-runs.md) | Codexの出力を減らす補完、並行実行と論文DB（設計中） |
+| [書誌の補完と並行実行](design/0020-paper-enrichment-and-parallel-runs.md) | Codexの出力を減らす補完と、論文DBの区分 |
+| [論文DBと段階・並行の調査](design/0021-paper-db-and-staged-runs.md) | 固定情報・要点・引用数の表、3段階で並行に流す新規調査 |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |
