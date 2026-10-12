@@ -43,7 +43,7 @@ export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution
 }
 
 /** Methods grouped by the Concept they are an instance_of (their family), each in publication order.
- * Families are ordered by their earliest method; methods without a family come last as one null group. */
+ * Families are ordered by their earliest method, then by ID; methods without a family come last as one null group. */
 export function buildFamilies(snapshot: SurveySnapshot): MethodFamily[] {
   const { nodes } = buildEvolution(snapshot);
   const concepts = new Map(snapshot.entities.filter((e): e is Concept => e.type === 'Concept').map(c => [c.id, c]));
@@ -53,7 +53,7 @@ export function buildFamilies(snapshot: SurveySnapshot): MethodFamily[] {
     for (const id of families.length ? families : [null]) groups.set(id, [...(groups.get(id) ?? []), n]);
   }
   const grouped = [...groups].filter(([id]) => id !== null).map(([id, list]) => ({ family: concepts.get(id!)!, nodes: list }))
-    .sort((a, b) => (a.nodes[0].year ?? Infinity) - (b.nodes[0].year ?? Infinity) || a.family.label.localeCompare(b.family.label));
+    .sort((a, b) => (a.nodes[0].year ?? Infinity) - (b.nodes[0].year ?? Infinity) || (a.family.id < b.family.id ? -1 : a.family.id > b.family.id ? 1 : 0)); // not localeCompare: browsers and Node order labels differently
   const rest = groups.get(null);
   return rest ? [...grouped, { family: null, nodes: rest }] : grouped;
 }

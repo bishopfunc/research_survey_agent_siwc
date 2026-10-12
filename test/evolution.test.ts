@@ -56,7 +56,7 @@ test('conflicting publication years produce a warning; snapshots remain unchange
 
 test('methods are grouped by their family (instance_of a Concept) in publication order, unclassified last', () => {
   assert.deepEqual(buildFamilies(fixture).map(g => [g.family?.id ?? null, g.nodes.map(n => n.method.id)]), [
-    ['family-cbs', ['cbs', 'ecbs', 'icbs', 'eecbs', 'ml-cbs']], ['family-prioritized', ['pibt', 'lacam', 'lacam-star']], ['family-learned', ['primal', 'gnn-mapf', 'ml-cbs']],
+    ['family-cbs', ['cbs', 'ecbs', 'icbs', 'eecbs', 'ml-cbs']], ['family-learned', ['primal', 'gnn-mapf', 'ml-cbs']], ['family-prioritized', ['pibt', 'lacam', 'lacam-star']],
   ], 'ML-CBS is in two families and appears in both');
   const input = structuredClone(fixture);
   input.entities.push({ id: 'orphan', label: 'Orphan', provenance: 'user', type: 'Method', description: '系統なし' });

@@ -1,9 +1,14 @@
 import React, { useId } from 'react';
 import type { TimelineLayout } from '../../../packages/domain/src/timeline';
+import type { Entity } from '../../../packages/domain/src/index';
 
-const COLUMN = 180, NODE_W = 156, NODE_H = 52, LANE = NODE_H + 10, ROW_PAD = 14, HEAD = 30, INSET = 16;
+const COLUMN = 180, NODE_W = 156, NODE_H = 64, LANE = NODE_H + 10, ROW_PAD = 14, HEAD = 30, INSET = 16;
 
 export interface TimelineCard { title: string; meta?: string; dot?: string; hint?: string }
+/** A paper item in every paper tree: its title, then year and venue, nothing else. */
+export function paperCard(paper: Extract<Entity, { type: 'Paper' }>): TimelineCard {
+  return { title: paper.title, meta: [paper.year ?? '年未取得', paper.venue].filter(Boolean).join(' · '), hint: paper.title };
+}
 
 /** Years left to right, one row per lineage. Positions come from layoutTimeline; this only draws them. */
 export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect }: { layout: TimelineLayout; label: string; card: (id: string) => TimelineCard; rowLabel?: (key: string | null) => React.ReactNode; selected: string; onSelect: (id: string) => void }) {

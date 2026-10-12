@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { layoutTimeline } from '../packages/domain/src/timeline';
 import { buildMethodTree } from '../packages/domain/src/evolution';
-import { buildIssueTree } from '../packages/domain/src/issue-tree';
+import { buildIssuePaperTree, buildIssueTree } from '../packages/domain/src/issue-tree';
+import { buildMethodPaperTree } from '../packages/domain/src/paper-tree';
 import { fixture, validateSnapshot } from '../packages/domain/src/index';
 
 const at = (layout: ReturnType<typeof layoutTimeline>, id: string) => layout.nodes.find(n => n.id === id)!;
@@ -48,7 +49,7 @@ test('an item in several rows is placed once and linked from the last earlier it
 test('the method tree puts a method in its parent family and links its other family without duplicating', () => {
   const tree = buildMethodTree(fixture);
   const rowOf = (id: string) => tree.layout.rows[at(tree.layout, id).row].key;
-  assert.deepEqual(tree.layout.rows.map(r => r.key), ['family-cbs', 'family-prioritized', 'family-learned']);
+  assert.deepEqual(tree.layout.rows.map(r => r.key), ['family-cbs', 'family-learned', 'family-prioritized'], 'two families from 2019 are ordered by ID');
   assert.equal(rowOf('ml-cbs'), 'family-cbs', 'its parent CBS is in the CBS family');
   assert.equal(tree.layout.nodes.filter(n => n.id === 'ml-cbs').length, 1);
   assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'member').map(e => [e.from, e.to, tree.layout.rows[e.row].key]), [['gnn-mapf', 'ml-cbs', 'family-learned']], 'the last earlier method of the learned family');
@@ -58,8 +59,8 @@ test('the method tree puts a method in its parent family and links its other fam
   assert.equal(buildMethodTree(input).layout.edges.filter(e => e.kind === 'member').length, 0, 'a parent in the other family already shows the link');
 });
 
-test('the issue tree has one row per issue, parents first, and one item per paper in its most specific issue', () => {
-  const tree = buildIssueTree(fixture);
+test('the issue paper tree has one row per issue, parents first, and one item per paper in its most specific issue', () => {
+  const tree = buildIssuePaperTree(fixture);
   assert.deepEqual(tree.layout.rows.map(r => r.key), ['collision', 'scalability', 'tree', 'optimality', 'lifelong', 'decentralized', 'communication']);
   assert.deepEqual(['collision', 'scalability', 'tree', 'communication'].map(id => tree.depth.get(id)), [0, 1, 2, 1]);
   const rowOf = (id: string) => tree.layout.rows[at(tree.layout, id).row].key;
@@ -72,7 +73,7 @@ test('the issue tree has one row per issue, parents first, and one item per pape
   assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'derives').map(e => `${e.from}>${e.to}`).sort(), [
     'paper-cbs-2012>paper-ecbs', 'paper-cbs-2012>paper-icbs', 'paper-cbs-2012>paper-ml-cbs', 'paper-ecbs>paper-eecbs', 'paper-lacam>paper-lacam-star', 'paper-pibt-2019>paper-lacam',
   ], 'arrows follow method derivation through representative papers');
-  assert.deepEqual(tree.methods.get('paper-ecbs'), ['ECBS']);
+  assert.ok(tree.layout.nodes.every(n => tree.papers.has(n.id)), 'items are papers only');
 });
 
 test('a paper naming no issue uses its methods; issues without papers keep their row', () => {
@@ -81,7 +82,7 @@ test('a paper naming no issue uses its methods; issues without papers keep their
   const icbs = input.entities.find(e => e.id === 'paper-icbs');
   if (icbs?.type === 'Paper') icbs.addresses = [];
   assert.deepEqual(validateSnapshot(input), []);
-  const tree = buildIssueTree(input);
+  const tree = buildIssuePaperTree(input);
   assert.ok(tree.layout.rows.some(r => r.key === 'memory'));
   assert.equal(tree.layout.rows[at(tree.layout, 'paper-icbs').row].key, 'tree', 'ICBS addresses tree and optimality; tree is deeper');
 });
@@ -89,9 +90,30 @@ test('a paper naming no issue uses its methods; issues without papers keep their
 test('an issue cycle still lists every issue and lays out every paper', () => {
   const input = structuredClone(fixture);
   input.relations.push({ id: 'loop', type: 'part_of', from: 'collision', to: 'tree' });
-  const tree = buildIssueTree(input);
+  const tree = buildIssuePaperTree(input);
   assert.equal(tree.layout.rows.length, fixture.entities.filter(e => e.type === 'Issue').length);
   assert.equal(tree.layout.nodes.length, fixture.entities.filter(e => e.type === 'Paper').length);
+  assert.equal(buildIssueTree(input).layout.nodes.length, fixture.entities.filter(e => e.type === 'Issue').length);
+});
+
+test('the issue tree holds issues only: rows are root issues, arrows go parent to sub-issue, and a parent is never right of its children', () => {
+  const tree = buildIssueTree(fixture);
+  assert.deepEqual(tree.layout.rows.map(r => r.key), ['collision', 'decentralized']);
+  assert.ok(tree.layout.nodes.every(n => tree.issues.has(n.id)));
+  assert.equal(tree.years.get('collision'), 2012);
+  assert.equal(tree.years.get('communication'), 2020);
+  assert.equal(tree.years.get('decentralized'), 2019, 'PRIMAL (2019) is earlier than its sub-issue communication (2020)');
+  assert.deepEqual(tree.layout.edges.map(e => `${e.from}>${e.to}`).sort(), ['collision>lifelong', 'collision>optimality', 'collision>scalability', 'decentralized>communication', 'scalability>tree']);
+  for (const e of tree.layout.edges) assert.ok(at(tree.layout, e.from!).column <= at(tree.layout, e.to).column, `${e.from}>${e.to}`);
+});
+
+test('the method paper tree has one row per method in method-tree order and one item per paper; a paper without a method is unclassified', () => {
+  const tree = buildMethodPaperTree(fixture);
+  assert.deepEqual(tree.layout.rows.map(r => r.key), ['cbs', 'ecbs', 'icbs', 'eecbs', 'ml-cbs', 'primal', 'gnn-mapf', 'pibt', 'lacam', 'lacam-star', null]);
+  const rowOf = (id: string) => tree.layout.rows[at(tree.layout, id).row].key;
+  assert.deepEqual(['paper-cbs-2012', 'paper-cbs', 'paper-pibt-2019', 'paper-pibt', 'paper-rhcr'].map(rowOf), ['cbs', 'cbs', 'pibt', 'pibt', null]);
+  assert.ok(tree.layout.nodes.every(n => tree.papers.has(n.id)), 'items are papers only');
+  assert.ok(tree.layout.edges.some(e => e.from === 'paper-pibt-2019' && e.to === 'paper-lacam'));
 });
 
 test('a straight line never runs behind another item: siblings and blocked lanes move to a new lane', () => {
