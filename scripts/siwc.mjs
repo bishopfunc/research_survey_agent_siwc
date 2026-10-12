@@ -38,7 +38,7 @@ async function login(store, account) {
       const url = new URL(req.url, origin);
       if (req.method === 'GET' && url.pathname === `/${gate}`) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.end(`<!doctype html><html lang="ja"><meta charset="utf-8"><title>ChatGPTでログイン</title><h1>Survey SIWC Probe</h1><p>ChatGPTにログインして、このアプリでのプラン利用を許可してください。</p><form method="post" action="/${gate}/login"><button>Continue with ChatGPT</button></form></html>`);return;
+        res.end(`<!doctype html><html lang="ja"><meta charset="utf-8"><title>ChatGPTでログイン</title><h1>Speedrun Survey</h1><p>ChatGPTにログインして、このアプリでのプラン利用を許可してください。</p><form method="post" action="/${gate}/login"><button>Continue with ChatGPT</button></form></html>`);return;
       }
       if (req.method === 'POST' && url.pathname === `/${gate}/login` && req.headers.origin === origin && !busy) {
         const attempt = beginLogin(store.host_id, `${origin}/auth/callback`, account);
