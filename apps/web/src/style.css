@@ -575,7 +575,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .fact-name small { margin-right: 6px; font-size: 11px; color: var(--color-muted); }
 .fact-name:hover { color: var(--color-accent); background: var(--color-transparent); }
 .fact-locator { font-size: var(--text-small); color: var(--color-faint); }
-.heading { justify-content: flex-start; gap: var(--space-2); }
+.heading { justify-content: center; gap: var(--space-2); text-align: center; }
 .title-edit { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); }
 .title-edit:hover { color: var(--color-accent); background: var(--color-accent-soft); }
 .title-edit:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
