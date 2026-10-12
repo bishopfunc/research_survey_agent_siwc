@@ -16,7 +16,7 @@ PoCの正本は [snapshot.schema.json](../packages/domain/schema/snapshot.schema
 | Evidence | source_url、locator、excerpt、verification、retrieved_at、content_hash |
 | Keyword | 画面では「ナレッジ」（参入者がキャッチアップすべき知識）。用語（label）、aliases、category（dataset/benchmark/hardware/simulator/metric/sota/model/baseline。task/concept/method/otherは過去データ用）、初心者向けのmeaning、papers（Paper）、related（Issue/Method/Concept/Domain）、任意のofficial_url・as_of（SOTAは必須）、definition_excerpt・source_url・locator。原文があればURLが必要（[0013](design/0013-keywords-and-field-sources.md)） |
 
-Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す。取得済み引用数にはcitation_sourceとcitation_as_of（日付）が必要。PoCでは現在表示値をsnapshotに保存し、更新時は新Commitにする。MVPで最新値の別保存を追加する。
+Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す。取得済み引用数にはcitation_sourceとcitation_as_of（日付）が必要。PoCでは現在表示値をsnapshotに保存し、更新時は新Commitにする（論文タブの「引用数を更新」でOpenAlexから取得、[0015](design/0015-citation-counts.md)）。MVPで最新値の別保存を追加する。
 
 Paperの任意フィールド `code_availability` はpublic（公開あり）、not_found（見つからず）、unknown（未確認）。省略も未確認として表示する。publicはHTTP(S)の `code_url` と日付 `code_checked_at`、not_foundは確認日が必要。未確認のURL・確認日は空にする。見つからずは非公開の断定ではない。既存Commitは補完せず保持し、更新は新Commitになる。
 

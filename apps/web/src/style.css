@@ -152,6 +152,9 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .keyword-card .card-bottom span { background: var(--color-lavender-soft); }
 .keyword-aliases { color: var(--color-muted); }
 .kind-filter { margin-bottom: var(--space-3); flex-wrap: wrap; }
+.view-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
+.toolbar-button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: var(--text-small); white-space: nowrap; }
+.toolbar-button .icon { width: 15px; height: 15px; }
 .keyword-groups { display: grid; gap: var(--space-5); }
 .keyword-group>h3 { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
 .entity-close { margin-left: var(--space-1); }

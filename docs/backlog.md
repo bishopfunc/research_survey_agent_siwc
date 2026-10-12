@@ -18,7 +18,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P11 | Done | Codexの「調査」：入力は1つでPromptだけを新規調査・追加調査で切替（空の調査かで判定）、Web検索、シェル等の無効化、開発用AGENTS.mdの除外、strict準拠の出力スキーマ、検証エラー時の1回修正、ChatGPT風の経過表示、Promptの版のタイムスタンプ化。UIは時計アイコンの版の履歴、課題の種類の絞り込みと課題ツリー（0012） | P07/P10 |
 | P12 | Done | 分野の既存ソース（サーベイ論文・awesome・ブログや記事を並行）から調べるPrompt。DSLにKeyword（用語・意味・論文・関連・公式ページ）を追加し、代表的なタスク・データセット・ベンチマーク・評価指標・ベースラインも含むキーワードタブ・論文からの抽出・Labを用意（0013） | P11 |
 | P13 | Doing | 調査の目的（参入者が専門家の水準に追いつきテーマを見つける）と重視点をPromptの先頭に置く。課題の英語表現と論文の数値による達成度（Claim）、手法の系統（Concept＋instance_of）と系統表示、論文の貢献と5つの問い・重要なFig・アブストラクトの和訳、学会の略称、キーワード→ナレッジ（SOTA・モデル・ベースライン）、候補3つ。新しい型は作らない。残り：11:45版Promptでの実Codexの新規調査（論文8〜20件・和訳・要点・候補）を完了・検証まで通す（[0014](design/0014-expert-catch-up-survey.md)、[ADR 0010](adr/0010-reuse-types-for-expert-survey.md)） | P12 |
-| P14 | Todo | 引用数の取得（OpenAlexを第一候補、Google Scholarは公式APIが無く不採用）。取得元と取得日を保存し、更新は新しい版（[0015](design/0015-citation-counts.md)、Draft） | P13 |
+| P14 | Done | 引用数の取得（OpenAlex、Google Scholarは公式APIが無く不採用）。論文タブの「引用数を更新」で取得元と取得日つきの新しい版を作る（[0015](design/0015-citation-counts.md)） | P13 |
 | P15 | Todo | 論文の理解に重要なFigの画像を論文の詳細に出す（arXivのHTML版などから取得してassetに保存し、reading.key_figuresと対応づける。[0006](design/0006-paper-figures.md)・[ADR 0008](adr/0008-paper-figure-assets.md)の拡張として設計） | P13 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |

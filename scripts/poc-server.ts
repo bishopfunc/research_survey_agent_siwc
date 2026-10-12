@@ -13,6 +13,7 @@ import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-st
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
 import { executeResearch, type CodexAttempt } from './research-run';
+import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 
 const port = Number(process.env.POC_PORT ?? 8788);
 const origin = `http://127.0.0.1:${port}`;
@@ -128,6 +129,12 @@ const server = createServer(async (req, res) => {
       try {const bytes=readFileSync(resolve('.poc/figures',`${figure[1]}.png`));res.writeHead(200,{'Content-Type':'image/png','X-Content-Type-Options':'nosniff','Cache-Control':'private, max-age=31536000, immutable'});res.end(bytes);}
       catch {json(res,{error:'FIGURE_NOT_FOUND'},404);}
       return;
+    }
+    if (url.pathname === '/api/citations' && req.method === 'POST') {
+      if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
+      const papers = parseCitationRequest(await body(req));
+      const lookup = await lookupCitations(papers, target => fetch(target, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json' } }), process.env.OPENALEX_API_KEY);
+      json(res, { source: CITATION_SOURCE, as_of: today(), ...lookup }); return;
     }
     if (url.pathname === '/api/codex/status' && req.method === 'GET') {
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;

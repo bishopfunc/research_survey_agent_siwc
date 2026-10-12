@@ -12,8 +12,8 @@ import { byPublication } from '../../../packages/domain/src/evolution';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
 import { ConnectionMap } from './ConnectionMap';
 
-function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron'; className?: string }) {
-  const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12 M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 9a9 9 0 0 1-9 9', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6' };
+function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh'; className?: string }) {
+  const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12 M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 9a9 9 0 0 1-9 9', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6', refresh:'M19.5 12a7.5 7.5 0 1 1-2.2-5.3 M19.5 4.5v4h-4' };
   return <svg className={`icon ${className}`} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
 }
 const reviewPreview = new URLSearchParams(location.search).get('preview') === 'lab';
@@ -196,6 +196,8 @@ function App() {
   // Answers that arrive after the user switched collections must not land in the new collection's chat.
   const activeBranch = useRef(workspace.active_branch);
   activeBranch.current = workspace.active_branch;
+  const latestWorkspace = useRef(workspace);
+  latestWorkspace.current = workspace;
   const showRun = (owner: string, value: Run) => { if (activeBranch.current === owner) setRun(value); };
   useEffect(() => { if (!reviewPreview) try { localStorage.setItem(RUNS_KEY, JSON.stringify(pendingRuns)); } catch { /* the run stays on the server */ } }, [pendingRuns]);
   const [side, setSide] = useState<'detail' | 'chat'>(() => !reviewPreview && (loadPendingRuns()[workspace.active_branch] || localStorage.getItem(RUN_KEY)) ? 'chat' : 'detail');
@@ -212,6 +214,7 @@ function App() {
   const [agent, setAgent] = useState('Codexの状態を確認中');
   const [agentReady, setAgentReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [citing, setCiting] = useState(false);
   const branch = workspace.branches.find(b => b.id === workspace.active_branch)!;
   const head = workspace.commits.find(c => c.id === branch.head)!;
   const commit = workspace.commits.find(c => c.id === viewId) ?? head;
@@ -300,6 +303,28 @@ function App() {
     // Keep a follow-up the user picked or typed while reviewing; only the request that produced this run is cleared.
     if (instruction.trim() === (run.instruction ?? '').trim()) setInstruction('');
   }
+  /** Fetches current citation counts from OpenAlex and saves them, with their source and date, as a new version. */
+  async function updateCitations() {
+    if (reviewPreview || historical || citing) return;
+    const base = head, before = workspace;
+    const list = base.snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
+    if (!list.length) return;
+    setCiting(true);
+    try {
+      const found: { source: string; as_of: string; results: { id: string; citation_count: number }[]; not_found: string[]; error: string | null } = await request('/api/citations', { papers: list.map(p => ({ id: p.id, doi: p.doi, arxiv_id: p.arxiv_id, title: p.title, year: p.year })) });
+      if (found.results.length) guard(() => {
+        // newCommit works on the workspace of this render, so nothing may have changed while OpenAlex answered.
+        if (latestWorkspace.current !== before) throw Error('調査が変わったため引用数を保存しませんでした');
+        const next = structuredClone(base.snapshot);
+        for (const r of found.results) { const paper = next.entities.find(e => e.id === r.id); if (paper?.type === 'Paper') Object.assign(paper, { citation_count: r.citation_count, citation_source: found.source, citation_as_of: found.as_of }); }
+        newCommit(next, `引用数を更新（${found.source}・${found.results.length}件）`);
+        setUndo(() => () => save(before));
+      });
+      const summary = [found.results.length ? `引用数を更新しました（${found.results.length}件）` : '引用数は見つかりませんでした', found.not_found.length ? `未発見 ${found.not_found.length}件` : '', found.error ?? ''].filter(Boolean).join(' · ');
+      setNotice(summary);
+    } catch (e) { setNotice(e instanceof Error ? e.message : '引用数を取得できませんでした'); }
+    finally { setCiting(false); }
+  }
   function closeRun() {
     if (!run) return;
     const previous = run, owner = branch.id;
@@ -373,6 +398,7 @@ function App() {
           {tab === 'issues' && <div className="segmented kind-filter" role="group" aria-label="課題の種類">{([['all', 'すべて'], ...Object.entries(kindLabels)] as [typeof kindFilter, string][]).map(([id, label]) => <button key={id} aria-pressed={kindFilter === id} onClick={() => setKindFilter(id)}>{label}</button>)}</div>}
           {tab === 'issues' && <div className="issue-list">{issues.filter(e => kindFilter === 'all' || e.kind === kindFilter).map(e => <button key={e.id} className={`issue-card ${e.id === selected ? 'chosen' : ''}`} onClick={() => setSelected(e.id)}><div className="card-top"><span className={`kind ${e.kind}`}>{kindLabels[e.kind]}</span>{snapshot.relations.filter(r => r.type === 'part_of' && r.from === e.id).map(r => <small key={r.id}>↳ {linked(r.to)?.label}</small>)}</div><h3>{e.label}</h3>{!!e.english_terms?.length && <p className="english-terms">{e.english_terms.join(' · ')}</p>}<p>{e.description}</p>{(() => { const top = claimsAbout(e.id)[0]; return top && <p className="achievement-line"><span className={`status-chip ${top.status}`}>{statusLabels[top.status]}</span><span>{top.statement}</span></p>; })()}{snapshot.relations.some(r => r.type === 'addresses' && r.to === e.id) && <div className="card-bottom">{snapshot.relations.filter(r => r.type === 'addresses' && r.to === e.id).map(r => <span key={r.id}>{linked(r.from)?.label}</span>)}</div>}</button>)}{!issues.filter(e => kindFilter === 'all' || e.kind === kindFilter).length && <div className="empty">課題なし</div>}</div>}
           {tab === 'matrix' && <IssueMethodMatrix snapshot={snapshot} search="" onSelect={setSelected}/>}
+          {tab === 'papers' && papers.length > 0 && <div className="view-toolbar"><button className="toolbar-button" disabled={citing || historical || reviewPreview} onClick={() => void updateCitations()}><Icon name="refresh"/>{citing ? '更新中…' : '引用数を更新'}</button></div>}
           {tab === 'papers' && <div className="paper-list">{papers.sort(byPublication).map(p => <button key={p.id} className={`paper-card ${selected === p.id ? 'chosen' : ''}`} onClick={() => setSelected(p.id)}>{p.representative_figure && <FigureImage figure={p.representative_figure} compact/>}<div className="paper-body"><h3>{p.title}</h3>{p.authors.length > 0 && <p className="paper-authors">{p.authors.slice(0, 3).join(', ')}{p.authors.length > 3 && ' ほか'}</p>}<div className="paper-meta"><span>{p.year ?? '年未取得'}</span><span>{p.venue ?? 'venue未取得'}</span>{p.venue_type && <span>{venueTypes[p.venue_type]}</span>}</div><p>{p.one_line_summary}</p><div className="paper-footer"><span>引用 {p.citation_count ?? '未取得'}</span><span>{paperCodeLabel(p)}</span><span>主張 {p.claims.length} · 根拠 {p.evidence.length}</span></div></div></button>)}{!papers.length && <div className="empty">論文なし</div>}</div>}
           {tab === 'keywords' && keywords.length > 0 && <div className="segmented kind-filter" role="group" aria-label="ナレッジの分類">{([['all', 'すべて'], ...Object.entries(keywordCategories).filter(([id]) => keywords.some(k => k.category === id))] as [typeof categoryFilter, string][]).map(([id, label]) => <button key={id} aria-pressed={activeCategory === id} onClick={() => setCategoryFilter(id)}>{label}</button>)}</div>}
           {tab === 'keywords' && <div className="keyword-groups">{(Object.keys(keywordCategories) as (keyof typeof keywordCategories)[]).map(category => [category, shownKeywords.filter(k => k.category === category)] as const).filter(([category, items]) => items.length || ((KEYWORD_SECTIONS as readonly string[]).includes(category) && activeCategory === 'all')).map(([category, items]) => <section key={category} className="keyword-group"><h3>{keywordCategories[category]}</h3>{items.length ? <div className="keyword-list">{items.map(k => <button key={k.id} className={`keyword-card ${selected === k.id ? 'chosen' : ''}`} onClick={() => setSelected(k.id)}>{(k.aliases.length > 0 || k.as_of) && <div className="card-top"><small>{k.aliases.join(' / ')}</small>{k.as_of && <span className="as-of">{k.as_of}時点</span>}</div>}<h3>{k.label}</h3><p>{k.meaning}</p>{k.papers.length > 0 && <div className="card-bottom">{k.papers.map(id => <span key={id}>{linked(id)?.label ?? id}</span>)}</div>}</button>)}</div> : <p className="muted">なし</p>}</section>)}</div>}
@@ -391,7 +417,7 @@ function App() {
           {entity.type === 'Paper' && <PaperAbstract key={entity.id} paper={entity}/>}
           {entity.type === 'Paper' && entity.claims.length > 0 && <section className="detail-section claims" aria-label="主張と根拠"><h3>主張と根拠</h3><ClaimRows claims={entity.claims.map(id => linked(id)).filter((e): e is Claim => e?.type === 'Claim')} evidence={firstExcerpt} onSelect={setSelected}/></section>}
           {entity.type === 'Paper' && keywords.some(k => k.papers.includes(entity.id)) && <section className="detail-section" aria-label="ナレッジ"><h3>ナレッジ</h3><div className="knowledge-chips">{keywords.filter(k => k.papers.includes(entity.id)).map(k => <button key={k.id} onClick={() => setSelected(k.id)}><small>{keywordCategories[k.category]}</small>{k.label}</button>)}</div></section>}
-          {entity.type === 'Paper' && <div className="detail-section"><dl><dt>出版</dt><dd>{entity.year ?? '未取得'} · {entity.venue ?? '未取得'}</dd><dt>引用数</dt><dd>{entity.citation_count ?? '未取得'}{entity.citation_as_of && `（${entity.citation_as_of}）`}</dd><dt>コード</dt><dd>{codeAvailabilityLabels[entity.code_availability ?? 'unknown']}{entity.code_checked_at && `（${entity.code_checked_at}確認）`}</dd><dt>著者</dt><dd>{entity.authors.join(', ') || '未取得'}</dd></dl><div className="detail-links">{entity.code_availability === 'public' && entity.code_url && <a className="paper-code-link" href={entity.code_url} target="_blank" rel="noreferrer">コード ↗</a>}{entity.url && <a href={entity.url} target="_blank" rel="noreferrer">出典 ↗</a>}</div></div>}
+          {entity.type === 'Paper' && <div className="detail-section"><dl><dt>出版</dt><dd>{entity.year ?? '未取得'} · {entity.venue ?? '未取得'}</dd><dt>引用数</dt><dd>{entity.citation_count ?? '未取得'}{entity.citation_as_of && `（${[entity.citation_source, entity.citation_as_of].filter(Boolean).join('・')}）`}</dd><dt>コード</dt><dd>{codeAvailabilityLabels[entity.code_availability ?? 'unknown']}{entity.code_checked_at && `（${entity.code_checked_at}確認）`}</dd><dt>著者</dt><dd>{entity.authors.join(', ') || '未取得'}</dd></dl><div className="detail-links">{entity.code_availability === 'public' && entity.code_url && <a className="paper-code-link" href={entity.code_url} target="_blank" rel="noreferrer">コード ↗</a>}{entity.url && <a href={entity.url} target="_blank" rel="noreferrer">出典 ↗</a>}</div></div>}
           {entity.type === 'Claim' && <><span className="tag">{statusLabels[entity.status]}</span><p>{entity.statement}</p></>}
           {entity.type === 'Keyword' && <><span className="type-chip t-Keyword">{keywordCategories[entity.category]}</span>{entity.as_of && <span className="as-of">{entity.as_of}時点</span>}{entity.aliases.length > 0 && <p className="keyword-aliases">{entity.aliases.join(' / ')}</p>}<p>{entity.meaning}</p>{entity.official_url && <div className="detail-links"><a href={entity.official_url} target="_blank" rel="noreferrer">公式ページ ↗</a></div>}</>}
           {entity.type === 'Evidence' && <><span className="tag">{{unverified:'未確認',abstract_only:'要旨のみ確認',verified:'原文を確認済み'}[entity.verification]}</span><blockquote>{entity.excerpt || '本文断片は未取得'}</blockquote></>}
