@@ -73,7 +73,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 /** New surveys run as eight steps in four waves (designs 0028, 0029): 1 → {2 ×N, 4→5} → {3+6, tutorial} → 7 (server) → 8
  * only for gaps. Each step is its own Codex process; the server merges the results. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. Each process reserves time for writing; total duration is not guaranteed. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-13T04:08+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-13T04:45+09:00';
 /** Limits per step; a worker over its limit is dropped, the others continue. */
 export const STAGE_TIMEOUT_SECONDS = { outline: 480, deepen: 270, integrate: 240, diverge: 150, extend: 150, fill: 120, tutorial: 240 } as const;
 /** Wave 4 (the fill) starts only if the run is still within this time, so the whole run stays near ten minutes. */
@@ -95,7 +95,7 @@ export const OUTLINE_INSTRUCTIONS = [
   EXHAUSTIVE_SCOPE,
   `1. ${RESEARCH_STEPS[0].instruction}`,
   'Output: a concise Japanese survey title; one Domain whose description ([overview]) says what the field studies and where it is heading, naming its main venues by acronym; at least three Resources ([guide]): two or more surveys, tutorials or reading lists (one a survey) whose contents and taxonomies give the paper list, and the leaderboards and official dataset or benchmark pages you opened; 4–10 draft Issues (kind, part_of, english_terms, description) and 3–6 method families with about 6–15 Methods ([methods]), drafts without Evidence that later steps source and rebuild from the papers; 30–60 Papers (never fewer than 30: keep taking them from survey bibliographies, curated lists and proceedings until there are 30) covering every family and the latest year, each with title, identifier, year when shown, one_line_summary, and proposes and addresses placing it in a family or issue, listed within each family from the most important, because the first ones are read in depth next. Write no Keywords, Claims, Evidence or Tutorial and no reading or abstract_ja beyond what a library paper carries ([keepstored]), and leave follow_ups empty.',
-  'Checkpoint order: first the title, the Domain and the Resources; then the draft Issues; then one checkpoint per method family with its Methods and its Papers together. Send each family as soon as its papers are listed, while you keep searching for the next one. Never hold Papers back for the final response: when the time runs out, only what the checkpoints sent is kept.',
+  'Checkpoint order, so that nothing points to what is not sent yet: first the title and the Domain; then the draft Issues; then one checkpoint per method family with its Methods and its Papers together; last the Resources with the issues, methods and paper they cover. Send each family as soon as its papers are listed, while you keep searching for the next one. Never hold Papers back for the final response: when the time runs out, only what the checkpoints sent is kept.',
 ].join('\n\n');
 /** Step 2 reads the outline's papers; step 5 reads the papers the divergent search found, with the same instruction. */
 export function deepenInstructions(worker: number, workers: number, papers: string[], issues: string[], step: 2 | 5 = 2) {

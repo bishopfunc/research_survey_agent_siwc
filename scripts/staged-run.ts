@@ -184,7 +184,10 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const stage: StageId = `${kind}-${i + 1}`;
     const prompt = (kind === 'deepen' ? steps.prompt.deepen : steps.prompt.extend)(from, i + 1, list.length, g.papers, g.issues);
     const first = await steps.run(stage, prompt, from);
-    const r = first.ok || !steps.active() || (first.elapsedMs ?? 0) > RETRY_IF_FAILED_WITHIN_MS ? first : await steps.run(stage, prompt, from);
+    // A quick failure is retried even when its checkpoints saved part of the work; the retry is kept only if it did better.
+    if ((first.ok && !first.partial) || !steps.active() || (first.elapsedMs ?? 0) > RETRY_IF_FAILED_WITHIN_MS) return { r: first, g, i, kind };
+    const second = await steps.run(stage, prompt, from);
+    const r = second.ok && !second.partial ? second : first.ok ? first : second;
     return { r, g, i, kind };
   }));
   const divergeBranch = async () => {

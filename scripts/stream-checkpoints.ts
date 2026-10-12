@@ -26,6 +26,10 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
   const validate = (patch: SurveyPatch) => applyPatch(snapshot, relax(patch), baseId);
   const valid = (patch: SurveyPatch) => { try { validate(patch); return true; } catch { return false; } };
   const merge = (earlier: SurveyPatch | undefined, later: SurveyPatch) => earlier ? mergeRepair(earlier, later, snapshot) : later;
+  /** A free-text replace that names only the keys it changes keeps the other stored values (from an earlier checkpoint or the
+   * stage's snapshot), as [keepstored] asks; the strict final output always sends every key. */
+  const stored = (id: string) => [...(all?.operations ?? [])].reverse().flatMap(op => 'entity' in op && op.entity.id === id ? [op.entity] : [])[0] ?? snapshot.entities.find(e => e.id === id);
+  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => op?.op === 'replace_entity' && op.entity && stored(op.entity.id) ? { ...op, entity: { ...stored(op.entity.id), ...op.entity } } : op) }) as SurveyPatch;
   return {
     accept(line: string): 'ignored' | 'saved' | 'held' | 'rejected' {
       if (!active()) return 'ignored';
@@ -33,12 +37,13 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       try { event = JSON.parse(line); } catch { return 'ignored'; }
       const text = typeof event?.item?.text === 'string' ? event.item!.text! : '';
       // The final schema-constrained response is a JSON object on its own and reaches this callback too.
-      const at = text.indexOf(MARKER), body = at < 0 ? '' : text.slice(at + MARKER.length), open = body.indexOf('{');
-      // The marker with a JSON object after it is a checkpoint, readable or not, whatever decorates the marker (bold, a number,
-      // a fence). A mention with no object after it, or inside the final response (a JSON object on its own), is not one.
+      const at = text.indexOf(MARKER), body = at < 0 ? '' : text.slice(at + MARKER.length), open = body.search(/\{\s*["}]/);
+      // The marker with a JSON object (a brace followed by a quoted key, or {}) after it is a checkpoint, readable or not, whatever decorates the
+      // marker (bold, a number, a fence). A mention with no object after it ({placeholder}, a formula) or inside the final
+      // response (a JSON object on its own) is not one.
       if (event?.type !== 'item.completed' || event.item?.type !== 'agent_message' || open < 0 || isObject(text.trim())) return 'ignored';
       let patch: SurveyPatch;
-      try { patch = normalize(JSON.parse(body.slice(open, body.lastIndexOf('}') + 1))) as SurveyPatch; }
+      try { patch = keepStored(normalize(JSON.parse(body.slice(open, body.lastIndexOf('}') + 1))) as SurveyPatch); }
       catch { unreadable = true; return 'rejected'; }
       // Validate shape and base even when there are previously accepted operations.
       if (!shape(patch) || patch.base_commit_id !== baseId) { unreadable = true; return 'rejected'; }

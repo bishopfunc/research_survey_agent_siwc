@@ -461,6 +461,9 @@ test('a checkpoint paper that leaves out the keys it has no value for gets null 
   const entity = (out.operations[0] as unknown as { entity: Record<string, unknown> }).entity;
   assert.equal(entity.doi, null); assert.deepEqual(entity.claims, []); assert.equal(entity.arxiv_id, '1811.10092');
   assert.doesNotThrow(() => applyPatch(base, out, head.id));
+  // A replace keeps the keys it leaves out missing: streamCheckpoints fills them from the stored entity, never with null.
+  const replaced = stripCodexNulls({ ...raw, operations: [{ op: 'replace_entity', entity: paper }] }, defs) as SurveyPatch;
+  assert.ok(!('doi' in (replaced.operations[0] as unknown as { entity: Record<string, unknown> }).entity));
 });
 test('a literature guide entry needs an http link and points only at issues, methods and a paper', () => {
   const input = structuredClone(fixture);

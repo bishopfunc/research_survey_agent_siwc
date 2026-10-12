@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptySurvey, applyPatch, fixture, type SurveyPatch } from '../packages/domain/src/index';
+import { emptySurvey, applyPatch, fixture, snapshotSchema, type SurveyPatch } from '../packages/domain/src/index';
+import { stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { streamCheckpoints } from '../scripts/stream-checkpoints';
 const patch = (operations: unknown[], message = 'chunk') => ({ schema_version: '0.1.0', base_commit_id: 'b', message, operations });
 const domain = { id: 'd', type: 'Domain', label: 'D', provenance: 'codex', description: 'D' };
@@ -101,6 +102,33 @@ test('a mention of the marker in prose or inside the final response is not a che
   assert.equal(chunks.accept(text(final)), 'ignored');
   assert.equal(chunks.accept(text(`\n${final}\n`)), 'ignored');
   assert.deepEqual(JSON.parse(chunks.finish(final)).operations, [{ op: 'add_entity', entity: domain }]);
+});
+test('a mention of the marker followed by a placeholder or a formula is not a checkpoint; a cut-off JSON object still is', () => {
+  for (const prose of ['次のSURVEY_CHECKPOINTでは系統 {RL, IL} の論文を送ります', 'SURVEY_CHECKPOINT 1 を送りました。次は計算量 $O(n^{2})$ の手法を調べます。', 'commentaryではSURVEY_CHECKPOINTを使わず、最終応答で全体（{schema_version, operations}）を返します。']) {
+    const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+    assert.equal(chunks.accept(text(prose)), 'ignored', prose);
+    assert.equal(JSON.parse(chunks.finish(JSON.stringify(patch([{ op: 'add_entity', entity: domain }])))).operations.length, 1);
+  }
+  const cut = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  assert.equal(cut.accept(text(`SURVEY_CHECKPOINT ${JSON.stringify(patch([{ op: 'add_entity', entity: domain }])).slice(0, 60)}`)), 'rejected');
+});
+test('a free-text replace that names only the keys it changes keeps the other stored values', () => {
+  const stored = fixture.entities.find(e => e.id === 'paper-cbs')!;
+  if (stored.type !== 'Paper') throw Error('fixture changed');
+  const sparse = { id: 'paper-cbs', type: 'Paper', provenance: 'codex', label: stored.label, title: stored.title, one_line_summary: '要約を直した' };
+  const chunks = streamCheckpoints(fixture, 'b', p => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>), () => {});
+  assert.equal(chunks.accept(event(patch([{ op: 'replace_entity', entity: sparse }]))), 'saved');
+  const out = applyPatch(fixture, JSON.parse(chunks.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === 'paper-cbs');
+  assert.ok(out?.type === 'Paper');
+  if (out?.type !== 'Paper') return;
+  assert.equal(out.one_line_summary, '要約を直した');
+  assert.deepEqual([out.proposes, out.addresses, out.doi, out.year, out.citation_count], [stored.proposes, stored.addresses, stored.doi, stored.year, stored.citation_count]);
+  // A later sparse correction of a paper an earlier checkpoint added keeps that checkpoint's values.
+  const added = streamCheckpoints(emptySurvey('t'), 'b', p => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>), () => {});
+  assert.equal(added.accept(event(patch([{ op: 'add_entity', entity: domain }]))), 'saved');
+  assert.equal(added.accept(event(patch([{ op: 'replace_entity', entity: { id: 'd', type: 'Domain', provenance: 'codex', label: 'D2' } }]))), 'saved');
+  const domainOut = applyPatch(emptySurvey('t'), JSON.parse(added.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === 'd');
+  assert.deepEqual([domainOut?.label, domainOut?.type === 'Domain' && domainOut.description], ['D2', 'D']);
 });
 test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
   const fence = '```';

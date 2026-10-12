@@ -74,7 +74,7 @@ function resolve(schema: Schema | undefined, defs: Record<string, Schema>): Sche
  * english_terms, while Resource.authors keeps two co-authors with the same name),
  * percent-encodes URLs, cuts a date that carries a time to its day and nulls a nullable date or date-time ajv would reject
  * (a date-time without an offset, 2026/10/13…), as the strict output schema would have required. */
-function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, Schema>): unknown {
+function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, Schema>, fill = true): unknown {
   const def = resolve(schema, defs);
   if (!def) return value;
   if (typeof value === 'string' && def.format === 'uri') return encodeUrl(value);
@@ -89,7 +89,8 @@ function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, S
     const object = value as Record<string, unknown>, required = new Set((def.required as string[] | undefined) ?? []), properties = def.properties as Record<string, Schema>;
     for (const [key, child] of Object.entries(object)) if (child === null && !required.has(key) && !allowsNull(properties[key])) delete object[key]; else object[key] = tidy(child, properties[key], defs);
     // A free-text checkpoint leaves out the keys it has no value for (a Paper without doi); the strict output sends null or [].
-    for (const key of required) if (object[key] === undefined && properties[key]) { if (allowsNull(properties[key])) object[key] = null; else if (resolve(properties[key], defs)?.type === 'array') object[key] = []; }
+    // Not for a replaced entity itself: a key it leaves out keeps the stored value (streamCheckpoints), never null.
+    if (fill) for (const key of required) if (object[key] === undefined && properties[key]) { if (allowsNull(properties[key])) object[key] = null; else if (resolve(properties[key], defs)?.type === 'array') object[key] = []; }
   }
   return value;
 }
@@ -98,7 +99,7 @@ function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, S
  * so it never needs a repair run.
  * Free-text checkpoints skip the strict output schema, so this also applies the rules that schema enforces. */
 export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): unknown {
-  const clean = structuredClone(patch) as { operations?: { entity?: Record<string, unknown> }[]; follow_ups?: unknown };
+  const clean = structuredClone(patch) as { operations?: { op?: unknown; entity?: Record<string, unknown> }[]; follow_ups?: unknown };
   if (clean && typeof clean === 'object' && 'follow_ups' in clean) {
     const asked = distinct(clean.follow_ups, 3, 200);
     if (asked?.length) clean.follow_ups = asked; else delete clean.follow_ups;
@@ -133,7 +134,7 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
       }
       if (Object.entries(reading).filter(([key]) => key !== 'sources' && key !== 'cites').every(([, v]) => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
     }
-    tidy(entity, def, defs);
+    tidy(entity, def, defs, op.op !== 'replace_entity');
   }
   return clean;
 }

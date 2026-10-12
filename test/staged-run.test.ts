@@ -144,6 +144,23 @@ test('a failed worker is retried once before its result is given up', async () =
   assert.equal(outcome.status, 'succeeded');
   assert.ok(Object.entries(attempts).filter(([k]) => k.startsWith('deepen')).every(([, n]) => n === 2));
 });
+test('a worker that failed quickly after saving a checkpoint is still retried; its partial result stays if the retry fails too', async () => {
+  const attempts: Record<string, number> = {};
+  const outline = outlinePatch(), empty = (message: string) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations: [] });
+  const run = steps({ run: async stage => {
+    attempts[stage] = (attempts[stage] ?? 0) + 1;
+    if (stage === 'outline') return ok(outline);
+    if (!stage.startsWith('deepen')) return empty(stage);
+    if (attempts[stage] === 1) return { ...empty('first'), partial: 'quick', elapsedMs: 30_000 };
+    return stage === 'deepen-1' ? empty('second') : { ok: false, error: 'again', searches: 0, elapsedMs: 30_000 };
+  } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 2);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.equal(attempts['deepen-1'], 2); assert.equal(attempts['deepen-2'], 2);
+  assert.doesNotMatch(outcome.patch.message, /作業1）は途中保存/);
+  assert.match(outcome.patch.message, /作業2）は途中保存までの結果を使いました（quick）/);
+});
 test('a worker that failed only after a long time (a timeout) is not retried', async () => {
   const attempts: Record<string, number> = {};
   const outline = outlinePatch();
