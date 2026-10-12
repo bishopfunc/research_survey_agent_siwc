@@ -84,14 +84,23 @@ test('a translation whose abstract the server fills later passes the checks; the
   const direct = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
   assert.equal(JSON.parse(direct.finish(JSON.stringify(patch([{ op: 'add_entity', entity: paper }])))).operations[0].entity.abstract_ja, '和訳');
 });
-test('a checkpoint after a preamble or inside a fence is read; a marker without a readable Patch spoils the final', () => {
-  const text = (body: string) => JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: body } });
+const text = (body: string) => JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: body } });
+test('a checkpoint after a preamble or inside a fence is read; a marker followed by an unreadable Patch spoils the final', () => {
   const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
   const fence = '```';
   assert.equal(chunks.accept(text(`途中保存2を送ります。\nSURVEY_CHECKPOINT\n${fence}json\n${JSON.stringify(patch([{ op: 'add_entity', entity: domain }]))}\n${fence}`)), 'saved');
-  assert.equal(chunks.accept(text('論文を読みました。次はSURVEY_CHECKPOINTで送ります')), 'rejected');
+  assert.equal(chunks.accept(text(`SURVEY_CHECKPOINT\n${JSON.stringify(patch([{ op: 'add_entity', entity: issue }])).slice(0, 80)}`)), 'rejected');
   assert.throws(() => chunks.finish(JSON.stringify(patch([{ op: 'add_entity', entity: issue }]))), /途中保存/);
   assert.equal(JSON.parse(chunks.partial()!).operations.length, 1);
+});
+test('a mention of the marker in prose or inside the final response is not a checkpoint', () => {
+  const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  assert.equal(chunks.accept(text('論文を読みました。次はSURVEY_CHECKPOINTで送ります')), 'ignored');
+  // Every stdout line reaches accept(), including the final schema-constrained response.
+  const final = JSON.stringify({ ...patch([{ op: 'add_entity', entity: domain }], 'commentaryが使えないため SURVEY_CHECKPOINT {Patch} は送らず、すべて最終応答に含めました'), follow_ups: ['SURVEY_CHECKPOINTを使って続ける'] });
+  assert.equal(chunks.accept(text(final)), 'ignored');
+  assert.equal(chunks.accept(text(`\n${final}\n`)), 'ignored');
+  assert.deepEqual(JSON.parse(chunks.finish(final)).operations, [{ op: 'add_entity', entity: domain }]);
 });
 test('a checkpoint that does not validate yet is held and validated with the later checkpoints and the final remainder', () => {
   const saved: SurveyPatch[] = [];
