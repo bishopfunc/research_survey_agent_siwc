@@ -30,12 +30,20 @@ test('queue dispatch waits for review, in-flight sends, paper updates, other run
   assert.equal(canDispatchQueue({ ...ready, ready: false }), false); assert.equal(canDispatchQueue({ ...ready, queued: 0 }), false);
 });
 test('the citation update after a save waits while a run or queued request is based on the head it would move', () => {
-  const idle = { requested: true, updating: false, historical: false, pending: false, queued: 0 };
+  const idle = { requested: true, updating: false, historical: false, pending: false, restorable: false, queued: 0 };
   assert.equal(canCiteAfterSave(idle), true);
   // A queued follow-up dispatched against the saved head would see its proposal go stale (最新の版が変わったため保存できません).
   assert.equal(canCiteAfterSave({ ...idle, queued: 1 }), false); assert.equal(canCiteAfterSave({ ...idle, pending: true }), false);
   for (const field of ['updating', 'historical'] as const) assert.equal(canCiteAfterSave({ ...idle, [field]: true }), false);
   assert.equal(canCiteAfterSave({ ...idle, requested: false }), false);
+});
+test('the citation update waits while 元に戻す can bring back the discarded proposal, which would then go stale', () => {
+  const discarded = { requested: true, updating: false, historical: false, pending: false, restorable: true, queued: 0 };
+  // 破棄 empties the run and the queue, but the toast still offers the proposal back on its base.
+  assert.equal(canCiteAfterSave(discarded), false);
+  // 元に戻す restores the run (pending); closing the toast or any save drops the offer, and the update runs.
+  assert.equal(canCiteAfterSave({ ...discarded, pending: true, restorable: false }), false);
+  assert.equal(canCiteAfterSave({ ...discarded, restorable: false }), true);
 });
 test('a failed poll forgets the run only on 404; other failures back off and keep it', () => {
   const failure = (status?: number) => Object.assign(Error('x'), status ? { status } : {});

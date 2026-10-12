@@ -29,9 +29,10 @@ export function loadQueues(text: string | null): ChatQueues {
 export function canDispatchQueue(input: { ready: boolean; historical: boolean; submitting: boolean; pending: boolean; updating: boolean; otherRunning: boolean; failed: boolean; queued: number }) {
   return input.ready && !input.historical && !input.submitting && !input.pending && !input.updating && !input.otherRunning && !input.failed && input.queued > 0;
 }
-/** The citation update after a save is a new version, so it waits until the collection has no run or queued request whose base it would move. */
-export function canCiteAfterSave(input: { requested: boolean; updating: boolean; historical: boolean; pending: boolean; queued: number }) {
-  return input.requested && !input.updating && !input.historical && !input.pending && input.queued === 0;
+/** The citation update after a save is a new version, so it waits until the collection has no run or queued request whose base it would move,
+ * nor a discarded proposal that 元に戻す can still bring back (restorable). */
+export function canCiteAfterSave(input: { requested: boolean; updating: boolean; historical: boolean; pending: boolean; restorable: boolean; queued: number }) {
+  return input.requested && !input.updating && !input.historical && !input.pending && !input.restorable && input.queued === 0;
 }
 /** A run is forgotten only when the server no longer has it; other failed polls (network, sleep, gate) keep it and retry. */
 export const runGone = (error: unknown) => !!error && typeof error === 'object' && (error as { status?: unknown }).status === 404;

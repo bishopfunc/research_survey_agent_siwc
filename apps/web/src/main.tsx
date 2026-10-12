@@ -235,6 +235,8 @@ function App() {
   useEffect(() => { if (!reviewPreview) try { localStorage.setItem(RUNS_KEY, JSON.stringify(pendingRuns)); } catch { /* the run stays on the server */ } }, [pendingRuns]);
   const [side, setSide] = useState<'detail' | 'chat'>(() => !reviewPreview && (loadPendingRuns()[workspace.active_branch] || localStorage.getItem(RUN_KEY)) ? 'chat' : 'detail');
   const [undo, setUndo] = useState<(() => void) | null>(null);
+  // The 元に戻す of the last discarded proposal and its collection; while the toast offers it, that collection's citation version waits.
+  const discarded = useRef<{ branch: string; restore: () => void } | null>(null);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(SIDEBAR_KEY) === '1'; } catch { return false; } });
   const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem(SIDE_KEY) === '1'; } catch { return false; } });
   // A new survey keeps the right panel closed (its chat still follows the run) until the user opens it or the survey has content.
@@ -481,12 +483,12 @@ function App() {
     } catch (e) { setNotice(e instanceof Error ? e.message : '論文を更新できませんでした'); }
     finally { setUpdating(false); }
   }
-  useEffect(() => { if (canCiteAfterSave({ requested: citeAfterSave === branch.id, updating, historical, pending: !!runId, queued: queues[branch.id]?.length ?? 0 })) { setCiteAfterSave(null); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id, branch.id, historical, runId, queues]);
+  useEffect(() => { if (canCiteAfterSave({ requested: citeAfterSave === branch.id, updating, historical, pending: !!runId, restorable: !!undo && discarded.current?.restore === undo && discarded.current.branch === branch.id, queued: queues[branch.id]?.length ?? 0 })) { setCiteAfterSave(null); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id, branch.id, historical, runId, queues, undo]);
   function closeRun() {
     if (!run) return;
     const previous = run, owner = branch.id;
     setRun(null); dropBranchRun(owner, previous.id);
-    if (previous.patch) { setUndo(() => () => { setRun(previous); setBranchRun(owner, previous.id); }); setNotice('変更案を破棄しました'); }
+    if (previous.patch) { const restore = () => { setRun(previous); setBranchRun(owner, previous.id); }; discarded.current = { branch: owner, restore }; setUndo(() => restore); setNotice('変更案を破棄しました'); }
   }
   const lineage = new Set<string>();
   function visit(id: string) { if (lineage.has(id)) return; lineage.add(id); workspace.commits.find(c => c.id === id)?.parents.forEach(visit); }
