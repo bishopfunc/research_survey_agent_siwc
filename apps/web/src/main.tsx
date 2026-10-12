@@ -12,6 +12,7 @@ import { buildIssuePaperTree, buildIssueTree } from '../../../packages/domain/sr
 import { IMPORTANCE_LABELS, representativePapers } from '../../../packages/domain/src/importance';
 import { ITEM, TimelineTree, paperCard } from './TimelineTree';
 import { SubTabs } from './SubTabs';
+import { LiteratureGuide, RESOURCE_KINDS } from './LiteratureGuide';
 import { skillById, type SkillId } from '../../../packages/agent/src/skills/index';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
 import { CardFigure, KeyFigures } from './KeyFigures';
@@ -73,7 +74,7 @@ const venueTypes = { conference:'国際会議', journal:'ジャーナル', prepr
 const statusLabels = { open: '未解決', partially_solved: '一部解決', solved: '解決', disputed: '議論あり', unknown: '未評価' };
 const pretty = (value: unknown) => JSON.stringify(value, null, 2);
 const relationLabels: Record<string, [string,string]> = {part_of:['上位の課題','下位の課題'],specializes:['一般的な課題・手法','具体的な課題・手法'],addresses:['対応する課題','関連する手法・論文'],proposes:['提案する手法','提案した論文'],about:['対象となる情報','関連する主張'],introduces_issue:['手法が生む課題','関連する手法'],extends:['基になった手法','派生した手法'],builds_on:['基になった手法','応用した手法'],supports:['支持する主張','支持する根拠'],contradicts:['矛盾する主張','矛盾する根拠'],refines:['詳しくする主張','詳細な主張'],related_to:['関連情報','関連情報'],depends_on:['依存する情報','依存される情報'],caused_by:['原因','結果'],tradeoff_with:['トレードオフ','トレードオフ'],assumes:['前提','前提を使う情報'],instance_of:['系統','この系統の手法'],claims:['主張','主張する論文'],evidence:['根拠','根拠を使う情報'],papers:['登場する論文','ナレッジ'],related:['関連する項目','関連するナレッジ']};
-const entityLabels = {Domain:'分野',Concept:'共通概念',Issue:'課題',Method:'手法',Paper:'論文',Claim:'主張',Evidence:'根拠',Keyword:'ナレッジ',Tutorial:'チュートリアル'};
+const entityLabels = {Domain:'分野',Concept:'共通概念',Issue:'課題',Method:'手法',Paper:'論文',Claim:'主張',Evidence:'根拠',Keyword:'ナレッジ',Tutorial:'チュートリアル',Resource:'文献'};
 const keywordCategories = { dataset:'データセット', benchmark:'ベンチマーク', hardware:'ハードウェア構成', simulator:'シミュレータ', metric:'評価指標', sota:'SOTA', model:'モデル', baseline:'ベースライン', task:'タスク', concept:'概念', method:'手法', other:'その他' };
 /** Knowledge (the Keyword type) is built from papers in these categories; the others are kept only for data saved earlier. */
 const KEYWORD_SECTIONS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline'] as const;
@@ -136,7 +137,7 @@ function ClaimRows({ claims, evidence, onSelect }: { claims: Claim[]; evidence?:
 }
 type Operation = SurveyPatch['operations'][number];
 type Change = { group: string; name: string; note?: string; tag?: 'replace' | 'remove'; before?: unknown; after?: unknown };
-const CHANGE_GROUPS = ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Evidence', 'Keyword', 'relation', 'title'];
+const CHANGE_GROUPS = ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Evidence', 'Resource', 'Keyword', 'relation', 'title'];
 const changeGroupLabels: Record<string, string> = { ...entityLabels, relation: '関連', title: '調査名' };
 function describeChange(op: Operation, base: SurveySnapshot, lookup: (id: string) => string): Change {
   const ends = (r: { from: string; to: string }) => `${lookup(r.from)} → ${lookup(r.to)}`;
@@ -412,7 +413,7 @@ function App() {
     setExplanations(current => (current[owner] ?? []).some(e => e.id === finished.id) ? current : { ...current, [owner]: [...(current[owner] ?? []), { ...explanation, id: finished.id, instruction: finished.instruction ?? '', created_at: new Date().toISOString() }] });
     setRun(null); dropBranchRun(owner, finished.id);
   }, [run?.id, run?.status]);
-  const tabs = [['tutorial', 'チュートリアル'], ['issues', '課題'], ['evolution', '手法'], ['papers', '論文'], ['keywords', 'ナレッジ']];
+  const tabs = [['tutorial', 'チュートリアル'], ['issues', '課題'], ['evolution', '手法'], ['papers', '論文'], ['guide', '文献ガイド'], ['keywords', 'ナレッジ']];
   const connections = entity ? buildConnections(snapshot, entity.id) : [];
   const linkLabel = (c: Connection) => [...new Set(c.links.map(l => relationLabels[l.type]?.[l.outgoing ? 0 : 1] ?? '関連情報'))].join('・');
   const display = (e: Entity) => e.type === 'Paper' ? e.title : e.label;
@@ -431,8 +432,9 @@ function App() {
         <div className="heading"><h1>{snapshot.title}</h1></div>
         {historical && <div className="historical-note" role="status"><strong>過去の版</strong><button onClick={() => guard(fork)}>この版からフォーク</button><button onClick={() => setViewId(null)}>最新に戻る</button></div>}
         {startingSurvey ? <div className="start-research"><div className="agent-input start-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={startRef} aria-label="サーベイしたい研究分野" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="サーベイしたい研究分野"/><SendButton busy={submitting || run?.status === 'running'} disabled={!canResearch} onClick={() => void askCodex()}/></div><div className="suggestions">{SUGGESTIONS.map(q => <button key={q} onClick={() => { setInstruction(q); startRef.current?.focus(); }}>{q}</button>)}</div><div className="composer-meta"><button className="cache-toggle" role="switch" aria-checked={paperCache} onClick={togglePaperCache}><span className="switch-track"><span/></span>保存済みの論文を使う</button><p className="agent-status">{agent}</p></div></div> : <>
-        <div className="modes"><div className="tabs" role="tablist" aria-label="サーベイのビュー">{tabs.map(([id, name]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon name={id === 'issues' ? 'layers' : id === 'evolution' ? 'branch' : id === 'tutorial' ? 'book' : id === 'keywords' ? 'spark' : 'paper'}/>{name}</button>)}</div>
+        <div className="modes"><div className="tabs" role="tablist" aria-label="サーベイのビュー">{tabs.map(([id, name]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon name={id === 'issues' ? 'layers' : id === 'evolution' ? 'branch' : id === 'tutorial' ? 'book' : id === 'keywords' ? 'spark' : id === 'guide' ? 'grid' : 'paper'}/>{name}</button>)}</div>
           </div>
+          {tab === 'guide' && <LiteratureGuide snapshot={snapshot} selected={selected} onSelect={setSelected}/>}
           {tab === 'evolution' && <MethodEvolution snapshot={snapshot} selected={selected} onSelect={setSelected} onSample={() => guard(() => createSurvey(fixture, `evolution-${workspace.branches.length}`, 'fixture'))}/>}
           {tab === 'issues' && <div className="view-toolbar"><SubTabs label="課題の表示" value={issueView} options={[['tree', '課題ツリー'], ['papers', '論文ツリー'], ['list', '一覧']]} onChange={setIssueView}/></div>}
           {issueTree && (issueTree.issues.size ? <><TimelineTree layout={issueTree.layout} label="課題ツリー" years={false} selected={selected} onSelect={setSelected} card={id => { const i = issueTree.issues.get(id)!; return { title: i.label, meta: i.english_terms?.[0], hint: i.description }; }}
@@ -465,6 +467,7 @@ function App() {
           {entity.type === 'Keyword' && <><span className="type-chip t-Keyword">{keywordCategories[entity.category]}</span>{entity.as_of && <span className="as-of">{entity.as_of}時点</span>}{entity.aliases.length > 0 && <p className="keyword-aliases">{entity.aliases.join(' / ')}</p>}<p>{entity.meaning}</p>{entity.official_url && <div className="detail-links"><a href={entity.official_url} target="_blank" rel="noreferrer">公式ページ ↗</a></div>}</>}
           {entity.type === 'Evidence' && <><span className="tag">{{unverified:'未確認',abstract_only:'要旨のみ確認',verified:'原文を確認済み'}[entity.verification]}</span><blockquote>{entity.excerpt || '本文断片は未取得'}</blockquote></>}
           {entity.type === 'Claim' && <div className="detail-section"><dl><dt>Task</dt><dd>{entity.scope.task}</dd><dt>Setting</dt><dd>{entity.scope.setting}</dd><dt>Metric</dt><dd>{entity.scope.metric}</dd><dt>評価時点</dt><dd>{entity.as_of ?? '未取得'}</dd><dt>前提</dt><dd>{entity.scope.assumptions.join(' / ') || '未記入'}</dd><dt>制約</dt><dd>{entity.scope.limitations.join(' / ') || '未記入'}</dd></dl></div>}
+          {entity.type === 'Resource' && <div className="detail-section"><dl><dt>種類</dt><dd>{RESOURCE_KINDS[entity.kind]}</dd><dt>題</dt><dd>{entity.title}</dd>{entity.authors.length > 0 && <><dt>著者</dt><dd>{entity.authors.join(', ')}</dd></>}{entity.published && <><dt>公開</dt><dd>{entity.published}</dd></>}{entity.checked_at && <><dt>確認日</dt><dd>{entity.checked_at}</dd></>}</dl><p>{entity.summary}</p><div className="detail-links">{[...entity.issues, ...entity.methods, ...(entity.paper ? [entity.paper] : [])].map(id => <button key={id} className="cite" onClick={() => setSelected(id)}>{linked(id)?.label ?? id}</button>)}<a href={entity.url} target="_blank" rel="noreferrer">開く ↗</a></div></div>}
           {entity.type === 'Keyword' && (entity.definition_excerpt || entity.source_url) && <div className="detail-section">{entity.definition_excerpt && <blockquote>{entity.definition_excerpt}</blockquote>}{entity.locator && <dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl>}{entity.source_url && <div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div>}</div>}
           {entity.type === 'Evidence' && <div className="detail-section"><dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl><div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div></div>}
           {connections.length > 0 && <div className="detail-section related"><h3>関連 <span>{connections.length}</span></h3>{connections.map(c => <button key={c.entity.id} onClick={() => setSelected(c.entity.id)}><span className={`connection-dot t-${c.entity.type}`}/><span><small>{linkLabel(c)}{c.entity.type === 'Paper' && ` · ${c.entity.year ?? '年未取得'}`}</small>{display(c.entity)}</span><span aria-hidden="true">→</span></button>)}</div>}

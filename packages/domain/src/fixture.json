@@ -1893,6 +1893,147 @@
       "definition_excerpt": "In particular, we introduce a new grid-based benchmark for MAPF, and demonstrate experimentally that it poses a challenge to contemporary MAPF algorithms.",
       "source_url": "https://arxiv.org/abs/1906.08291",
       "locator": "Abstract"
+    },
+    {
+      "id": "res-kei18-intro",
+      "label": "マルチエージェント経路計画の紹介",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "tutorial",
+      "title": "マルチエージェント経路計画の紹介",
+      "url": "https://kei18.github.io/note/posts/mapf-tutorial/",
+      "authors": [
+        "Keisuke Okumura"
+      ],
+      "published": "2024-03-01",
+      "language": "ja",
+      "summary": "問題設定から、素朴な方法・CBS系・優先度で決める方法・最新の研究までを1本でたどる日本語の入門記事。分野に入って最初に読む。",
+      "issues": [
+        "collision",
+        "scalability"
+      ],
+      "methods": [
+        "cbs",
+        "pibt",
+        "lacam"
+      ],
+      "paper": null,
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "res-mapf-info",
+      "label": "mapf.info",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "website",
+      "title": "mapf.info",
+      "url": "https://mapf.info/",
+      "authors": [],
+      "published": null,
+      "language": "en",
+      "summary": "MAPFの研究コミュニティのサイト。論文・研究者・ベンチマーク・コンペティション・ソフトウェア・チュートリアルの一覧と、メーリングリストや会議の案内がある。最新の動向や関連研究を探すときの入口。",
+      "issues": [
+        "collision"
+      ],
+      "methods": [],
+      "paper": null,
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "res-stern-2019",
+      "label": "Multi-Agent Pathfinding: Definitions, Variants, and Benchmarks",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "survey",
+      "title": "Multi-Agent Pathfinding: Definitions, Variants, and Benchmarks",
+      "url": "https://arxiv.org/abs/1906.08291",
+      "authors": [
+        "Roni Stern",
+        "Nathan Sturtevant",
+        "Ariel Felner",
+        "Sven Koenig"
+      ],
+      "published": "2019",
+      "language": "en",
+      "summary": "MAPFの前提（衝突の種類など）と目的関数を記述する用語を統一し、格子のベンチマークを紹介する。論文を比べる前に、どの前提で解いているかを確かめるために読む。",
+      "issues": [
+        "collision"
+      ],
+      "methods": [],
+      "paper": "paper-mapf-benchmark",
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "res-surynek-2021",
+      "label": "Compilation-based Solvers for Multi-Agent Path Finding: a Survey, Discussion, and Future Opportunities",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "survey",
+      "title": "Compilation-based Solvers for Multi-Agent Path Finding: a Survey, Discussion, and Future Opportunities",
+      "url": "https://arxiv.org/abs/2104.11809",
+      "authors": [
+        "Pavel Surynek"
+      ],
+      "published": "2021",
+      "language": "en",
+      "summary": "最適なMAPFの2つの進め方（直接探索する方法と、別の形式に変換して既存のソルバで解くコンパイルベースの方法）のうち、コンパイルベースの方法をまとめたサーベイ。探索ベース以外の最適ソルバを知りたいときに読む。",
+      "issues": [
+        "optimality"
+      ],
+      "methods": [],
+      "paper": null,
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "res-lmapf-challenges-2024",
+      "label": "Scaling Lifelong Multi-Agent Path Finding to More Realistic Settings: Research Challenges and Opportunities",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "survey",
+      "title": "Scaling Lifelong Multi-Agent Path Finding to More Realistic Settings: Research Challenges and Opportunities",
+      "url": "https://arxiv.org/abs/2404.16162",
+      "authors": [
+        "He Jiang",
+        "Yulun Zhang",
+        "Rishi Veerapaneni",
+        "Jiaoyang Li"
+      ],
+      "published": "2024",
+      "language": "en",
+      "summary": "2023年のLeague of Robot Runners（lifelong MAPFのコンペティション）で優勝した手法から、限られた計画時間で大量のエージェントを扱うことなど3つの研究課題をまとめたSoCS 2024の論文。lifelong MAPFで何が未解決かを知るために読む。",
+      "issues": [
+        "lifelong",
+        "scalability"
+      ],
+      "methods": [
+        "pibt",
+        "lacam"
+      ],
+      "paper": null,
+      "checked_at": "2026-10-12"
+    },
+    {
+      "id": "res-lacam2-code",
+      "label": "Kei18/lacam2",
+      "provenance": "fixture",
+      "type": "Resource",
+      "kind": "repository",
+      "title": "Kei18/lacam2",
+      "url": "https://github.com/Kei18/lacam2",
+      "authors": [
+        "Keisuke Okumura"
+      ],
+      "published": null,
+      "language": "en",
+      "summary": "LaCAM*（IJCAI-23）の公式の実装。ベンチマークの地図で大規模の挙動を自分で確かめるときに使う。",
+      "issues": [
+        "scalability"
+      ],
+      "methods": [
+        "lacam-star"
+      ],
+      "paper": null,
+      "checked_at": "2026-10-12"
     }
   ],
   "relations": [

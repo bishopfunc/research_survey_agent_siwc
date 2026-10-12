@@ -37,6 +37,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const span = years.length ? Math.max(...years) - Math.min(...years) : 0;
   const achieved = issues.filter(i => snapshot.relations.some(r => r.type === 'about' && r.to === i.id && snapshot.entities.some(e => e.id === r.from && e.type === 'Claim')));
   const layers = new Set(snapshot.entities.flatMap(e => e.type === 'Keyword' && LAYERS.includes(e.category) ? [e.category] : []));
+  const resources = snapshot.entities.filter((e): e is Extract<typeof snapshot.entities[number], { type: 'Resource' }> => e.type === 'Resource');
   const tutorial = assessTutorial(snapshot);
   const check = (id: string, label: string, pass: boolean, detail: string): SurveyCheck => ({ id, label, pass, detail });
   return [
@@ -49,6 +50,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
     check('methods', `手法が${t.methods}つ以上、系統が${t.families}つ以上、すべての手法が系統に属する`, methods.length >= t.methods && families.size >= t.families && methods.every(m => inFamily.has(m.id)), `手法${methods.length}・系統${families.size}・未分類${methods.filter(m => !inFamily.has(m.id)).length}`),
     check('issues', `課題が${t.issuesMin}〜${t.issuesMax}、すべてに達成度`, issues.length >= t.issuesMin && issues.length <= t.issuesMax && achieved.length === issues.length, `課題${issues.length}・達成度${achieved.length}`),
     check('knowledge', `ナレッジの層が${t.knowledgeLayers}つ以上`, layers.size >= t.knowledgeLayers, `${layers.size}/8`),
+    check('guide', '文献ガイド：3件以上、うちサーベイ1件以上', resources.length >= 3 && resources.some(r => r.kind === 'survey'), `${resources.length}件（サーベイ${resources.filter(r => r.kind === 'survey').length}）`),
     check('tutorial', 'チュートリアルが要件をすべて満たす', tutorial.every(c => c.pass), `未達：${tutorial.filter(c => !c.pass).map(c => c.id).join('・') || 'なし'}`),
   ];
 }

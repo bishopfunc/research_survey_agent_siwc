@@ -1,6 +1,6 @@
 /* Generated from JSON Schema. Run npm run schema:types. */
 
-export type Entity = Domain | Concept | Issue | Method | Paper | Claim | Evidence | Keyword | Tutorial;
+export type Entity = Domain | Concept | Issue | Method | Paper | Claim | Evidence | Keyword | Tutorial | Resource;
 
 export interface SurveySnapshot {
   schema_version: "0.1.0";
@@ -222,6 +222,158 @@ export interface TutorialSection {
     url: string;
     title: string;
   }[];
+}
+export interface Resource {
+  id: string;
+  label: string;
+  provenance: "fixture" | "user" | "codex";
+  type: "Resource";
+  kind: "survey" | "tutorial" | "blog" | "slides" | "talk" | "repository" | "website" | "book" | "course" | "other";
+  title: string;
+  url: string;
+  /**
+   * @maxItems 20
+   */
+  authors:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  published: string | null;
+  language: string | null;
+  summary: string;
+  issues: string[];
+  methods: string[];
+  paper: string | null;
+  checked_at: string | null;
 }
 export interface Relation {
   id: string;

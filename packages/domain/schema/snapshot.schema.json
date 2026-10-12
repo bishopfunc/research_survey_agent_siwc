@@ -805,6 +805,9 @@
         },
         {
           "$ref": "#/$defs/Tutorial"
+        },
+        {
+          "$ref": "#/$defs/Resource"
         }
       ]
     },
@@ -1097,6 +1100,129 @@
         "refs",
         "media",
         "links"
+      ]
+    },
+    "Resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Resource"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "survey",
+            "tutorial",
+            "blog",
+            "slides",
+            "talk",
+            "repository",
+            "website",
+            "book",
+            "course",
+            "other"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maxItems": 20
+        },
+        "published": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$"
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 10
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "paper": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "kind",
+        "title",
+        "url",
+        "authors",
+        "published",
+        "language",
+        "summary",
+        "issues",
+        "methods",
+        "paper",
+        "checked_at"
       ]
     }
   }

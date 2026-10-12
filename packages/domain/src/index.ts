@@ -103,11 +103,17 @@ export function validateSnapshot(value: unknown): string[] {
       if (e.official_url && !/^https?:\/\//.test(e.official_url)) errors.push(`${e.id}: 公式ページはhttp/httpsのみ対応します`);
       if (e.category === 'sota' && (!e.as_of || !e.papers.length)) errors.push(`${e.id}: SOTAには時点（as_of）と根拠の論文が必要です`);
     }
+    if (e.type === 'Resource') {
+      if (!/^https?:\/\//.test(e.url)) errors.push(`${e.id}: 文献のURLはhttp/httpsのみ対応します`);
+      for (const id of e.issues) reference(e.id, id, ['Issue']);
+      for (const id of e.methods) reference(e.id, id, ['Method']);
+      if (e.paper) reference(e.id, e.paper, ['Paper']);
+    }
     if (e.type === 'Tutorial') {
       e.sections.forEach((section, i) => {
         const owner = `${e.id}の節${i + 1}`;
         const cited = [...section.body.matchAll(/\[@([^\]\s]+)\]/g)].map(m => m[1]);
-        for (const id of [...section.refs, ...cited]) reference(owner, id, ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Keyword']);
+        for (const id of [...section.refs, ...cited]) reference(owner, id, ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Keyword', 'Resource']);
         for (const m of section.media) reference(owner, m.paper, ['Paper']);
         if (section.links.some(l => !/^https?:\/\//.test(l.url))) errors.push(`${owner}: リンクはhttp/httpsのみ対応します`);
       });

@@ -18,4 +18,5 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0012](0012-tutorial-entity.md) | チュートリアルは調査のEntityとして持つ | Accepted |
 | [0013](0013-storage-sqlite-d1-compatible.md) | ストレージはSQLite互換のSQLとD1形のアダプタで書く | Accepted |
 | [0014](0014-skills-as-modules-with-router.md) | 調査の手順はTSのスキルモジュールにし、追加の依頼は短い判定で振り分ける | Accepted |
+| [0016](0016-resource-entity.md) | サーベイ・ブログなどの情報源は Resource 型として持つ | Accepted |
 | [0015](0015-core-relations.md) | 関係は親子・系統・論文・主張と根拠に絞り、古い型は読めるが書かない | Accepted |

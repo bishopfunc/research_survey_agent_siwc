@@ -39,6 +39,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .t-Claim { --type: var(--color-green); --type-soft: var(--color-green-soft); }
 .t-Evidence { --type: var(--color-yellow); --type-soft: var(--color-yellow-soft); }
 .t-Keyword { --type: var(--color-rose); --type-soft: var(--color-rose-soft); }
+.t-Resource { --type: var(--color-peach); --type-soft: var(--color-peach-soft); }
 .t-Tutorial { --type: var(--color-sky); --type-soft: var(--color-sky-soft); }
 
 .app { display: grid; grid-template-columns: min(var(--sidebar-width, 248px), 36vw) minmax(0,1fr); min-height: 100dvh; background: var(--color-paper); }
@@ -495,3 +496,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .lab-reference div { padding: var(--space-2) var(--space-3); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-small); }
 .lab-reference dt { font-size: var(--text-small); color: var(--color-muted); }
 .lab-reference dd { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.resource-open { display: block; width: 100%; padding: 0; border: 0; text-align: left; color: var(--color-ink); background: var(--color-transparent); }
+.resource-open:hover h3 { color: var(--color-accent); }
+.resource-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--space-2); font-size: var(--text-small); }
+.resource-links a { margin-left: auto; color: var(--color-accent); }

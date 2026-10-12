@@ -33,6 +33,7 @@ test('duplicates, unidentified or unplaced papers, short spans and unclassified 
     ['span', s => { for (const e of s.entities) if (e.type === 'Paper') e.year = 2020; }],
     ['methods', s => { s.relations = s.relations.filter(r => r.id !== 'instance_of-pibt-family-prioritized'); }],
     ['issues', s => { s.relations = s.relations.filter(r => r.id !== 'about-claim-ml-cbs-tree'); }],
+    ['guide', s => { s.entities = s.entities.filter(e => e.type !== 'Resource' || e.kind !== 'survey'); }],
     ['tutorial', s => { const t = s.entities.find(e => e.type === 'Tutorial'); if (t?.type === 'Tutorial') t.sections = t.sections.slice(0, 3); }],
   ];
   for (const [id, mutate] of cases) { const s = scaled(); mutate(s); assert.ok(failing(s).includes(id), `${id}: ${failing(s).join(',')}`); }

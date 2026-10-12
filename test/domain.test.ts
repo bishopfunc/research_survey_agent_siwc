@@ -335,3 +335,16 @@ test('nullable Codex reading arrays are normalized without losing additions or r
   bad.operations[0].entity.reading!.key_formulas = 'invalid';
   assert.throws(() => applyPatch(emptySurvey('VLN'), stripCodexNulls(bad, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as SurveyPatch, 'empty'));
 });
+
+test('a literature guide entry needs an http link and points only at issues, methods and a paper', () => {
+  const input = structuredClone(fixture);
+  const resource = input.entities.find(e => e.type === 'Resource' && e.paper);
+  if (resource?.type !== 'Resource') throw Error('fixture changed');
+  assert.deepEqual(validateSnapshot(input), []);
+  resource.url = 'javascript:alert(1)';
+  assert.match(validateSnapshot(input).join(), /http\/https/);
+  resource.url = 'https://example.org'; resource.issues = ['cbs']; resource.paper = 'collision';
+  const errors = validateSnapshot(input).join();
+  assert.match(errors, /cbs は Issue 型が必要/);
+  assert.match(errors, /collision は Paper 型が必要/);
+});
