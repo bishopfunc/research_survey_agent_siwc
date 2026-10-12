@@ -64,13 +64,14 @@ export const ADDITIONAL_RESEARCH_INSTRUCTIONS = [
 
 /** New surveys run in three stages, the middle one split into parallel workers (design 0021). Each stage keeps the
  * six-step rhythm: the outline does 1 (abstract), the workers 2 (concrete), the integration 3–6 (abstract, divergent, concrete, abstract). */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-12T15:54+09:00';
-export const STAGE_TIMEOUT_SECONDS = { outline: 360, deepen: 360, integrate: 360 } as const;
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-12T16:14+09:00';
+/** Limits sized so the three stages fit in about ten minutes; a worker over its limit is dropped, the others continue. */
+export const STAGE_TIMEOUT_SECONDS = { outline: 330, deepen: 270, integrate: 300 } as const;
 export const MAX_PARALLEL_WORKERS = 3;
 export const OUTLINE_INSTRUCTIONS = [
   'Mode: new survey, stage 1 of 3 (outline, abstract). Other workers will read papers in depth after you, so keep your output to the map of the field.',
   `1. ${RESEARCH_STEPS[0].instruction}`,
-  'Output: set a concise Japanese survey title; one Domain whose description summarizes the trends and lists the main sources with URLs; 4–10 important Issues (kind, part_of hierarchy, english_terms, why each is hard and matters); 3–6 method families as Concepts with every Method linked by instance_of and lineage by extends or builds_on; 20–40 Papers, each with its exact title, one identifier (arXiv ID, DOI or URL), year when known, a one_line_summary and proposes and addresses references that place it in a family or issue, listed within each family from the most important to the least (the first ones of each family are read in depth next); the knowledge items you can already name from the sources. Do not write reading, abstract_ja, Claims, Evidence or a Tutorial in this stage; never add the same paper twice. Leave follow_ups empty.',
+  'Output: set a concise Japanese survey title; one Domain whose description summarizes the trends and lists the main sources with URLs; 4–10 important Issues (kind, part_of hierarchy, english_terms, why each is hard and matters); 3–6 method families as Concepts with every Method linked by instance_of and lineage by extends or builds_on; 20–40 Papers, each with its exact title, one identifier (arXiv ID, DOI or URL), year when known, a one_line_summary and proposes and addresses references that place it in a family or issue, listed within each family from the most important to the least (the first ones of each family are read in depth next). Keep every description short (one or two sentences). Do not write knowledge items (the integration stage builds them from the readings), reading, abstract_ja, Claims, Evidence or a Tutorial in this stage; never add the same paper twice. Leave follow_ups empty.',
 ].join('\n\n');
 export function deepenInstructions(worker: number, workers: number, papers: string[], issues: string[]) {
   return [
@@ -86,5 +87,5 @@ export const INTEGRATE_INSTRUCTIONS = [
   `3. ${RESEARCH_STEPS[2].instruction}`,
   `4. ${RESEARCH_STEPS[3].instruction}`,
   `6. ${RESEARCH_STEPS[5].instruction}`,
-  'Output: achievement Claims for every Issue still without one; Concepts or Methods for ideas from other fields with related_to relations to the issues they could address; replace_entity for Issues, Methods or the Domain only where integration needs it; the Tutorial as the tutorial rule describes, citing the papers in the snapshot; and the three follow_ups. Keep every paper reading as it is; do not remove entities.',
+  'Output: the knowledge items (Keyword entities) as the knowledge rule describes, built from the readings and the outline; achievement Claims for every Issue still without one; Concepts or Methods for ideas from other fields with related_to relations to the issues they could address; replace_entity for Issues, Methods or the Domain only where integration needs it; the Tutorial as the tutorial rule describes, citing the papers in the snapshot; and the three follow_ups. Keep every paper reading as it is; do not remove entities.',
 ].join('\n\n');

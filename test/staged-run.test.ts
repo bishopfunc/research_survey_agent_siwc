@@ -79,4 +79,12 @@ test('a failed worker is retried once before its result is given up', async () =
   assert.equal(outcome.status, 'succeeded');
   assert.ok(Object.entries(attempts).filter(([k]) => k.startsWith('deepen')).every(([, n]) => n === 2));
 });
+test('a worker that failed only after a long time (a timeout) is not retried', async () => {
+  const attempts: Record<string, number> = {};
+  const outline = outlinePatch();
+  const run = steps({ run: async stage => { attempts[stage] = (attempts[stage] ?? 0) + 1; if (stage === 'outline') return ok(outline); if (stage === 'integrate') return ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'i', operations: [{ op: 'set_title', title: 't' }] }); return { ok: false, error: '上限', searches: 0, elapsedMs: 270_000 }; } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 2);
+  assert.equal(outcome.status, 'succeeded');
+  assert.ok(Object.entries(attempts).filter(([k]) => k.startsWith('deepen')).every(([, n]) => n === 1));
+});
 

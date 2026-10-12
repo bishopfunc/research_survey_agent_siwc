@@ -4,7 +4,9 @@ import { applyPatch, type Entity, type SurveyPatch, type SurveySnapshot } from '
 import type { ResearchOutcome } from './research-run';
 
 export type StageId = 'outline' | `deepen-${number}` | 'integrate';
-export interface StageResult { ok: boolean; output?: string; error?: string; searches: number }
+export interface StageResult { ok: boolean; output?: string; error?: string; searches: number; elapsedMs?: number }
+/** Only a quick failure (such as a model at capacity) is worth one retry; a timed-out worker would double the wait. */
+export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
 export interface StagedSteps {
   /** Runs one Codex stage; the deepen stages are started together. */
   run(stage: StageId, prompt: string): Promise<StageResult>;
@@ -79,7 +81,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   steps.progress(`2/3 ${groups.length}つの作業で論文を読んでいます`);
   const outline = snapshot;
   // A worker that fails (for example a model at capacity) is retried once.
-  const deepen = async (g: { papers: string[]; issues: string[] }, i: number) => { const prompt = steps.prompt.deepen(outline, i + 1, groups.length, g.papers, g.issues); const first = await steps.run(`deepen-${i + 1}`, prompt); return first.ok || !steps.active() ? first : steps.run(`deepen-${i + 1}`, prompt); };
+  const deepen = async (g: { papers: string[]; issues: string[] }, i: number) => { const prompt = steps.prompt.deepen(outline, i + 1, groups.length, g.papers, g.issues); const first = await steps.run(`deepen-${i + 1}`, prompt); return first.ok || !steps.active() || (first.elapsedMs ?? 0) > RETRY_IF_FAILED_WITHIN_MS ? first : steps.run(`deepen-${i + 1}`, prompt); };
   const results = await Promise.all(groups.map((g, i) => deepen(g, i).then(r => ({ r, g, i }))));
   if (!steps.active()) return { status: 'stopped' };
   for (const { r, g, i } of results) {

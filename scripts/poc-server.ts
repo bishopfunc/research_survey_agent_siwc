@@ -165,10 +165,11 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     run: async (stage, prompt) => {
       addTrace(run, { kind: 'step', text: stage === 'outline' ? '1/3 全体像' : stage === 'integrate' ? '3/3 統合' : `2/3 深掘り（${stage.replace('deepen-', '作業')}）` }); save(run);
       const timeout = STAGE_TIMEOUT_SECONDS[stage === 'outline' || stage === 'integrate' ? stage : 'deepen'];
+      const started = Date.now();
       const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: `stage-${stage}.json`, failRunOnTimeout: false });
       const ok = !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
       let output: string | undefined; try { output = readFileSync(join(directory, `stage-${stage}.json`), 'utf8'); } catch { /* no output */ }
-      return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches };
+      return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches, elapsedMs: Date.now() - started };
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library),
