@@ -26,14 +26,17 @@ Entityに `Keyword` を追加する。既存の型やsnapshotは変えず、追�
 | --- | --- |
 | `label` | 用語（例 Sum-of-costs） |
 | `aliases` | 別名・略称（例 SOC） |
-| `category` | `concept` / `task` / `method` / `metric` / `dataset` / `benchmark` / `other` |
+| `category` | `task` / `dataset` / `benchmark` / `metric` / `baseline` / `concept` / `method` / `other`（2026-10-12に `baseline` を追加） |
 | `meaning` | 初心者向けの日本語の説明。生成した説明であり、確認済みの事実として扱わない |
 | `papers` | その用語を定義・中心的に使う論文のID |
-| `related` | 関連する課題・手法・共通概念・分野のID |
+| `related` | 関連する課題・手法・共通概念・分野のID（ベースラインならそのMethod） |
+| `official_url` | 任意。データセット・ベンチマークの公式ページ、リーダーボード、コード。確認できたものだけ |
 | `definition_excerpt` | 論文などの定義文の原文（任意。空でよい） |
 | `source_url` / `locator` | 原文がある場合の取得元URLと位置。原文があればURLが必要（0011の原文とリンクの規則） |
 
 検証：`papers` はPaper、`related` はIssue/Method/Concept/Domainを参照する。参照切れ・型違い・重複は拒否する。原文がありURLが無い場合と、http(s)以外のURLは拒否する。
+
+追記（ユーザー指示）：代表的なタスク・データセット・ベンチマーク・ベースラインもキーワードとして集める。新規調査はサーベイと一次論文から標準のタスク・データセット・ベンチマーク（主な評価指標）・ベースラインを記録し、キーワードに含める。サンプルにMoving AI LabのMAPFベンチマーク（公式ページの一文を定義の原文として保存）と、比較の基準としてのCBSを加えた。
 
 ## 画面
 

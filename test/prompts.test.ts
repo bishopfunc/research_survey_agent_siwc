@@ -56,3 +56,9 @@ test('both modes extract beginner keywords; new subtopics start from surveys, aw
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /derive them from the stored abstracts, summaries and titles without re-reading the papers unless explicitly asked/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword\.papers lists Paper IDs and Keyword\.related lists Issue\/Method\/Concept\/Domain IDs/);
 });
+test('surveys and keywords cover representative tasks, datasets, benchmarks, metrics and baselines', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the tasks, datasets, benchmarks, metrics and baselines the surveys treat as standard/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Record which tasks, datasets, benchmarks, metrics and baselines the papers evaluate on/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /must include the field's representative tasks, datasets, benchmarks \(with their main metrics\) and standard baselines/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /new representative tasks, datasets, benchmarks, metrics or baselines/);
+});

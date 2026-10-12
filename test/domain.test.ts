@@ -195,4 +195,9 @@ test('keywords keep beginner meanings with typed references, and a definition ex
   assert.deepEqual(validateSnapshot(input), []);
   keyword.meaning = '';
   assert.ok(validateSnapshot(input).length);
+  keyword.meaning = '意味'; keyword.category = 'baseline'; keyword.official_url = 'ftp://example.org/data';
+  assert.match(validateSnapshot(input).join(), /公式ページ/);
+  keyword.official_url = 'https://example.org/benchmark';
+  assert.deepEqual(validateSnapshot(input), []);
+  assert.ok(fixture.entities.some(e => e.type === 'Keyword' && e.category === 'benchmark' && e.official_url && e.definition_excerpt && e.source_url));
 });

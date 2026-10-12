@@ -121,10 +121,11 @@ export interface Keyword {
   provenance: "fixture" | "user" | "codex";
   type: "Keyword";
   aliases: string[];
-  category: "concept" | "task" | "method" | "metric" | "dataset" | "benchmark" | "other";
+  category: "task" | "dataset" | "benchmark" | "metric" | "baseline" | "concept" | "method" | "other";
   meaning: string;
   papers: string[];
   related: string[];
+  official_url?: string | null;
   definition_excerpt: string;
   source_url: string | null;
   locator: string | null;

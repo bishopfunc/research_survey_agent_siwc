@@ -613,12 +613,13 @@
         "category": {
           "type": "string",
           "enum": [
-            "concept",
             "task",
-            "method",
-            "metric",
             "dataset",
             "benchmark",
+            "metric",
+            "baseline",
+            "concept",
+            "method",
             "other"
           ]
         },
@@ -641,6 +642,13 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "official_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
         },
         "definition_excerpt": {
           "type": "string"

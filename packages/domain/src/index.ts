@@ -94,6 +94,7 @@ export function validateSnapshot(value: unknown): string[] {
       for (const id of e.related) reference(e.id, id, ['Issue', 'Method', 'Concept', 'Domain']);
       if (e.definition_excerpt.trim() && !e.source_url) errors.push(`${e.id}: 定義の原文には取得元URLが必要です`);
       if (e.source_url && !/^https?:\/\//.test(e.source_url)) errors.push(`${e.id}: キーワードの出典はhttp/httpsのみ対応します`);
+      if (e.official_url && !/^https?:\/\//.test(e.official_url)) errors.push(`${e.id}: 公式ページはhttp/httpsのみ対応します`);
     }
   }
   const typed = RELATION_ENDPOINTS;

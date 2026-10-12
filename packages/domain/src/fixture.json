@@ -391,6 +391,48 @@
       "definition_excerpt": "",
       "source_url": null,
       "locator": null
+    },
+    {
+      "id": "kw-mapf-benchmark",
+      "label": "MAPFベンチマーク（Moving AI Lab）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "MAPF benchmarks",
+        "MovingAI"
+      ],
+      "category": "benchmark",
+      "meaning": "MAPF用のグリッド地図と問題を集めたベンチマーク。手法どうしを同じ問題で比べるときによく使われる。",
+      "papers": [],
+      "related": [
+        "mapf",
+        "scalability"
+      ],
+      "definition_excerpt": "The goal of this page is to collect benchmark problems and maps that can be broadly used and referenced for comparison and testing purposes.",
+      "source_url": "https://movingai.com/benchmarks/mapf.html",
+      "locator": "MAPF Benchmarks ページ冒頭（2026-10-12取得）",
+      "official_url": "https://movingai.com/benchmarks/mapf.html"
+    },
+    {
+      "id": "kw-baseline-cbs",
+      "label": "CBS（比較の基準）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "CBS baseline"
+      ],
+      "category": "baseline",
+      "meaning": "最適なMAPF解法の代表。新しい最適・準最適の手法は、CBSと比べて速さや解ける規模を示すことが多い。",
+      "papers": [
+        "paper-cbs"
+      ],
+      "related": [
+        "cbs",
+        "optimality"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
     }
   ],
   "relations": [
