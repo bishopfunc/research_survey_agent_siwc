@@ -175,3 +175,24 @@ test('validator errors point at the field of the declared entity type instead of
   const patch = { schema_version: '0.1.0', base_commit_id: 'b', message: 'm', operations: [{ op: 'add_entity', entity: { id: 'e', label: 'x', provenance: 'codex', type: 'Evidence', source_url: 'https://example.org', locator: 'abstract', excerpt: '', verification: 'unverified', retrieved_at: '2026-10-12', content_hash: null } }] };
   assert.throws(() => applyPatch(emptySurvey('t'), patch, 'b'), (error: Error) => error.message.split('\n')[0] === '/operations/0/entity/retrieved_at must match format "date-time"' && !error.message.includes('description'));
 });
+
+test('keywords keep beginner meanings with typed references, and a definition excerpt needs its link', () => {
+  assert.deepEqual(validateSnapshot(fixture), []);
+  const legacy = { ...structuredClone(fixture), entities: fixture.entities.filter(e => e.type !== 'Keyword') };
+  assert.deepEqual(validateSnapshot(legacy), []);
+  const input = structuredClone(fixture);
+  const keyword = input.entities.find(e => e.type === 'Keyword')!;
+  if (keyword.type !== 'Keyword') throw Error('Expected Keyword');
+  keyword.papers = ['cbs'];
+  assert.match(validateSnapshot(input).join(), /Paper 型が必要/);
+  keyword.papers = ['paper-cbs']; keyword.related = ['paper-cbs'];
+  assert.match(validateSnapshot(input).join(), /Issue\/Method\/Concept\/Domain 型が必要/);
+  keyword.related = ['mapf']; keyword.definition_excerpt = 'Copied definition sentence.';
+  assert.match(validateSnapshot(input).join(), /取得元URL/);
+  keyword.source_url = 'javascript:alert(1)';
+  assert.ok(validateSnapshot(input).length);
+  keyword.source_url = 'https://example.org/paper'; keyword.locator = 'Section 2';
+  assert.deepEqual(validateSnapshot(input), []);
+  keyword.meaning = '';
+  assert.ok(validateSnapshot(input).length);
+});

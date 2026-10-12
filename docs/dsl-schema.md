@@ -14,6 +14,7 @@ PoCの正本は [snapshot.schema.json](../packages/domain/schema/snapshot.schema
 | Paper | title、year、venue、venue_type、one_line_summary、authors、doi/arxiv_id/url、proposes/addresses/claims/evidence参照 |
 | Claim | statement、status、scope、as_of、evidence。aboutで対象Issue/Methodへ接続 |
 | Evidence | source_url、locator、excerpt、verification、retrieved_at、content_hash |
+| Keyword | 用語（label）、aliases、category、初心者向けのmeaning、papers（Paper）、related（Issue/Method/Concept/Domain）、definition_excerpt・source_url・locator。原文があればURLが必要（[0013](design/0013-keywords-and-field-sources.md)） |
 
 Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す。取得済み引用数にはcitation_sourceとcitation_as_of（日付）が必要。PoCでは現在表示値をsnapshotに保存し、更新時は新Commitにする。MVPで最新値の別保存を追加する。
 

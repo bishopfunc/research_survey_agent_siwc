@@ -284,6 +284,113 @@
       "code_availability": "public",
       "code_url": "https://github.com/Jiaoyang-Li/EECBS",
       "code_checked_at": "2026-10-12"
+    },
+    {
+      "id": "kw-mapf",
+      "label": "Multi-Agent Path Finding",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "MAPF"
+      ],
+      "category": "task",
+      "meaning": "複数のエージェントそれぞれに、スタートからゴールまでの経路を、互いに衝突しないように同時に計画する問題。グラフ上の移動として定式化されることが多い。",
+      "papers": [
+        "paper-cbs"
+      ],
+      "related": [
+        "mapf",
+        "collision"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
+    },
+    {
+      "id": "kw-conflict",
+      "label": "衝突（Conflict）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "vertex conflict",
+        "edge conflict"
+      ],
+      "category": "concept",
+      "meaning": "2つのエージェントが同じ時刻に同じ頂点にいる、または同じ辺を同時に逆向きに通る状態。CBSはこれを見つけて制約を加える。",
+      "papers": [
+        "paper-cbs"
+      ],
+      "related": [
+        "collision",
+        "cbs"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
+    },
+    {
+      "id": "kw-soc",
+      "label": "Sum-of-costs",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "SOC"
+      ],
+      "category": "metric",
+      "meaning": "全エージェントの経路コスト（ゴールに着くまでの時間ステップ数など）の合計。MAPFでよく使われる最適化の目的。",
+      "papers": [
+        "paper-cbs"
+      ],
+      "related": [
+        "optimality"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
+    },
+    {
+      "id": "kw-ct",
+      "label": "制約木（Constraint Tree）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "CT"
+      ],
+      "category": "method",
+      "meaning": "CBSの上位の探索で使う木。各ノードは制約の集合と、その制約の下での各エージェントの経路を持ち、衝突ごとに子ノードへ分かれる。",
+      "papers": [
+        "paper-cbs"
+      ],
+      "related": [
+        "cbs",
+        "tree"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
+    },
+    {
+      "id": "kw-bounded",
+      "label": "有界準最適（Bounded-suboptimal）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "w-suboptimal"
+      ],
+      "category": "concept",
+      "meaning": "最適な解のコストの定数倍（w倍）以内であることを保証する探索。最適性を少し緩めて計算時間を減らす。",
+      "papers": [
+        "paper-ecbs",
+        "paper-eecbs"
+      ],
+      "related": [
+        "ecbs",
+        "eecbs",
+        "optimality"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
     }
   ],
   "relations": [

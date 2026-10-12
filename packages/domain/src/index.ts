@@ -89,6 +89,12 @@ export function validateSnapshot(value: unknown): string[] {
       if (e.verification === 'abstract_only' && !e.excerpt.trim()) errors.push(`${e.id}: 要旨のみ確認には要旨の原文（断片）が必要です`);
     }
     if (e.type === 'Paper' && e.url && !/^https?:\/\//.test(e.url)) errors.push(`${e.id}: URLはhttp/httpsのみ対応します`);
+    if (e.type === 'Keyword') {
+      for (const id of e.papers) reference(e.id, id, ['Paper']);
+      for (const id of e.related) reference(e.id, id, ['Issue', 'Method', 'Concept', 'Domain']);
+      if (e.definition_excerpt.trim() && !e.source_url) errors.push(`${e.id}: 定義の原文には取得元URLが必要です`);
+      if (e.source_url && !/^https?:\/\//.test(e.source_url)) errors.push(`${e.id}: キーワードの出典はhttp/httpsのみ対応します`);
+    }
   }
   const typed = RELATION_ENDPOINTS;
   const triples = new Set<string>();

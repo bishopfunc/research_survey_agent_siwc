@@ -675,6 +675,104 @@
         "content_hash"
       ]
     },
+    "Keyword": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Keyword"
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "concept",
+            "task",
+            "method",
+            "metric",
+            "dataset",
+            "benchmark",
+            "other"
+          ]
+        },
+        "meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "papers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "definition_excerpt": {
+          "type": "string"
+        },
+        "source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "locator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "aliases",
+        "category",
+        "meaning",
+        "papers",
+        "related",
+        "definition_excerpt",
+        "source_url",
+        "locator"
+      ]
+    },
     "Entity": {
       "anyOf": [
         {
@@ -697,6 +795,9 @@
         },
         {
           "$ref": "#/$defs/Evidence"
+        },
+        {
+          "$ref": "#/$defs/Keyword"
         }
       ]
     },

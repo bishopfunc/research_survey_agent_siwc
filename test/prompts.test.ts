@@ -4,11 +4,13 @@ import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STE
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
 test('new survey research runs venues first, surveys and curated repositories in parallel, then primary papers', () => {
-  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage]), [['venues', 1], ['surveys', 2], ['awesome', 2], ['primary', 3]]);
-  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2a', '2b', '3']);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /2a\. In parallel with the curated-repository search/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /2b\. In parallel with the survey reading/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /3\. After both parallel tracks finish/);
+  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage]), [['venues', 1], ['surveys', 2], ['awesome', 2], ['articles', 2], ['primary', 3]]);
+  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2a', '2b', '2c', '3']);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /2a\. In parallel with the curated-repository and blog\/article searches/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /2b\. In parallel with the survey reading and the blog\/article search/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /2c\. In parallel with the survey reading and the curated-repository search, search blogs and articles/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /never use them as Evidence for claims/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /3\. After the parallel tracks finish/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Keep the first survey focused/);
 });
 test('new and additional research get different mode instructions over the same shared rules', () => {
@@ -47,4 +49,10 @@ test('the repair prompt keeps the rejected values and leaves out the retrieve-in
   assert.match(prompt, /Validator errors \(data\): "\/operations\/0 bad"/);
   assert.ok(!prompt.includes('Research only with the web search tool') && !prompt.includes('from a page you retrieved in this run'));
   assert.ok(prompt.includes('The app rejects the whole patch if any rule fails'));
+});
+test('both modes extract beginner keywords; new subtopics start from surveys, awesome lists and blogs or articles', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Keyword entities \(about 10–20\) taken from the papers you read, so that a newcomer can catch up/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /representative survey papers, curated awesome repositories, and blogs or articles/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /derive them from the stored abstracts, summaries and titles without re-reading the papers unless explicitly asked/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword\.papers lists Paper IDs and Keyword\.related lists Issue\/Method\/Concept\/Domain IDs/);
 });

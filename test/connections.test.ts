@@ -8,7 +8,7 @@ test('connections merge a reference array and the same typed relation into one l
   assert.deepEqual(paper.links, [{ type: 'proposes', outgoing: false }]);
   assert.deepEqual(cbs.find(c => c.entity.id === 'ecbs')!.links, [{ type: 'extends', outgoing: false }]);
   assert.deepEqual(cbs.find(c => c.entity.id === 'tree')!.links, [{ type: 'introduces_issue', outgoing: true }]);
-  const order = cbs.map(c => ['Issue', 'Method', 'Paper'].indexOf(c.entity.type));
+  const order = cbs.map(c => ['Issue', 'Method', 'Paper', 'Keyword'].indexOf(c.entity.type));
   assert.deepEqual(order, [...order].sort((a, b) => a - b));
   assert.ok(!cbs.some(c => c.entity.id === 'cbs'));
 });
@@ -22,4 +22,10 @@ test('connections follow paper claims and evidence, skip dangling ids, and retur
   assert.ok(!links.some(c => c.entity.id === 'missing-issue'));
   assert.ok(buildConnections(input, 'claim-cbs').some(c => c.entity.id === 'paper-cbs' && c.links.some(l => l.type === 'claims' && !l.outgoing)));
   assert.deepEqual(buildConnections(input, 'no-such-entity'), []);
+});
+test('keywords connect to the papers and issues or methods they explain', () => {
+  const ct = buildConnections(fixture, 'kw-ct');
+  assert.deepEqual(ct.map(c => c.entity.id).sort(), ['cbs', 'paper-cbs', 'tree']);
+  assert.ok(ct.find(c => c.entity.id === 'paper-cbs')!.links.some(l => l.type === 'papers' && l.outgoing));
+  assert.ok(buildConnections(fixture, 'paper-cbs').some(c => c.entity.id === 'kw-ct' && c.links.some(l => l.type === 'papers' && !l.outgoing)));
 });

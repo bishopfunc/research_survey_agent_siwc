@@ -1,6 +1,6 @@
 /* Generated from JSON Schema. Run npm run schema:types. */
 
-export type Entity = Domain | Concept | Issue | Method | Paper | Claim | Evidence;
+export type Entity = Domain | Concept | Issue | Method | Paper | Claim | Evidence | Keyword;
 
 export interface SurveySnapshot {
   schema_version: "0.1.0";
@@ -114,6 +114,20 @@ export interface Evidence {
   verification: "unverified" | "abstract_only" | "verified";
   retrieved_at: string | null;
   content_hash: string | null;
+}
+export interface Keyword {
+  id: string;
+  label: string;
+  provenance: "fixture" | "user" | "codex";
+  type: "Keyword";
+  aliases: string[];
+  category: "concept" | "task" | "method" | "metric" | "dataset" | "benchmark" | "other";
+  meaning: string;
+  papers: string[];
+  related: string[];
+  definition_excerpt: string;
+  source_url: string | null;
+  locator: string | null;
 }
 export interface Relation {
   id: string;

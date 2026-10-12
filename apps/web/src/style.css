@@ -38,6 +38,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .t-Paper { --type: var(--color-lavender); --type-soft: var(--color-lavender-soft); }
 .t-Claim { --type: var(--color-green); --type-soft: var(--color-green-soft); }
 .t-Evidence { --type: var(--color-yellow); --type-soft: var(--color-yellow-soft); }
+.t-Keyword { --type: var(--color-rose); --type-soft: var(--color-rose-soft); }
 
 .app { display: grid; grid-template-columns: 248px minmax(0,1fr); min-height: 100dvh; background: var(--color-paper); }
 .sidebar { position: sticky; top: 0; height: 100dvh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); padding: 18px 14px; background: var(--color-surface); border-right: var(--rule-width) solid var(--color-line); scrollbar-width: thin; }
@@ -103,20 +104,22 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 
 .work-area { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: var(--space-5); align-items: start; }
 .canvas { min-width: 0; }
-.issue-list, .paper-list { display: grid; gap: var(--space-3); }
-.issue-card, .paper-card { display: block; width: 100%; text-align: left; padding: var(--space-4) 18px; color: var(--color-ink); background: var(--color-surface); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); }
-.issue-card:hover, .paper-card:hover { color: var(--color-ink); background: var(--color-surface); border-color: var(--color-line-strong); box-shadow: var(--shadow-card); }
-.issue-card.chosen, .paper-card.chosen { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
+.issue-list, .paper-list, .keyword-list { display: grid; gap: var(--space-3); }
+.issue-card, .paper-card, .keyword-card { display: block; width: 100%; text-align: left; padding: var(--space-4) 18px; color: var(--color-ink); background: var(--color-surface); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); }
+.issue-card:hover, .paper-card:hover, .keyword-card:hover { color: var(--color-ink); background: var(--color-surface); border-color: var(--color-line-strong); box-shadow: var(--shadow-card); }
+.issue-card.chosen, .paper-card.chosen, .keyword-card.chosen { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
 .card-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
 .card-top small { color: var(--color-muted); }
 .kind, .tag, .type-chip { display: inline-flex; align-items: center; width: fit-content; padding: 3px 10px; border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: 500; color: var(--color-ink); background: var(--color-sky-soft); }
 .kind.fundamental { background: var(--color-peach-soft); } .kind.subproblem { background: var(--color-turquoise-soft); } .kind.method_dependent { background: var(--color-lavender-soft); }
 .tag { background: var(--color-yellow-soft); }
 .type-chip { font-weight: 600; background: var(--type-soft, var(--color-sky-soft)); }
-.issue-card h3, .paper-card h3 { font-family: var(--font-display); font-size: 16px; font-weight: 600; line-height: 1.5; margin-bottom: var(--space-1); }
-.issue-card p { font-size: var(--text-caption); color: var(--color-muted); max-width: 72ch; }
+.issue-card h3, .paper-card h3, .keyword-card h3 { font-family: var(--font-display); font-size: 16px; font-weight: 600; line-height: 1.5; margin-bottom: var(--space-1); }
+.issue-card p, .keyword-card p { font-size: var(--text-caption); color: var(--color-muted); max-width: 72ch; }
 .card-bottom { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-3); }
 .card-bottom span { padding: 3px 10px; border-radius: var(--radius-pill); font-size: var(--text-small); background: var(--color-turquoise-soft); }
+.keyword-card .card-bottom span { background: var(--color-lavender-soft); }
+.keyword-aliases { color: var(--color-muted); }
 .kind-filter { margin-bottom: var(--space-3); flex-wrap: wrap; }
 .entity-close { margin-left: auto; padding: 0 6px; border: 0; font-size: 18px; line-height: 1; color: var(--color-muted); background: var(--color-transparent); }
 .entity-close:hover { color: var(--color-ink); background: var(--color-paper); }

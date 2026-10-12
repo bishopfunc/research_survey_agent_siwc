@@ -29,6 +29,8 @@
   --color-peach-soft: oklch(95% .03 55);
   --color-yellow: oklch(87% .14 88);
   --color-yellow-soft: oklch(96.5% .045 92);
+  --color-rose: oklch(80% .09 10);
+  --color-rose-soft: oklch(95.5% .025 10);
   --color-sky: oklch(82% .07 268);
   --color-sky-soft: oklch(95% .02 268);
   --color-dot-ring: oklch(22% .012 265 / .28);

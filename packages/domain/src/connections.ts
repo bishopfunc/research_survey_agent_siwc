@@ -1,9 +1,9 @@
 import type { Entity, Relation, SurveySnapshot } from './snapshot.types';
 
-export type LinkType = Relation['type'] | 'claims' | 'evidence';
+export type LinkType = Relation['type'] | 'claims' | 'evidence' | 'papers' | 'related';
 export interface Connection { entity: Entity; links: { type: LinkType; outgoing: boolean }[] }
-const fields = ['proposes', 'addresses', 'claims', 'evidence'] as const;
-const typeOrder: Entity['type'][] = ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Evidence'];
+const fields = ['proposes', 'addresses', 'claims', 'evidence', 'papers', 'related'] as const;
+const typeOrder: Entity['type'][] = ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Evidence', 'Keyword'];
 
 /** Direct neighbours of one entity, merging reference arrays and typed relations without duplicates. */
 export function buildConnections(snapshot: SurveySnapshot, id: string): Connection[] {
