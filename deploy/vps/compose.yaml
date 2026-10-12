@@ -20,9 +20,9 @@ services:
     command: ["node_modules/.bin/tsx", "scripts/vps-gate.ts"]
     environment:
       PUBLIC_ORIGIN: https://${PUBLIC_HOST}
-      GATE_STATE: /data/gate.json
+      GATE_STATE: /app/.gate/gate.json
     volumes:
-      - gate:/data
+      - gate:/app/.gate
     depends_on: [app]
   caddy:
     image: caddy:2.10

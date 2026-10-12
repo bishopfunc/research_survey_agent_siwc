@@ -116,7 +116,7 @@ export function createGate(config: GateConfig, deps: { completeLogin: typeof com
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const publicOrigin = process.env.PUBLIC_ORIGIN;
   if (!publicOrigin?.startsWith('https://')) throw Error('PUBLIC_ORIGIN (https://…) is required');
-  const config: GateConfig = { publicOrigin, callbackPort: Number(process.env.CALLBACK_PORT ?? 1456), upstream: process.env.UPSTREAM ?? '127.0.0.1:8788', stateFile: process.env.GATE_STATE ?? '/data/gate.json', sshHost: process.env.SSH_HOST ?? 'sakura-vps' };
+  const config: GateConfig = { publicOrigin, callbackPort: Number(process.env.CALLBACK_PORT ?? 1456), upstream: process.env.UPSTREAM ?? '127.0.0.1:8788', stateFile: process.env.GATE_STATE ?? '.gate/gate.json', sshHost: process.env.SSH_HOST ?? 'sakura-vps' };
   const gate = createGate(config);
   createServer((req, res) => void gate.main(req, res)).listen(Number(process.env.GATE_PORT ?? 8080), '0.0.0.0');
   createServer((req, res) => void gate.callback(req, res)).listen(config.callbackPort, '0.0.0.0');
