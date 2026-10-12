@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, stageLabel } from '../packages/agent/src/research-prompt';
+import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, deepenInstructions, integrateInstructions, stageLabel } from '../packages/agent/src/research-prompt';
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, RESEARCH_MODES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
 test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract without a separate venue step', () => {
@@ -52,6 +52,8 @@ test('shared rules limit tools to web search and keep sources verbatim, linked a
   assert.match(SURVEY_RULES_INSTRUCTIONS, /A statement you cannot source is not a fact/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Do not re-read cached papers unless the user explicitly asks/);
   assert.ok(CODEX_DISABLED_FEATURES.includes('shell_tool') && CODEX_DISABLED_FEATURES.includes('browser_use') && CODEX_DISABLED_FEATURES.includes('computer_use'));
+  // Codex 0.162 routes web search through code mode, so disabling code_mode_host would silently remove web search.
+  assert.ok(CODEX_DISABLED_FEATURES.includes('view_image') && !(CODEX_DISABLED_FEATURES as readonly string[]).includes('code_mode_host'));
 });
 test('the validator rule in the prompt is generated from the domain relation constraints', () => {
   for (const [type, [from, to]] of Object.entries(RELATION_ENDPOINTS)) if ((CORE_RELATION_TYPES as readonly string[]).includes(type)) assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(`${type} goes from ${from.join('/')} to ${to.join('/')}`), type);
@@ -84,11 +86,11 @@ test('both modes build knowledge from papers; new subtopics start from surveys, 
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /use the stored abstracts, summaries and titles without re-reading the papers unless explicitly asked/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword\.papers lists Paper IDs and Keyword\.related lists Issue\/Method\/Concept\/Domain IDs/);
 });
-test('knowledge is what a newcomer must catch up on, merged across papers, with SOTA, models and baselines', () => {
+test('knowledge is what a newcomer must catch up on, merged across papers, with SoTA, pretrained models, architectures and baselines', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword entities are the knowledge a newcomer must catch up on/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /category dataset, benchmark, hardware \(robot platform, sensors, compute\), simulator, metric, sota \(the best result on a main benchmark: .*?\), model \(widely used pretrained or backbone models\) or baseline/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /a new Keyword category is dataset, benchmark, hardware, simulator, metric, sota, model or baseline, a sota Keyword needs as_of and at least one paper/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the datasets, benchmarks, metrics, simulators, hardware configurations, baselines, widely used models and the state of the art that the surveys treat as standard/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /category dataset, benchmark, hardware \(robot platform, sensors, compute\), simulator, metric, sota \(the best result on a main benchmark: .*?\), model \(a specific pretrained model whose weights are released or served.*?\), architecture \(a model structure or building block.*?keep it apart from the pretrained models built on it\) or baseline/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /a new Keyword category is dataset, benchmark, hardware, simulator, metric, sota, model, architecture or baseline, a sota Keyword needs as_of and at least one paper/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the datasets, benchmarks, metrics, simulators, hardware configurations, baselines, widely used pretrained models, architectures and the state of the art that the surveys treat as standard/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Merge mentions of the same item across papers into one Keyword \(match by name and aliases\) and list every paper that uses it/);
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /when a Keyword for the item already exists, replace it with the merged paper list instead of adding a duplicate/);
 });
@@ -118,7 +120,7 @@ test('every run ends with three follow-up requests and long reading gets more ti
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /classifying methods into families, quantifying how far issues are achieved, translating abstracts or filling reading, work from the stored entities/);
   assert.ok(RESEARCH_MODES.new.timeoutSeconds >= 1800 && RESEARCH_MODES.additional.timeoutSeconds >= 1200);
 });
-test('numbers, SOTA and paper reading come only from text retrieved in this run; stored analysis survives replacement', () => {
+test('numbers, SoTA and paper reading come only from text retrieved in this run; stored analysis survives replacement', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Never fabricate venues, papers, URLs, citation counts, code releases, figures, reported numbers or results/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Where no retrieved text reports a number, still write the Claim/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /an Evidence whose excerpt copies the sentence or table row containing the number/);
@@ -134,9 +136,32 @@ test('a library paper is re-read only after the user sends the follow-up that as
   assert.match(SURVEY_RULES_INSTRUCTIONS, /so that sending it is the user's approval/);
 });
 test('readings cite their original pages, arXiv papers are read in full text, and missing knowledge layers are reported', () => {
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put in reading\.evidence the Evidence each statement is based on \(the facts rule\)/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put in reading\.cites, under each field \(summary for one_line_summary, contributions, novelty, key_idea, validation, discussion\), the Evidence that field is based on \(the facts rule\)/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /key_sections lists the sections needed to understand the paper, each starting with the paper's own section number/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /open its HTML full text \(https:\/\/arxiv\.org\/html\/<id>, or https:\/\/ar5iv\.labs\.arxiv\.org\/html\/<id> for older papers\)/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /name in the patch message each category you searched for but could not find/);
+});
+test('issues are built bottom-up: per-paper candidates with sources, then a hierarchy of at least three levels', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Issues: build them bottom-up from the papers\. First take, paper by paper, the problems each paper says it works on as facts with sources/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /a hierarchy of at least three levels wherever the literature supports it/);
+  assert.match(deepenInstructions(1, 4, ['p1'], []), /Issue candidates: for each paper you read, extract the problems it says it works on/);
+  const integrate = integrateInstructions(['w1-cand-a', 'w2-cand-b']);
+  assert.match(integrate, /the Issues w1-cand-a, w2-cand-b are per-paper issue candidates/);
+  assert.match(integrate, /so the tree has at least three levels wherever the papers support it/);
+});
+test('a method is named after its approach group, never after a paper or system alone', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /a Method is the generic name of a group of approaches that share one approach/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /"<name>系" is acceptable \("LaCAM系"\), but never use a paper's or system's name alone as a Method label/);
+});
+test('the sample names its methods by approach group', () => {
+  for (const method of fixture.entities.filter(e => e.type === 'Method')) {
+    const systems = method.type === 'Method' ? (method.english_terms ?? []).map(t => t.match(/\(([^)]+)\)$/)?.[1] ?? t).filter(t => /^[A-Z][\w*-]*$/.test(t)) : [];
+    assert.ok(!systems.includes(method.label), `${method.label} is a system name`);
+    assert.ok(!/^[A-Za-z][\w*-]*$/.test(method.label), `${method.label} is a bare name`);
+  }
+});
+test('every item has a one-sentence overview in its existing field', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /description for Issue, Method and Concept, one_line_summary for Paper, meaning for Keyword, summary for Resource and Tutorial\. Keep it to one sentence/);
 });
 test('readings name the algorithms and equations needed to understand the paper, with the paper\'s numbering', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /key_formulas lists the algorithms and equations needed to understand the paper, each as "Algorithm N: what it does" or "Eq\. \(N\): what it expresses"/);

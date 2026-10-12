@@ -15,7 +15,7 @@ PoCの正本は [snapshot.schema.json](../packages/domain/schema/snapshot.schema
 | Paper | title、year、venue（学会・論文誌の略称）、venue_type、one_line_summary（「どんなもの？」の答え）、authors、doi/arxiv_id/url、proposes/addresses/claims/evidence参照。任意の`abstract_ja`（和訳）と`reading`（論文の要点） |
 | Claim | statement、status、scope、as_of、evidence。aboutで対象Issue/Methodへ接続。課題の達成度（数値・条件・時点・論文の結果の原文）と批判的評価（disputed）もClaimで表す |
 | Evidence | source_url、locator、excerpt、verification、retrieved_at、content_hash |
-| Keyword | 画面では「ナレッジ」（参入者がキャッチアップすべき知識）。用語（label）、aliases、category（dataset/benchmark/hardware/simulator/metric/sota/model/baseline。task/concept/method/otherは過去データ用）、初心者向けのmeaning、papers（Paper）、related（Issue/Method/Concept/Domain）、任意のofficial_url・as_of（SOTAは必須）、definition_excerpt・source_url・locator。原文があればURLが必要（[0013](design/0013-keywords-and-field-sources.md)） |
+| Keyword | 画面では「ナレッジ」（参入者がキャッチアップすべき知識）。用語（label）、aliases、category（dataset/benchmark/hardware/simulator/metric/sota/model/baseline。task/concept/method/otherは過去データ用）、初心者向けのmeaning、papers（Paper）、related（Issue/Method/Concept/Domain）、任意のofficial_url・as_of（SoTAは必須）、definition_excerpt・source_url・locator。原文があればURLが必要（[0013](design/0013-keywords-and-field-sources.md)） |
 | Resource | 文献ガイドの1件（サーベイ・入門記事・ブログ・スライド・講演・リポジトリ・サイトなど）。kind・title・url・authors・published・language・summary・issues・methods・paper（サーベイ論文として登録したPaper）・checked_at（2026-10-12追加、[ADR 0016](adr/0016-resource-entity.md)） |
 | Tutorial | 参入者向けの読み物（1つの調査に1つ）。sections：role（問題設定〜おわりに）、heading、body（[@ID]で引用、$…$・$$…$$で数式）、refs、media（論文の図・アルゴリズム・数式）、links。試験要件は[0018](design/0018-tutorial.md)。mediaの任意の`caption_ja`は論文のキャプションの和訳（2026-10-12追加） |
 

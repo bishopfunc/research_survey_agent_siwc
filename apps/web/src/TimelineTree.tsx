@@ -3,10 +3,20 @@ import type { TimelineLayout } from '../../../packages/domain/src/timeline';
 import type { Entity } from '../../../packages/domain/src/index';
 
 const GAP = 24, ROW_PAD = 14, INSET = 16;
-/** Item sizes: hierarchy items show a name and one term; paper items also carry one sentence. */
-export const ITEM = { compact: { width: 156, height: 72 }, paper: { width: 220, height: 128 } } as const;
+/** Item sizes: compact items show a name and one term; paper and method items also carry one sentence (the overview or
+ * the claim); issue items add their achievement under the overview. */
+export const ITEM = { compact: { width: 156, height: 72 }, paper: { width: 220, height: 128 }, issue: { width: 240, height: 176 } } as const;
 
-export interface TimelineCard { title: string; meta?: string; note?: string; dot?: string; hint?: string }
+/** status: an issue's achievement, its state as a chip and the claim behind it. */
+export interface TimelineCard { title: string; meta?: string; note?: string; dot?: string; hint?: string; status?: { tone: string; label: string; text?: string } }
+/** A row heading for a parent item (root issue, method family, method): its name, English term, overview and, for an
+ * issue, the state of its achievement. */
+export function RowHeading({ title, term, overview, status, dot, chosen, indent = 0, onClick }: { title: string; term?: string; overview?: string; status?: { tone: string; label: string }; dot?: string; chosen: boolean; indent?: number; onClick: () => void }) {
+  return <button className={`row-heading ${chosen ? 'chosen' : ''}`} style={indent ? { paddingLeft: indent } : undefined} title={overview} onClick={onClick}>
+    {dot && <span className={`connection-dot ${dot}`}/>}
+    <span>{title}{term && <small className="row-term">{term}</small>}{overview && <small className="row-overview">{overview}</small>}{status && <span className={`status-chip row-status ${status.tone}`}>{status.label}</span>}</span>
+  </button>;
+}
 /** A paper item in every paper tree: its title, year, venue and citation count, and one sentence the tree is about
  * (the claim in the issue tree, what it is in the method tree). */
 export function paperCard(paper: Extract<Entity, { type: 'Paper' }>, note?: string): TimelineCard {
@@ -40,7 +50,7 @@ export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect
     if (s && s.x === t.x) return `M${s.x} ${sy}C${s.x - 18} ${sy} ${t.x - 18} ${ty} ${t.x} ${ty}`;
     return `M${sx} ${sy}C${sx + 40} ${sy} ${t.x - 40} ${ty} ${t.x} ${ty}`;
   }
-  return <div className="timeline" role="group" aria-label={label}>
+  return <div className={`timeline ${NODE_H < 150 ? 'short-rows' : ''}`} role="group" aria-label={label}>
     {rowLabel && <div className="timeline-labels" style={{ height: bottom }}>{layout.rows.map((row, i) => <div key={row.key ?? 'none'} className="timeline-label" style={{ top: tops[i], height: (tops[i + 1] ?? bottom) - tops[i] }}>{rowLabel(row.key)}</div>)}</div>}
     <div className="timeline-canvas" style={{ width, height: bottom }}>
       {years && layout.years.map((year, i) => <div key={year ?? 'none'} className="timeline-year" style={{ left: INSET + i * COLUMN, width: NODE_W }}>{year ?? '未取得'}</div>)}
@@ -49,7 +59,7 @@ export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect
         <defs>{['', 'active'].map(state => <marker key={state} id={`${marker}${state}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path className={`timeline-arrow ${state}`} d="M0 0L8 4L0 8z"/></marker>)}</defs>
         {layout.edges.map(edge => { const active = edge.to === selected || edge.from === selected; return <path key={`${edge.kind}-${edge.from}-${edge.to}-${edge.row}`} className={`timeline-edge ${edge.kind} ${active ? 'active' : ''}`} d={path(edge)} markerEnd={`url(#${marker}${active ? 'active' : ''})`}/>; })}
       </svg>
-      {layout.nodes.map(n => { const c = card(n.id), b = box.get(n.id)!; return <button key={n.id} className={`timeline-node ${selected === n.id ? 'chosen' : ''}`} style={{ left: b.x, top: b.y, width: NODE_W, height: NODE_H }} title={c.hint} onClick={() => onSelect(n.id)}><strong>{c.dot && <span className={`node-dot ${c.dot}`}/>}<span>{c.title}</span></strong>{c.meta && <small>{c.meta}</small>}{c.note && <p className="timeline-note">{c.note}</p>}</button>; })}
+      {layout.nodes.map(n => { const c = card(n.id), b = box.get(n.id)!; return <button key={n.id} className={`timeline-node ${selected === n.id ? 'chosen' : ''}`} style={{ left: b.x, top: b.y, width: NODE_W, height: NODE_H }} title={c.hint} onClick={() => onSelect(n.id)}><strong>{c.dot && <span className={`node-dot ${c.dot}`}/>}<span>{c.title}</span></strong>{c.meta && <small>{c.meta}</small>}{c.note && <p className="timeline-note">{c.note}</p>}{c.status && <p className="timeline-status"><span className={`status-chip ${c.status.tone}`}>{c.status.label}</span>{c.status.text && <span>{c.status.text}</span>}</p>}</button>; })}
     </div>
   </div>;
 }

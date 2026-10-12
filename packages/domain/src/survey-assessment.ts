@@ -4,7 +4,7 @@ import { assessTutorial } from './tutorial';
 /** Test requirements for a new survey of tens to about a hundred papers (design 0019). Structural checks only:
  * they show that the survey reached the intended breadth and depth, not that its statements are correct. */
 export const SURVEY_TARGETS = { papers: 30, deepRead: 10, methods: 6, families: 3, issuesMin: 4, issuesMax: 12, knowledgeLayers: 5, yearSpan: 8 } as const;
-const LAYERS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline'];
+const LAYERS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'architecture', 'baseline'];
 export interface SurveyCheck { id: string; label: string; pass: boolean; detail: string }
 
 function paperKey(p: Paper) {
@@ -21,7 +21,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const issues = snapshot.entities.filter(e => e.type === 'Issue');
   const families = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && snapshot.entities.some((e): e is Concept => e.id === r.to && e.type === 'Concept')).map(r => r.to));
   const inFamily = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && families.has(r.to)).map(r => r.from));
-  const deep = papers.filter(p => p.reading && ((p.reading.evidence?.length ?? 0) > 0 || (p.reading.sources?.length ?? 0) > 0) && p.reading.contributions.length > 0);
+  const deep = papers.filter(p => p.reading && ((p.reading.evidence?.length ?? 0) > 0 || Object.values(p.reading.cites ?? {}).some(ids => ids?.length) || (p.reading.sources?.length ?? 0) > 0) && p.reading.contributions.length > 0);
   const identified = papers.filter(p => p.year !== null && (p.doi || p.arxiv_id || p.url));
   // A paper is placed in the map when something in the survey points at it, or it points at a method or issue.
   const cited = new Set<string>();

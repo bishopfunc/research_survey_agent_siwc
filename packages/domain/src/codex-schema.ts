@@ -33,7 +33,7 @@ export function codexOutputSchema(schema: Schema): Schema {
 }
 
 /** Knowledge categories Codex may use; task, concept, method and other remain in the DSL only for data saved earlier. */
-export const KNOWLEDGE_CATEGORIES = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline'] as const;
+export const KNOWLEDGE_CATEGORIES = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'architecture', 'baseline'] as const;
 /** Patch schema for research runs: Codex may only create unverified Evidence and never a content hash,
  * and knowledge uses the current categories. */
 export function codexPatchSchema(patch: Schema): Schema {
@@ -73,8 +73,17 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
     }
     const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
     if (reading && typeof reading === 'object') {
-      for (const key of ['contributions', 'key_figures', 'key_formulas', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }
+      for (const key of ['contributions', 'key_figures', 'key_formulas', 'key_sections', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }
       for (const key of ['novelty', 'key_idea', 'validation', 'discussion']) if (typeof reading[key] === 'string') reading[key] = (reading[key] as string).trim();
+      // Per-field sources: null keys (strict output) are dropped, and so is an empty cites object.
+      if (reading.cites === null) delete reading.cites;
+      else if (reading.cites && typeof reading.cites === 'object') {
+        const cites = reading.cites as Record<string, unknown>;
+        for (const [key, value] of Object.entries(cites)) { const ids = distinct(value, Infinity); if (ids?.length) cites[key] = ids; else delete cites[key]; }
+        if (!Object.keys(cites).length) delete reading.cites;
+        // reading.evidence lists every source of the reading, including the per-field ones.
+        else reading.evidence = [...new Set([...(Array.isArray(reading.evidence) ? reading.evidence : []), ...Object.values(cites).flat()])];
+      }
       if (Array.isArray(reading.sources)) {
         const seen = new Set<string>();
         reading.sources = reading.sources.flatMap(source => {
@@ -83,7 +92,7 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
           seen.add(`${url} ${locator}`); return [{ url, locator: locator || 'Abstract' }];
         });
       }
-      if (Object.entries(reading).filter(([key]) => key !== 'sources').every(([, v]) => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
+      if (Object.entries(reading).filter(([key]) => key !== 'sources' && key !== 'cites').every(([, v]) => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
     }
   }
   return clean;

@@ -802,6 +802,7 @@
             "metric",
             "sota",
             "model",
+            "architecture",
             "baseline",
             "task",
             "concept",
@@ -914,6 +915,10 @@
           "items": {
             "$ref": "#/$defs/TutorialSection"
           }
+        },
+        "summary": {
+          "type": "string",
+          "description": "One sentence explaining the field the tutorial covers."
         }
       },
       "required": [
@@ -1155,6 +1160,69 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "cites": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Evidence IDs for each reading field; summary is the paper's one_line_summary.",
+          "properties": {
+            "summary": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "contributions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "novelty": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "key_idea": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "validation": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "discussion": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "key_sections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Sections needed to understand the paper, each starting with its section number, e.g. \"3.2 Pseudocode: why\"."
         }
       },
       "required": [

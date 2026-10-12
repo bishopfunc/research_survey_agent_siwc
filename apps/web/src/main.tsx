@@ -10,18 +10,19 @@ import { CloseIcon } from './CloseIcon';
 import { byPublication } from '../../../packages/domain/src/evolution';
 import { buildIssuePaperTree, buildIssueTree } from '../../../packages/domain/src/issue-tree';
 import { IMPORTANCE_LABELS, representativePapers } from '../../../packages/domain/src/importance';
-import { ITEM, TimelineTree, paperCard } from './TimelineTree';
+import { ITEM, RowHeading, TimelineTree, paperCard } from './TimelineTree';
 import { SubTabs } from './SubTabs';
 import { LiteratureGuide, RESOURCE_KINDS } from './LiteratureGuide';
 import { PaperFacts, Sources } from './Facts';
 import { skillById, type SkillId } from '../../../packages/agent/src/skills/index';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
-import { CardFigure, KeyFigures } from './KeyFigures';
+import { CardFigure, Diagrams, KeySections, arxivIdOf, useArxivData } from './KeyFigures';
+import { overviewOf, overviewSources } from '../../../packages/domain/src/overview';
 import { TutorialView } from './TutorialView';
 import { buildLibrary } from '../../../packages/agent/src/library';
 
-function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'send' | 'pen' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh' | 'book'; className?: string }) {
-  const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', send:'M21 3 10 14 M21 3l-6.5 18-4.5-7-7-4.5z', pen:'M4 20h4L19 9l-4-4L4 16z M14 6l4 4', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12 M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 9a9 9 0 0 1-9 9', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6', refresh:'M19.5 12a7.5 7.5 0 1 1-2.2-5.3 M19.5 4.5v4h-4', book:'M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z M5 19.5A1.5 1.5 0 0 0 6.5 21H19 M9 7h6' };
+function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'send' | 'pen' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh' | 'book' | 'back'; className?: string }) {
+  const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', send:'M21 3 10 14 M21 3l-6.5 18-4.5-7-7-4.5z', pen:'M4 20h4L19 9l-4-4L4 16z M14 6l4 4', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12 M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 9a9 9 0 0 1-9 9', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6', refresh:'M19.5 12a7.5 7.5 0 1 1-2.2-5.3 M19.5 4.5v4h-4', book:'M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z M5 19.5A1.5 1.5 0 0 0 6.5 21H19 M9 7h6', back:'M19 12H5 M11 6l-6 6 6 6' };
   return <svg className={`icon ${className}`} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
 }
 const reviewPreview = new URLSearchParams(location.search).get('preview') === 'lab';
@@ -77,12 +78,19 @@ const statusLabels = { open: '未解決', partially_solved: '一部解決', solv
 const pretty = (value: unknown) => JSON.stringify(value, null, 2);
 const relationLabels: Record<string, [string,string]> = {part_of:['上位の課題','下位の課題'],specializes:['一般的な課題・手法','具体的な課題・手法'],addresses:['対応する課題','関連する手法・論文'],proposes:['提案する手法','提案した論文'],about:['対象となる情報','関連する主張'],introduces_issue:['手法が生む課題','関連する手法'],extends:['基になった手法','派生した手法'],builds_on:['基になった手法','応用した手法'],supports:['支持する主張','支持する根拠'],contradicts:['矛盾する主張','矛盾する根拠'],refines:['詳しくする主張','詳細な主張'],related_to:['関連情報','関連情報'],depends_on:['依存する情報','依存される情報'],caused_by:['原因','結果'],tradeoff_with:['トレードオフ','トレードオフ'],assumes:['前提','前提を使う情報'],instance_of:['系統','この系統の手法'],claims:['主張','主張する論文'],evidence:['根拠','根拠を使う情報'],papers:['登場する論文','ナレッジ'],related:['関連する項目','関連するナレッジ']};
 const entityLabels = {Domain:'分野',Concept:'共通概念',Issue:'課題',Method:'手法',Paper:'論文',Claim:'主張',Evidence:'出典',Keyword:'ナレッジ',Tutorial:'チュートリアル',Resource:'文献'};
-const keywordCategories = { dataset:'データセット', benchmark:'ベンチマーク', hardware:'ハードウェア構成', simulator:'シミュレータ', metric:'評価指標', sota:'SOTA', model:'モデル', baseline:'ベースライン', task:'タスク', concept:'概念', method:'手法', other:'その他' };
+const keywordCategories = { dataset:'データセット', benchmark:'ベンチマーク', hardware:'ハードウェア構成', simulator:'シミュレータ', metric:'評価指標', sota:'SoTA', model:'学習済みモデル', architecture:'アーキテクチャ', baseline:'ベースライン', task:'タスク', concept:'概念', method:'手法', other:'その他' };
 /** Knowledge (the Keyword type) is built from papers in these categories; the others are kept only for data saved earlier. */
-const KEYWORD_SECTIONS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline'] as const;
+const KEYWORD_SECTIONS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'architecture', 'baseline'] as const;
 /** The five questions a paper is read with; one_line_summary answers the first. */
-const readingLabels = { contributions:'貢献', novelty:'先行研究と比べてどこがすごい？', key_idea:'技術や手法のキモはどこ？', validation:'どうやって有効だと検証した？', discussion:'議論はある？', key_figures:'理解に重要なFig', key_formulas:'理解に重要なアルゴリズム・数式', captions_ja:'図・表・アルゴリズムのキャプションの和訳' } as const;
-const fieldLabels: Record<string, string> = {representative_figure:'代表Fig',caption:'キャプション',source_name:'元PDF',page:'ページ',crop:'切り出し範囲',extracted_at:'抽出日',x:'左端',y:'上端',width:'幅',height:'高さ', code_availability:'コード公開状況',code_url:'コード公開URL',code_checked_at:'コード確認日', from:'対象',to:'関連先',label:'名前',description:'説明',kind:'課題の種類',title:'論文タイトル',year:'出版年',venue:'会議・ジャーナル',venue_type:'出版種別',one_line_summary:'一言概要',aliases:'別名・略称',category:'分類',meaning:'意味',papers:'登場する論文',related:'関連する項目',official_url:'公式ページ',definition_excerpt:'定義の原文',abstract:'アブストラクト',abstract_source_url:'アブストラクトの取得元URL',citation_count:'引用数',citation_source:'引用数の取得元',citation_as_of:'引用数の取得日',doi:'DOI',arxiv_id:'arXiv ID',url:'論文URL',authors:'著者',proposes:'提案する手法',addresses:'対象の課題',claims:'主張',evidence:'根拠',statement:'主張の内容',status:'解決状態',scope:'評価条件',task:'タスク',setting:'問題設定',metric:'評価指標',assumptions:'前提',limitations:'制約',as_of:'評価日',source_url:'出典URL',locator:'出典のページ・節',excerpt:'原文の抜粋',verification:'出典の確認状態',retrieved_at:'原文の取得日時',english_terms:'英語表現',abstract_ja:'アブストラクトの和訳',reading:'論文の要点',...readingLabels,follow_ups:'次の調査の候補' };
+const readingLabels = { contributions:'貢献', novelty:'先行研究と比べてどこがすごい？', key_idea:'技術や手法のキモはどこ？', validation:'どうやって有効だと検証した？', discussion:'議論はある？', key_figures:'理解に重要な図・表', key_formulas:'理解に重要なアルゴリズム・数式', key_sections:'理解に重要な節', captions_ja:'図・表・アルゴリズムのキャプションの和訳', cites:'要点の各項目の出典' } as const;
+/** The reading questions shown in 解説, each with its own sources (reading.cites). */
+const EXPLANATION_FIELDS = ['novelty', 'key_idea', 'validation', 'discussion'] as const;
+/** A new survey is named after what the user asks for until research gives it a title. */
+const NEW_SURVEY_TITLE = '新規調査';
+const runStateLabels = { running: '実行中', succeeded: '完了', failed: '失敗', cancelled: '取消' } as const;
+/** The first line of a request, short enough for a collection name. */
+const requestTitle = (text: string) => text.trim().split('\n')[0].trim().slice(0, 40);
+const fieldLabels: Record<string, string> = {representative_figure:'代表Fig',caption:'キャプション',source_name:'元PDF',page:'ページ',crop:'切り出し範囲',extracted_at:'抽出日',x:'左端',y:'上端',width:'幅',height:'高さ', code_availability:'コード公開状況',code_url:'コード公開URL',code_checked_at:'コード確認日', from:'対象',to:'関連先',label:'名前',description:'説明',kind:'課題の種類',title:'論文タイトル',year:'出版年',venue:'会議・ジャーナル',venue_type:'出版種別',one_line_summary:'概要',aliases:'別名・略称',category:'分類',meaning:'意味',papers:'登場する論文',related:'関連する項目',official_url:'公式ページ',definition_excerpt:'定義の原文',abstract:'要旨',abstract_source_url:'要旨の取得元URL',citation_count:'引用数',citation_source:'引用数の取得元',citation_as_of:'引用数の取得日',doi:'DOI',arxiv_id:'arXiv ID',url:'論文URL',authors:'著者',proposes:'提案する手法',addresses:'対象の課題',claims:'主張',evidence:'根拠',statement:'主張の内容',status:'解決状態',scope:'評価条件',task:'タスク',setting:'問題設定',metric:'評価指標',assumptions:'前提',limitations:'制約',as_of:'評価日',source_url:'出典URL',locator:'出典のページ・節',excerpt:'原文の抜粋',verification:'出典の確認状態',retrieved_at:'原文の取得日時',english_terms:'英語表現',abstract_ja:'要旨の和訳',reading:'論文の要点',...readingLabels,follow_ups:'次の調査の候補' };
 function describeValue(value: unknown, lookup: (id: string) => string = id => id): string {
   if (value === null || value === undefined) return 'なし';
   if (Array.isArray(value)) return value.length ? value.map(v => describeValue(v, lookup)).join('、') : '未登録';
@@ -117,23 +125,52 @@ async function request(path: string, body?: unknown) {
 }
 type Paper = Extract<Entity, { type: 'Paper' }>;
 type Claim = Extract<Entity, { type: 'Claim' }>;
-/** What a reader needs first: what the paper is, then its contributions and the five questions. */
-/** The overview of a paper: what it is, its abstract (kept open), the reading and the sources of the reading. */
-function PaperReading({ paper, abstract, sources }: { paper: Paper; abstract: React.ReactNode; sources: React.ReactNode }) {
-  const reading = paper.reading;
-  return <div className="paper-reading" aria-label="論文の要点">
-    <h4>どんなもの？</h4><p>{paper.one_line_summary}</p>
-    {abstract}
-    {reading ? (Object.keys(readingLabels) as (keyof typeof readingLabels)[]).filter(key => key !== 'key_figures' && key !== 'key_formulas' && key !== 'captions_ja').map(key => { const value = reading[key]; if (!value || (Array.isArray(value) ? !value.length : !String(value).trim())) return null; return <React.Fragment key={key}><h4>{readingLabels[key]}</h4>{Array.isArray(value) ? <ul>{value.map((item, i) => <li key={i}>{String(item)}</li>)}</ul> : <p>{String(value)}</p>}</React.Fragment>; }) : <p className="muted-label">要点 未作成</p>}
-    {reading && (reading.evidence?.length ? <><h4>要点の出典</h4>{sources}</> : reading.sources?.length ? <div className="reading-sources"><h4>原文</h4><ul>{reading.sources.map((source, i) => <li key={i}><a href={source.url} target="_blank" rel="noreferrer">{source.locator} · {source.url.replace(/^https?:\/\/(www\.)?/, '')} ↗</a></li>)}</ul></div> : <p className="muted-label">出典なし</p>)}
-  </div>;
+/** 概要 (design 0026): the one sentence that explains an item, common to issues, methods, papers, knowledge, the literature
+ * guide and the tutorial, with its sources. A literature guide entry is its own source. */
+function Overview({ entity, snapshot, onSelect }: { entity: Entity; snapshot: SurveySnapshot; onSelect: (id: string) => void }) {
+  const text = overviewOf(entity);
+  return <section className="detail-part" aria-label="概要"><h3 className="detail-part-heading">概要</h3>
+    {text.trim() ? <p className="overview">{text}</p> : <p className="muted-label">未作成</p>}
+    {entity.type !== 'Resource' && entity.type !== 'Domain' && entity.type !== 'Tutorial' && <Sources ids={overviewSources(entity)} snapshot={snapshot} onSelect={onSelect}/>}
+  </section>;
+}
+const OVERVIEW_TYPES = new Set(['Domain', 'Concept', 'Issue', 'Method', 'Keyword', 'Resource', 'Tutorial']);
+/** A paper's detail: 概要, 要旨, 解説, 貢献, 図解, 主張, 事実と出典, 関連 and メタ情報, all at the same level. Every reading field shows its
+ * own sources when the reading has per-field sources; an older reading lists its sources once at the end of 解説. */
+function PaperDetail({ paper, snapshot, preview, onSelect, claims, evidence, knowledge, related, refreshDisabled, onRefreshCitation }: { paper: Paper; snapshot: SurveySnapshot; preview: boolean; onSelect: (id: string) => void; claims: Claim[]; evidence: (claim: Claim) => string | undefined; knowledge: Extract<Entity, { type: 'Keyword' }>[]; related: React.ReactNode; refreshDisabled: boolean; onRefreshCitation: () => Promise<void> }) {
+  const arxiv = useArxivData(arxivIdOf(paper), preview);
+  const [refreshing, setRefreshing] = useState(false);
+  const reading = paper.reading, cites = reading?.cites;
+  const sources = (ids: string[] | undefined) => cites ? <Sources ids={ids ?? []} snapshot={snapshot} onSelect={onSelect}/> : null;
+  // 最新を取得: the arXiv page past the saved result and this paper's citation count, together.
+  async function refresh() {
+    setRefreshing(true);
+    try { await Promise.all([arxivIdOf(paper) ? arxiv.load(true) : Promise.resolve(false), onRefreshCitation()]); } finally { setRefreshing(false); }
+  }
+  const part = (label: string, body: React.ReactNode, className = '') => <section className={`detail-part ${className}`} aria-label={label}><h3 className="detail-part-heading">{label}</h3>{body}</section>;
+  return <>
+    <div className="detail-toolbar"><button className="toolbar-button" disabled={refreshing || refreshDisabled} onClick={() => void refresh()}><Icon name="refresh"/>{refreshing ? '取得中…' : '最新を取得'}</button></div>
+    <Overview entity={paper} snapshot={snapshot} onSelect={onSelect}/>
+    {part('要旨', <PaperAbstract key={`abstract-${paper.id}`} paper={paper}/>)}
+    {part('解説', <div className="paper-reading">
+      {reading ? EXPLANATION_FIELDS.map(key => reading[key]?.trim() ? <div key={key} className="reading-field"><h4>{readingLabels[key]}</h4><p>{reading[key]}</p>{sources(cites?.[key])}</div> : null) : <p className="muted-label">要点 未作成</p>}
+      <KeySections paper={paper} arxiv={arxiv}/>
+      {reading && !cites && (reading.evidence?.length ? <><h4>要点の出典</h4><Sources ids={reading.evidence} snapshot={snapshot} onSelect={onSelect}/></> : reading.sources?.length ? <div className="reading-sources"><h4>原文</h4><ul>{reading.sources.map((source, i) => <li key={i}><a href={source.url} target="_blank" rel="noreferrer">{source.locator} · {source.url.replace(/^https?:\/\/(www\.)?/, '')} ↗</a></li>)}</ul></div> : <p className="muted-label">出典なし</p>)}
+    </div>)}
+    {part('貢献', reading?.contributions.length ? <div className="paper-reading"><ul>{reading.contributions.map((item, i) => <li key={i}>{item}</li>)}</ul>{sources(cites?.contributions)}</div> : <p className="muted-label">未作成</p>)}
+    {part('図解', <Diagrams paper={paper} arxiv={arxiv} preview={preview} extra={paper.representative_figure && <FigureImage figure={paper.representative_figure}/>}/>)}
+    {part('主張', claims.length ? <ClaimRows claims={claims} evidence={evidence} onSelect={onSelect}/> : <p className="muted-label">主張なし</p>, 'claims')}
+    {part('事実と出典', <><PaperFacts paperId={paper.id} snapshot={snapshot} onSelect={onSelect}/>{knowledge.length > 0 && <><h4>使われるナレッジ</h4><div className="knowledge-chips">{knowledge.map(k => <button key={k.id} onClick={() => onSelect(k.id)}><small>{keywordCategories[k.category]}</small>{k.label}</button>)}</div></>}</>)}
+    {related}
+    {part('メタ情報', <><dl><dt>出版</dt><dd>{paper.year ?? '未取得'} · {paper.venue ?? '未取得'}</dd><dt>引用数</dt><dd>{paper.citation_count ?? '未取得'}{paper.citation_as_of && `（${[paper.citation_source, paper.citation_as_of].filter(Boolean).join('・')}）`}</dd><dt>コード</dt><dd>{codeAvailabilityLabels[paper.code_availability ?? 'unknown']}{paper.code_checked_at && `（${paper.code_checked_at}確認）`}</dd><dt>著者</dt><dd>{paper.authors.join(', ') || '未取得'}</dd></dl><div className="detail-links">{paper.code_availability === 'public' && paper.code_url && <a className="paper-code-link" href={paper.code_url} target="_blank" rel="noreferrer">コード ↗</a>}{paper.url && <a href={paper.url} target="_blank" rel="noreferrer">論文のページ ↗</a>}</div></>)}
+  </>;
 }
 /** The Japanese translation first when there is one; the stored original stays one click away. */
 function PaperAbstract({ paper }: { paper: Paper }) {
   const [original, setOriginal] = useState(false);
-  if (!paper.abstract) return null;
+  if (!paper.abstract) return <p className="muted-label">未取得</p>;
   const translated = !!paper.abstract_ja && !original;
-  return <div className="paper-abstract"><h4>アブストラクト</h4><p>{translated ? paper.abstract_ja : paper.abstract}</p><div className="detail-links">{paper.abstract_ja && <button className="text-toggle" onClick={() => setOriginal(!original)}>{original ? '和訳' : '原文'}</button>}{paper.abstract_source_url && <a href={paper.abstract_source_url} target="_blank" rel="noreferrer">取得元 ↗</a>}</div></div>;
+  return <div className="paper-abstract"><p>{translated ? paper.abstract_ja : paper.abstract}</p><div className="detail-links">{paper.abstract_ja && <button className="text-toggle" onClick={() => setOriginal(!original)}>{original ? '和訳' : '原文'}</button>}{paper.abstract_source_url && <a href={paper.abstract_source_url} target="_blank" rel="noreferrer">取得元 ↗</a>}</div></div>;
 }
 /** Claims rendered as status + statement rows; used for issue achievement and a paper's claims. */
 function ClaimRows({ claims, evidence, onSelect }: { claims: Claim[]; evidence?: (claim: Claim) => string | undefined; onSelect: (id: string) => void }) {
@@ -207,8 +244,17 @@ function App() {
   useEffect(() => { try { localStorage.setItem(SIDEBAR_WIDTH.key, String(sidebarWidth)); localStorage.setItem(SIDE_WIDTH.key, String(sideWidth)); } catch { /* per-viewer preference only */ } }, [sidebarWidth, sideWidth]);
   function setSidePanel(collapsedNext: boolean) { setSideCollapsed(collapsedNext); if (!collapsedNext) setStartHidden(false); try { localStorage.setItem(SIDE_KEY, collapsedNext ? '1' : '0'); } catch { /* per-viewer preference only */ } }
   function openSide(view: 'detail' | 'chat') { setSide(view); setSidePanel(false); }
+  // The items shown in the detail before the current one, for its back button; a collection starts its own.
+  const [trail, setTrail] = useState<string[]>([]);
+  useEffect(() => { setTrail([]); }, [workspace.active_branch]);
+  /** Shows an item in the detail, remembering the one shown before it. */
+  function show(id: string) {
+    if (id === selected) return;
+    if (selected && id) setTrail(current => [...current, selected].slice(-50));
+    setSelected(id);
+  }
   /** Selecting something in the main area opens the right panel on its detail, even when the panel was closed. */
-  function select(id: string) { setSelected(id); if (id) openSide('detail'); }
+  function select(id: string) { show(id); if (id) openSide('detail'); }
   function toggleSidebar() { setCollapsed(c => { try { localStorage.setItem(SIDEBAR_KEY, c ? '0' : '1'); } catch { /* per-viewer preference only */ } return !c; }); }
   const [run, setRun] = useState<Run | null>(null);
   const [agent, setAgent] = useState('Codexの状態を確認中');
@@ -232,6 +278,8 @@ function App() {
   const linked = (id: string) => snapshot.entities.find(e => e.id === id);
   const families = (id: string) => snapshot.relations.filter(r => r.type === 'instance_of' && r.from === id).map(r => linked(r.to)).filter((e): e is Extract<Entity, { type: 'Concept' }> => e?.type === 'Concept');
   const claimsAbout = (id: string) => snapshot.relations.filter(r => r.type === 'about' && r.to === id).map(r => linked(r.from)).filter((e): e is Claim => e?.type === 'Claim').sort((a, b) => (b.as_of ?? '').localeCompare(a.as_of ?? ''));
+  /** An issue's achievement for the trees: the latest claim about it, or 未調査. */
+  const achievement = (id: string) => { const top = claimsAbout(id)[0]; return top ? { tone: top.status, label: statusLabels[top.status], text: top.statement } : { tone: 'unknown', label: '未調査' }; };
   const firstExcerpt = (claim: Claim) => { for (const id of claim.evidence) { const e = linked(id); if (e?.type === 'Evidence' && e.excerpt.trim()) return e.excerpt; } return undefined; };
   const proposalLabel = (id: string) => run?.patch?.operations.flatMap(op => 'entity' in op ? [op.entity] : []).find(e => e.id === id)?.label ?? linked(id)?.label ?? id;
   useEffect(() => {
@@ -266,6 +314,22 @@ function App() {
     };
     void poll(); return () => { active = false; clearTimeout(timer); };
   }, [runId]);
+  // The state of the runs of the other collections, so the sidebar shows which are running and which have finished.
+  const [otherRuns, setOtherRuns] = useState<Record<string, Run['status']>>({});
+  useEffect(() => {
+    const others = Object.entries(pendingRuns).filter(([b]) => b !== workspace.active_branch);
+    if (!others.length) { setOtherRuns({}); return; }
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      const found = await Promise.all(others.map(async ([b, id]) => { try { return [b, ((await request(`/api/codex/runs/${id}`)) as Run).status] as const; } catch { return [b, null] as const; } }));
+      if (!active) return;
+      setOtherRuns(Object.fromEntries(found.filter((entry): entry is readonly [string, Run['status']] => !!entry[1])));
+      if (found.some(([, status]) => status === 'running')) timer = setTimeout(poll, 4000);
+    };
+    void poll(); return () => { active = false; clearTimeout(timer); };
+  }, [pendingRuns, workspace.active_branch]);
+  const runState = (b: Workspace['branches'][number]): Run['status'] | null => b.id === branch.id ? (run && run.id === runId ? run.status : runId ? 'running' : null) : pendingRuns[b.id] ? otherRuns[b.id] ?? null : null;
   // A deleted collection's run waits here, so 元に戻す can still bring the research back; it is cancelled once the undo is gone.
   const pendingCancel = useRef<{ runId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   function flushCancel() {
@@ -320,7 +384,9 @@ function App() {
     if (!run?.patch) return;
     const next = applyPatch(head.snapshot, run.patch, head.id);
     // The first research on an empty survey also names its collection after the researched title.
-    const title = head.snapshot.entities.length ? null : (run.patch.operations.find(op => op.op === 'set_title') as { title?: string } | undefined)?.title?.slice(0, 40) ?? null;
+    let title = head.snapshot.entities.length ? null : (run.patch.operations.find(op => op.op === 'set_title') as { title?: string } | undefined)?.title?.slice(0, 40) ?? null;
+    // Research that names nothing keeps the request it was asked with as the name, as shown while it ran.
+    if (!title && !head.snapshot.entities.length && next.title === NEW_SURVEY_TITLE && run.instruction?.trim()) { title = requestTitle(run.instruction); next.title = title; }
     newCommit(next, run.patch.message, 'codex', run.patch, title);
     setRun(null); dropBranchRun(branch.id, run.id);
     if (next.entities.some(e => e.type === 'Paper' && e.citation_count === null)) setCiteAfterSave(true);
@@ -328,10 +394,10 @@ function App() {
     if (instruction.trim() === (run.instruction ?? '').trim()) setInstruction('');
   }
   /** Fetches current citation counts from OpenAlex and saves them, with their source and date, as a new version. */
-  async function updateCitations(onlyMissing = false) {
+  async function updateCitations(pick: (paper: Paper) => boolean = () => true) {
     if (reviewPreview || historical || citing) return;
     const base = head, before = workspace;
-    const list = base.snapshot.entities.filter((e): e is Paper => e.type === 'Paper' && (!onlyMissing || e.citation_count === null));
+    const list = base.snapshot.entities.filter((e): e is Paper => e.type === 'Paper' && pick(e));
     if (!list.length) return;
     setCiting(true);
     try {
@@ -352,7 +418,7 @@ function App() {
     } catch (e) { setNotice(e instanceof Error ? e.message : '引用数を取得できませんでした'); }
     finally { setCiting(false); }
   }
-  useEffect(() => { if (citeAfterSave && !citing) { setCiteAfterSave(false); void updateCitations(true); } }, [citeAfterSave, head.id]);
+  useEffect(() => { if (citeAfterSave && !citing) { setCiteAfterSave(false); void updateCitations(p => p.citation_count === null); } }, [citeAfterSave, citing, head.id]);
   function closeRun() {
     if (!run) return;
     const previous = run, owner = branch.id;
@@ -385,7 +451,9 @@ function App() {
   const shownKeywords = keywords.filter(k => (activeCategory === 'all' || k.category === activeCategory)).sort((a, b) => keywordOrder.indexOf(a.category) - keywordOrder.indexOf(b.category) || a.label.localeCompare(b.label));
   const [renaming, setRenaming] = useState<string | null>(null);
   /** The name of a collection is the title of its latest version, so the sidebar and the page always agree. */
-  const collectionTitle = (b: Workspace['branches'][number]) => workspace.commits.find(c => c.id === b.head)?.snapshot.title || b.name;
+  const storedTitle = (b: Workspace['branches'][number]) => workspace.commits.find(c => c.id === b.head)?.snapshot.title || b.name;
+  // A new survey shows the request typed in its chat until research names it; renaming starts from the stored name.
+  const collectionTitle = (b: Workspace['branches'][number]) => b.id === branch.id && provisionalTitle ? provisionalTitle : storedTitle(b);
   /** Renames a collection and its survey together: the title changes in a new version and the collection follows it. */
   function renameCollection(id: string, value: string) {
     setRenaming(null);
@@ -412,6 +480,8 @@ function App() {
     });
   }
   const startingSurvey = !snapshot.entities.length && !historical;
+  // A new survey is named after the request typed or running in its chat until research gives it a title (design 0026).
+  const provisionalTitle = startingSurvey && snapshot.title === NEW_SURVEY_TITLE ? requestTitle(composerText) : '';
   const panelCollapsed = sideCollapsed || (startHidden && startingSurvey);
   // Codex's saved research, and the sample's own request and answer.
   const chatHistory = [...history].reverse().filter(c => (c.source === 'codex' || c.source === 'fixture') && c.instruction);
@@ -424,8 +494,8 @@ function App() {
     snapshot.entities.some(e => e.type === 'Method' && !families(e.id).length) && '手法を系統（考え方を共有する分類）に分け、各系統を古典から最新まで年順にそろえて',
     issues.length > 0 && !issues.some(e => claimsAbout(e.id).length) && '重要な課題の達成度を、論文の数値（ベンチマーク・指標・条件）で示して',
     snapshot.entities.length > 0 && !tutorialEntity && 'この調査から参入者向けのチュートリアルを作って（問題設定→解き方の流れ→まとめ→派生問題→実装→さらに学ぶ）',
-    papers.some(p => (p.abstract && !p.abstract_ja) || !p.reading) && 'アブストラクトの和訳と、論文の要点（貢献と5つの問い）を加えて',
-    papers.some(p => p.reading && !p.reading.sources?.length) && '論文の要点に、原文の出典（URLと位置）を付けて。arXivにある論文はHTML版の本文を読んで補って',
+    papers.some(p => (p.abstract && !p.abstract_ja) || !p.reading) && '要旨の和訳と、論文の要点（貢献と5つの問い）を加えて',
+    papers.some(p => p.reading && !p.reading.cites) && '論文の概要と要点の各項目に、原文の出典を付けて。arXivにある論文はHTML版の本文を読んで補って',
     (issues.some(e => !e.english_terms?.length) || methods.some(e => e.type === 'Method' && !e.english_terms?.length)) && '課題と手法に、論文で使われる英語表現を加えて',
     keywords.length > 0 && KEYWORD_SECTIONS.some(c => !keywords.some(k => k.category === c)) && `ナレッジで見つかっていない層（${KEYWORD_SECTIONS.filter(c => !keywords.some(k => k.category === c)).map(c => keywordCategories[c]).join('・')}）を論文から調べて`,
   ].filter((q): q is string => !!q).slice(0, 3);
@@ -447,20 +517,32 @@ function App() {
   const tabs = [['tutorial', 'チュートリアル'], ['issues', '課題'], ['evolution', '手法'], ['papers', '論文'], ['guide', '文献ガイド'], ['keywords', 'ナレッジ']];
   const connections = entity ? buildConnections(snapshot, entity.id) : [];
   const linkLabel = (c: Connection) => [...new Set(c.links.map(l => relationLabels[l.type]?.[l.outgoing ? 0 : 1] ?? '関連情報'))].join('・');
+  // The item the back button returns to: the last one shown before that this version still has.
+  const backTo = [...trail].reverse().map(id => id !== selected ? linked(id) : undefined).find(Boolean);
+  /** Back to the item shown before, skipping ones this version no longer has. */
+  function back() {
+    const rest = [...trail];
+    while (rest.length) {
+      const id = rest.pop()!;
+      if (id !== selected && linked(id)) { setTrail(rest); setSelected(id); return; }
+    }
+    setTrail([]);
+  }
   const display = (e: Entity) => e.type === 'Paper' ? e.title : e.label;
+  const related = connections.length > 0 && <section className="detail-part related" aria-label="関連"><h3 className="detail-part-heading">関連</h3>{connections.map(c => <button key={c.entity.id} onClick={() => show(c.entity.id)}><span className={`connection-dot t-${c.entity.type}`}/><span><small>{linkLabel(c)}{c.entity.type === 'Paper' && ` · ${c.entity.year ?? '年未取得'}`}</small>{display(c.entity)}</span><span aria-hidden="true">→</span></button>)}</section>;
   return <div className={`app ${collapsed ? 'sidebar-collapsed' : ''}`} style={{ '--sidebar-width': `${sidebarWidth}px`, '--side-width': `${sideWidth}px` } as React.CSSProperties}>
     {!collapsed && <ResizeHandle label="コレクションの幅" width={sidebarWidth} limits={SIDEBAR_WIDTH} edge="right" column=".sidebar" onChange={setSidebarWidth}/>}
     <aside className="sidebar">
       <div className="brand-row"><a className="brand" href={reviewPreview ? '/?preview=lab' : '/'} aria-label="Survey Studio"><span className="brand-icon"><Icon name="network"/></span><span className="brand-name">Survey Studio</span></a><button className="sidebar-toggle" aria-expanded={!collapsed} aria-label={collapsed ? 'コレクションを開く' : 'コレクションを折りたたむ'} title={collapsed ? '開く' : '折りたたむ'} onClick={toggleSidebar}><Icon name="panel"/></button></div>
       <div className="sidebar-label">コレクション <span>{workspace.branches.length}</span></div>
-      <nav className="collections" aria-label="調査・ブランチ">{workspace.branches.map((b, i) => <div key={b.id} className={`collection-row ${b.id === branch.id ? 'current' : ''}`}>{renaming === b.id ? <input className="collection-rename" aria-label="コレクションの名前" defaultValue={collectionTitle(b)} autoFocus maxLength={60} onFocus={e => e.currentTarget.select()} onBlur={e => renameCollection(b.id, e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) renameCollection(b.id, e.currentTarget.value); if (e.key === 'Escape') setRenaming(null); }}/> : <><button className="collection" title={collectionTitle(b)} aria-current={b.id === branch.id ? 'true' : undefined} onClick={() => guard(() => { save({ ...workspace, active_branch: b.id }); setViewId(null); })}><span className={`collection-dot c${i % 5}`}/><span className="collection-name" onDoubleClick={e => { e.stopPropagation(); setRenaming(b.id); }}>{collectionTitle(b)}</span></button><button className="collection-edit" aria-label={`${collectionTitle(b)}の名前を変更`} title="名前を変更" onClick={() => setRenaming(b.id)}><Icon name="pen"/></button>{workspace.branches.length > 1 && <button className="collection-delete" aria-label={`${collectionTitle(b)}を削除`} title="削除" onClick={() => removeCollection(b.id)}><CloseIcon size={14}/></button>}</>}</div>)}</nav>
+      <nav className="collections" aria-label="調査・ブランチ">{workspace.branches.map((b, i) => <div key={b.id} className={`collection-row ${b.id === branch.id ? 'current' : ''}`}>{renaming === b.id ? <input className="collection-rename" aria-label="コレクションの名前" defaultValue={storedTitle(b)} autoFocus maxLength={60} onFocus={e => e.currentTarget.select()} onBlur={e => renameCollection(b.id, e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) renameCollection(b.id, e.currentTarget.value); if (e.key === 'Escape') setRenaming(null); }}/> : <><button className="collection" title={collectionTitle(b)} aria-current={b.id === branch.id ? 'true' : undefined} onClick={() => guard(() => { save({ ...workspace, active_branch: b.id }); setViewId(null); })}><span className={`collection-dot c${i % 5}`}/><span className="collection-name" onDoubleClick={e => { e.stopPropagation(); setRenaming(b.id); }}>{collectionTitle(b)}</span>{(() => { const state = runState(b); return state && <span className={`collection-state ${state}`}>{runStateLabels[state]}</span>; })()}</button><button className="collection-edit" aria-label={`${collectionTitle(b)}の名前を変更`} title="名前を変更" onClick={() => setRenaming(b.id)}><Icon name="pen"/></button>{workspace.branches.length > 1 && <button className="collection-delete" aria-label={`${collectionTitle(b)}を削除`} title="削除" onClick={() => removeCollection(b.id)}><CloseIcon size={14}/></button>}</>}</div>)}</nav>
       <div className="sidebar-footer"><span><span className="online-dot"/>このブラウザに保存</span>{!reviewPreview && <a className="lab-entry" href="/lab">開発Lab ↗</a>}</div>
     </aside>
     <div className="body">
       <header className="trail-bar"><details className="history-menu" ref={historyRef}><summary aria-label="版の履歴"><Icon name="clock"/><span>{stamp(commit.created_at)}</span>{commit.id === head.id ? <em>最新</em> : <em className="past">過去の版</em>}</summary><ol>{history.map(c => <li key={c.id}><button className={c.id === commit.id ? 'current' : ''} aria-current={c.id === commit.id ? 'true' : undefined} onClick={() => { setViewId(c.id); if (historyRef.current) historyRef.current.open = false; }}><span className={`trail-dot ${c.source}`}/><time dateTime={c.created_at}>{stamp(c.created_at)}</time>{c.id === head.id && <em>最新</em>}<small>{c.message}</small></button></li>)}</ol></details><div className="trail-actions"><button onClick={() => guard(() => createSurvey(fixture, `mapf-${workspace.branches.length}`, 'fixture'))}>サンプル</button><button className="primary" onClick={startNewResearch}><Icon name="plus"/> 新規調査</button><button onClick={() => guard(fork)}><Icon name="branch"/> フォーク</button></div></header>
       <main>
         <div className={`work-area ${panelCollapsed ? 'side-collapsed' : ''}`}><section className={`canvas ${tab === 'evolution' ? 'canvas-evolution' : ''}`}>
-        <div className="heading">{renaming === `title:${branch.id}` ? <input className="title-rename" aria-label="調査の名前" defaultValue={snapshot.title} autoFocus maxLength={60} onFocus={e => e.currentTarget.select()} onBlur={e => renameCollection(branch.id, e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) renameCollection(branch.id, e.currentTarget.value); if (e.key === 'Escape') setRenaming(null); }}/> : <><h1>{snapshot.title}</h1>{!historical && <button className="title-edit" aria-label="名前を変更" title="名前を変更" onClick={() => setRenaming(`title:${branch.id}`)}><Icon name="pen"/></button>}</>}</div>
+        <div className="heading">{renaming === `title:${branch.id}` ? <input className="title-rename" aria-label="調査の名前" defaultValue={snapshot.title} autoFocus maxLength={60} onFocus={e => e.currentTarget.select()} onBlur={e => renameCollection(branch.id, e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) renameCollection(branch.id, e.currentTarget.value); if (e.key === 'Escape') setRenaming(null); }}/> : <><h1>{provisionalTitle || snapshot.title}</h1>{!historical && <button className="title-edit" aria-label="名前を変更" title="名前を変更" onClick={() => setRenaming(`title:${branch.id}`)}><Icon name="pen"/></button>}</>}</div>
         {historical && <div className="historical-note" role="status"><strong>過去の版</strong><button onClick={() => guard(fork)}>この版からフォーク</button><button onClick={() => setViewId(null)}>最新に戻る</button></div>}
         {startingSurvey ? <div className="start-research"><div className="suggestions">{SUGGESTIONS.map(q => <button key={q} onClick={() => { setInstruction(q); startRef.current?.focus(); }}>{q}</button>)}</div><div className="agent-input start-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={startRef} aria-label="サーベイしたい研究分野" value={composerText} disabled={busy} onChange={e => setInstruction(e.target.value)} placeholder="サーベイしたい研究分野"/><SendButton busy={busy} disabled={!canResearch} onClick={() => void askCodex()}/></div><div className="composer-meta"><button className="cache-toggle" role="switch" aria-checked={paperCache} onClick={togglePaperCache}><span className="switch-track"><span/></span>保存済みの論文を使う</button><p className="agent-status">{agent}</p></div>{runTurn && <div className="start-run chat">{runTurn}</div>}</div> : <>
         <div className="modes"><div className="tabs" role="tablist" aria-label="サーベイのビュー">{tabs.map(([id, name]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon name={id === 'issues' ? 'layers' : id === 'evolution' ? 'branch' : id === 'tutorial' ? 'book' : id === 'keywords' ? 'spark' : id === 'guide' ? 'grid' : 'paper'}/>{name}</button>)}</div>
@@ -468,10 +550,10 @@ function App() {
           {tab === 'guide' && <LiteratureGuide snapshot={snapshot} selected={selected} onSelect={select}/>}
           {tab === 'evolution' && <MethodEvolution snapshot={snapshot} selected={selected} onSelect={select} onSample={() => guard(() => createSurvey(fixture, `evolution-${workspace.branches.length}`, 'fixture'))}/>}
           {tab === 'issues' && <div className="view-toolbar"><SubTabs label="課題の表示" value={issueView} options={[['tree', '課題ツリー'], ['papers', '論文ツリー'], ['list', '一覧']]} onChange={setIssueView}/></div>}
-          {issueTree && (issueTree.issues.size ? <><TimelineTree layout={issueTree.layout} label="課題ツリー" years={false} selected={selected} onSelect={select} card={id => { const i = issueTree.issues.get(id)!; return { title: i.label, meta: i.english_terms?.[0], hint: i.description }; }}
-            rowLabel={key => { const issue = key ? issueTree.issues.get(key) : undefined; return issue ? <button className={selected === issue.id ? 'chosen' : ''} title={issue.description} onClick={() => select(issue.id)}><span>{issue.label}{issue.english_terms?.[0] && <small className="row-term">{issue.english_terms[0]}</small>}</span></button> : null; }}/></> : <div className="empty">課題なし</div>)}
+          {issueTree && (issueTree.issues.size ? <><TimelineTree layout={issueTree.layout} label="課題ツリー" years={false} item={ITEM.issue} selected={selected} onSelect={select} card={id => { const i = issueTree.issues.get(id)!; return { title: i.label, meta: i.english_terms?.[0], note: overviewOf(i), hint: i.description, status: achievement(i.id) }; }}
+            rowLabel={key => { const issue = key ? issueTree.issues.get(key) : undefined; return issue ? <RowHeading title={issue.label} term={issue.english_terms?.[0]} overview={overviewOf(issue)} status={achievement(issue.id)} chosen={selected === issue.id} onClick={() => select(issue.id)}/> : null; }}/></> : <div className="empty">課題なし</div>)}
           {issuePapers && (issuePapers.issues.size ? <><TimelineTree layout={issuePapers.layout} label="課題の論文ツリー" item={ITEM.paper} selected={selected} onSelect={select} card={id => paperCard(issuePapers.papers.get(id)!, issuePapers.claims.get(id)?.statement)}
-            rowLabel={key => { const issue = key ? issuePapers.issues.get(key) : undefined; return issue ? <button className={selected === issue.id ? 'chosen' : ''} style={{ paddingLeft: issuePapers.depth.get(issue.id)! * 12 }} title={issue.description} onClick={() => select(issue.id)}><span>{issue.label}{issue.english_terms?.[0] && <small className="row-term">{issue.english_terms[0]}</small>}</span></button> : <span className="family-none">未分類</span>; }}/></> : <div className="empty">課題なし</div>)}
+            rowLabel={key => { const issue = key ? issuePapers.issues.get(key) : undefined; return issue ? <RowHeading title={issue.label} term={issue.english_terms?.[0]} overview={overviewOf(issue)} status={achievement(issue.id)} indent={issuePapers.depth.get(issue.id)! * 12} chosen={selected === issue.id} onClick={() => select(issue.id)}/> : <span className="family-none">未分類</span>; }}/></> : <div className="empty">課題なし</div>)}
           {tab === 'issues' && issueView === 'list' && <div className="issue-list">{issues.map(e => <button key={e.id} className={`issue-card ${e.id === selected ? 'chosen' : ''}`} onClick={() => select(e.id)}><div className="card-top">{snapshot.relations.filter(r => r.type === 'part_of' && r.from === e.id).map(r => <small key={r.id}>↳ {linked(r.to)?.label}</small>)}</div><h3>{e.label}</h3>{!!e.english_terms?.length && <p className="english-terms">{e.english_terms.join(' · ')}</p>}<p>{e.description}</p>{(() => { const top = claimsAbout(e.id)[0]; return top && <p className="achievement-line"><span className={`status-chip ${top.status}`}>{statusLabels[top.status]}</span><span>{top.statement}</span></p>; })()}{snapshot.relations.some(r => r.type === 'addresses' && r.to === e.id) && <div className="card-bottom">{snapshot.relations.filter(r => r.type === 'addresses' && r.to === e.id).map(r => <span key={r.id}>{linked(r.from)?.label}</span>)}</div>}</button>)}{!issues.length && <div className="empty">課題なし</div>}</div>}
           {tab === 'tutorial' && <TutorialView snapshot={snapshot} preview={reviewPreview} onSelect={select}/>}
           {tab === 'papers' && papers.length > 0 && <div className="view-toolbar"><SubTabs label="論文の表示" value={paperView} options={[['all', 'すべて'], ['representative', '代表論文']]} onChange={setPaperView}/><button className="toolbar-button" disabled={citing || historical || reviewPreview} onClick={() => void updateCitations()}><Icon name="refresh"/>{citing ? '更新中…' : '引用数を更新'}</button></div>}
@@ -480,28 +562,22 @@ function App() {
           {tab === 'keywords' && <div className="keyword-groups">{(Object.keys(keywordCategories) as (keyof typeof keywordCategories)[]).map(category => [category, shownKeywords.filter(k => k.category === category)] as const).filter(([category, items]) => items.length || ((KEYWORD_SECTIONS as readonly string[]).includes(category) && (activeCategory === 'all' || activeCategory === category))).map(([category, items]) => <section key={category} className="keyword-group"><h3>{keywordCategories[category]}</h3>{items.length ? <div className="keyword-list">{items.map(k => <button key={k.id} className={`keyword-card ${selected === k.id ? 'chosen' : ''}`} onClick={() => select(k.id)}>{(k.aliases.length > 0 || k.as_of) && <div className="card-top"><small>{k.aliases.join(' / ')}</small>{k.as_of && <span className="as-of">{k.as_of}時点</span>}</div>}<h3>{k.label}</h3><p>{k.meaning}</p>{k.papers.length > 0 && <div className="card-bottom">{k.papers.map(id => <span key={id}>{linked(id)?.label ?? id}</span>)}</div>}</button>)}</div> : <p className="muted">見つからず</p>}</section>)}</div>}
         </>}
         </section>{panelCollapsed ? <aside className="side-panel side-rail" aria-label="詳細とチャット"><button className="side-toggle" aria-expanded={false} aria-label="パネルを開く" title="開く" onClick={() => setSidePanel(false)}><Icon name="panel"/></button><button aria-label="チャットを開く" title="チャット" onClick={() => openSide("chat")}><Icon name="spark"/>{run?.status === "running" && <span className="side-live" aria-label="実行中"/>}</button><button aria-label="詳細を開く" title="詳細" onClick={() => openSide("detail")}><Icon name="layers"/></button></aside> : <aside className="side-panel" aria-label="詳細とチャット"><ResizeHandle label="詳細とチャットの幅" width={sideWidth} limits={SIDE_WIDTH} edge="left" column=".side-panel" onChange={setSideWidth}/><div className="side-tabs" role="tablist" aria-label="右パネル">{(["chat", "detail"] as const).map(id => <button key={id} role="tab" aria-selected={side === id} className={side === id ? "active" : ""} onClick={() => setSide(id)}>{id === "detail" ? "詳細" : "チャット"}{id === "chat" && run?.status === "running" && <span className="side-live" aria-label="実行中"/>}</button>)}<button className="side-toggle" aria-expanded={true} aria-label="パネルを折りたたむ" title="折りたたむ" onClick={() => setSidePanel(true)}><Icon name="panel"/></button></div><div className="side-body" ref={sideRef}>{side === "detail" ? <div className="inspector">{entity ? <>
-          <div className="entity-type"><span className={`type-chip t-${entity.type}`}>{entityLabels[entity.type]}</span><span>{{fixture:'サンプル',user:'編集済み',codex:'Codexの提案'}[entity.provenance]}</span></div>
+          <div className="entity-type"><button className="detail-back" disabled={!backTo} onClick={back} aria-label={backTo ? `戻る：${display(backTo)}` : '戻る'} title={backTo ? `戻る：${display(backTo)}` : '戻る'}><Icon name="back"/></button><span className={`type-chip t-${entity.type}`}>{entityLabels[entity.type]}</span><span>{{fixture:'サンプル',user:'編集済み',codex:'Codexの提案'}[entity.provenance]}</span></div>
           <div className="entity-heading"><h2>{display(entity)}</h2></div>
           {(entity.type === 'Issue' || entity.type === 'Method' || entity.type === 'Concept') && !!entity.english_terms?.length && <p className="english-terms">{entity.english_terms.join(' · ')}</p>}
-          {entity.type === 'Method' && families(entity.id).length > 0 && <div className="method-families">{families(entity.id).map(f => <button key={f.id} className="type-chip t-Concept" onClick={() => setSelected(f.id)}>{f.label}</button>)}</div>}
+          {entity.type === 'Method' && families(entity.id).length > 0 && <div className="method-families">{families(entity.id).map(f => <button key={f.id} className="type-chip t-Concept" onClick={() => show(f.id)}>{f.label}</button>)}</div>}
           {entity.type === 'Paper' && <p className="paper-byline">{[entity.authors.slice(0, 3).join(', ') + (entity.authors.length > 3 ? ' ほか' : ''), entity.year, entity.venue].filter(Boolean).join(' · ')}</p>}
-          {'description' in entity && entity.description && <p>{entity.description}</p>}
-          {(entity.type === 'Issue' || entity.type === 'Method' || entity.type === 'Concept' || entity.type === 'Keyword' || entity.type === 'Claim') && <section className="detail-section" aria-label="出典"><h3>出典</h3><Sources ids={entity.evidence ?? []} snapshot={snapshot} onSelect={setSelected}/></section>}
-          {entity.type === 'Paper' && <>
-            <section className="paper-part" aria-label="概要"><h3 className="paper-part-heading">概要</h3><PaperReading paper={entity} abstract={<PaperAbstract key={`abstract-${entity.id}`} paper={entity}/>} sources={<Sources ids={entity.reading?.evidence ?? []} snapshot={snapshot} onSelect={setSelected}/>}/><KeyFigures key={`figures-${entity.id}`} paper={entity} preview={reviewPreview}/>{entity.representative_figure && <FigureImage figure={entity.representative_figure}/>}</section>
-            <section className="paper-part claims" aria-label="主張と根拠"><h3 className="paper-part-heading">主張と根拠</h3>{entity.claims.length ? <ClaimRows claims={entity.claims.map(id => linked(id)).filter((e): e is Claim => e?.type === 'Claim')} evidence={firstExcerpt} onSelect={setSelected}/> : <p className="muted-label">主張なし</p>}</section>
-            <section className="paper-part" aria-label="事実と出典"><h3 className="paper-part-heading">事実と出典</h3><PaperFacts paperId={entity.id} snapshot={snapshot} onSelect={setSelected}/>{usedKnowledge(entity.id).length > 0 && <><h4>使われるナレッジ</h4><div className="knowledge-chips">{usedKnowledge(entity.id).map(k => <button key={k.id} onClick={() => setSelected(k.id)}><small>{keywordCategories[k.category]}</small>{k.label}</button>)}</div></>}</section>
-            <section className="paper-part" aria-label="メタ情報"><h3 className="paper-part-heading">メタ情報</h3><dl><dt>出版</dt><dd>{entity.year ?? '未取得'} · {entity.venue ?? '未取得'}</dd><dt>引用数</dt><dd>{entity.citation_count ?? '未取得'}{entity.citation_as_of && `（${[entity.citation_source, entity.citation_as_of].filter(Boolean).join('・')}）`}</dd><dt>コード</dt><dd>{codeAvailabilityLabels[entity.code_availability ?? 'unknown']}{entity.code_checked_at && `（${entity.code_checked_at}確認）`}</dd><dt>著者</dt><dd>{entity.authors.join(', ') || '未取得'}</dd></dl><div className="detail-links">{entity.code_availability === 'public' && entity.code_url && <a className="paper-code-link" href={entity.code_url} target="_blank" rel="noreferrer">コード ↗</a>}{entity.url && <a href={entity.url} target="_blank" rel="noreferrer">論文のページ ↗</a>}</div></section>
-          </>}
-          {entity.type === 'Issue' && <section className="detail-section claims" aria-label="達成度"><h3>達成度</h3>{claimsAbout(entity.id).length ? <ClaimRows claims={claimsAbout(entity.id)} evidence={firstExcerpt} onSelect={setSelected}/> : <p className="muted-label">未調査</p>}</section>}
-          {entity.type === 'Claim' && <><span className="tag">{statusLabels[entity.status]}</span><p>{entity.statement}</p></>}
-          {entity.type === 'Keyword' && <><span className="type-chip t-Keyword">{keywordCategories[entity.category]}</span>{entity.as_of && <span className="as-of">{entity.as_of}時点</span>}{entity.aliases.length > 0 && <p className="keyword-aliases">{entity.aliases.join(' / ')}</p>}<p>{entity.meaning}</p>{entity.official_url && <div className="detail-links"><a href={entity.official_url} target="_blank" rel="noreferrer">公式ページ ↗</a></div>}</>}
+          {entity.type === 'Keyword' && <div className="keyword-meta"><span className="type-chip t-Keyword">{keywordCategories[entity.category]}</span>{entity.as_of && <span className="as-of">{entity.as_of}時点</span>}{entity.aliases.length > 0 && <p className="keyword-aliases">{entity.aliases.join(' / ')}</p>}</div>}
+          {OVERVIEW_TYPES.has(entity.type) && <Overview entity={entity} snapshot={snapshot} onSelect={show}/>}
+          {entity.type === 'Paper' && <PaperDetail key={entity.id} paper={entity} snapshot={snapshot} preview={reviewPreview} onSelect={show} claims={entity.claims.map(id => linked(id)).filter((e): e is Claim => e?.type === 'Claim')} evidence={firstExcerpt} knowledge={usedKnowledge(entity.id)} related={related} refreshDisabled={citing || historical || reviewPreview} onRefreshCitation={() => updateCitations(p => p.id === entity.id)}/>}
+          {entity.type === 'Issue' && <section className="detail-part claims" aria-label="達成度"><h3 className="detail-part-heading">達成度</h3>{claimsAbout(entity.id).length ? <ClaimRows claims={claimsAbout(entity.id)} evidence={firstExcerpt} onSelect={show}/> : <p className="muted-label">未調査</p>}</section>}
+          {entity.type === 'Claim' && <section className="detail-part" aria-label="主張"><h3 className="detail-part-heading">主張</h3><span className="tag">{statusLabels[entity.status]}</span><p>{entity.statement}</p><Sources ids={entity.evidence} snapshot={snapshot} onSelect={show}/></section>}
+          {entity.type === 'Claim' && <section className="detail-part" aria-label="条件"><h3 className="detail-part-heading">条件</h3><dl><dt>Task</dt><dd>{entity.scope.task}</dd><dt>Setting</dt><dd>{entity.scope.setting}</dd><dt>Metric</dt><dd>{entity.scope.metric}</dd><dt>評価時点</dt><dd>{entity.as_of ?? '未取得'}</dd><dt>前提</dt><dd>{entity.scope.assumptions.join(' / ') || '未記入'}</dd><dt>制約</dt><dd>{entity.scope.limitations.join(' / ') || '未記入'}</dd></dl></section>}
+          {entity.type === 'Keyword' && (entity.official_url || entity.definition_excerpt || entity.source_url) && <div className="detail-section">{entity.definition_excerpt && <blockquote>{entity.definition_excerpt}</blockquote>}{entity.locator && <dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl>}<div className="detail-links">{entity.official_url && <a href={entity.official_url} target="_blank" rel="noreferrer">公式ページ ↗</a>}{entity.source_url && <a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a>}</div></div>}
           {entity.type === 'Evidence' && <><span className="tag">{{unverified:'未確認',abstract_only:'要旨のみ確認',verified:'原文を確認済み'}[entity.verification]}</span><blockquote>{entity.excerpt || '本文断片は未取得'}</blockquote></>}
-          {entity.type === 'Claim' && <div className="detail-section"><dl><dt>Task</dt><dd>{entity.scope.task}</dd><dt>Setting</dt><dd>{entity.scope.setting}</dd><dt>Metric</dt><dd>{entity.scope.metric}</dd><dt>評価時点</dt><dd>{entity.as_of ?? '未取得'}</dd><dt>前提</dt><dd>{entity.scope.assumptions.join(' / ') || '未記入'}</dd><dt>制約</dt><dd>{entity.scope.limitations.join(' / ') || '未記入'}</dd></dl></div>}
-          {entity.type === 'Resource' && <div className="detail-section"><dl><dt>種類</dt><dd>{RESOURCE_KINDS[entity.kind]}</dd><dt>題</dt><dd>{entity.title}</dd>{entity.authors.length > 0 && <><dt>著者</dt><dd>{entity.authors.join(', ')}</dd></>}{entity.published && <><dt>公開</dt><dd>{entity.published}</dd></>}{entity.checked_at && <><dt>確認日</dt><dd>{entity.checked_at}</dd></>}</dl><p>{entity.summary}</p><div className="detail-links">{[...entity.issues, ...entity.methods, ...(entity.paper ? [entity.paper] : [])].map(id => <button key={id} className="cite" onClick={() => setSelected(id)}>{linked(id)?.label ?? id}</button>)}<a href={entity.url} target="_blank" rel="noreferrer">開く ↗</a></div></div>}
-          {entity.type === 'Keyword' && (entity.definition_excerpt || entity.source_url) && <div className="detail-section">{entity.definition_excerpt && <blockquote>{entity.definition_excerpt}</blockquote>}{entity.locator && <dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl>}{entity.source_url && <div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div>}</div>}
-          {entity.type === 'Evidence' && <div className="detail-section"><dl>{entity.origin && <><dt>出典元</dt><dd><button className="cite" onClick={() => setSelected(entity.origin!)}>{linked(entity.origin)?.label ?? entity.origin}</button></dd></>}<dt>出典の位置</dt><dd>{entity.locator}</dd></dl><div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div></div>}
-          {connections.length > 0 && <div className="detail-section related"><h3>関連 <span>{connections.length}</span></h3>{connections.map(c => <button key={c.entity.id} onClick={() => setSelected(c.entity.id)}><span className={`connection-dot t-${c.entity.type}`}/><span><small>{linkLabel(c)}{c.entity.type === 'Paper' && ` · ${c.entity.year ?? '年未取得'}`}</small>{display(c.entity)}</span><span aria-hidden="true">→</span></button>)}</div>}
+          {entity.type === 'Evidence' && <div className="detail-section"><dl>{entity.origin && <><dt>出典元</dt><dd><button className="cite" onClick={() => show(entity.origin!)}>{linked(entity.origin)?.label ?? entity.origin}</button></dd></>}<dt>出典の位置</dt><dd>{entity.locator}</dd></dl><div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div></div>}
+          {entity.type === 'Resource' && <section className="detail-part" aria-label="文献"><h3 className="detail-part-heading">文献</h3><dl><dt>種類</dt><dd>{RESOURCE_KINDS[entity.kind]}</dd><dt>題</dt><dd>{entity.title}</dd>{entity.authors.length > 0 && <><dt>著者</dt><dd>{entity.authors.join(', ')}</dd></>}{entity.published && <><dt>公開</dt><dd>{entity.published}</dd></>}{entity.checked_at && <><dt>確認日</dt><dd>{entity.checked_at}</dd></>}</dl><div className="detail-links">{[...entity.issues, ...entity.methods, ...(entity.paper ? [entity.paper] : [])].map(id => <button key={id} className="cite" onClick={() => show(id)}>{linked(id)?.label ?? id}</button>)}<a href={entity.url} target="_blank" rel="noreferrer">開く ↗</a></div></section>}
+          {entity.type !== 'Paper' && related}
         </> : <div className="empty">未選択</div>}</div> : <div className="chat">{chatTurns.map(t => t.kind === 'commit' ? <div key={t.id} className="chat-turn"><div className="chat-msg user">{t.commit.instruction}</div><div className="chat-msg codex"><small>{stamp(t.created_at)} · {t.commit.source === 'fixture' ? 'サンプル' : '保存済み'}</small><p>{t.commit.message}</p></div></div> : <div key={t.id} className="chat-turn"><div className="chat-msg user">{t.explanation.instruction}</div><div className="chat-msg codex explanation"><small>{stamp(t.created_at)} · 解説</small><div className="explanation-body">{t.explanation.message}</div>{t.explanation.sources.length > 0 && <ul className="explanation-sources">{t.explanation.sources.map(s => <li key={s.url}><a href={s.url} target="_blank" rel="noreferrer">{s.title || s.url} ↗</a></li>)}</ul>}</div></div>)}{!startingSurvey && runTurn}{!chatTurns.length && !run && <div className="empty">チャットなし</div>}{followUps.length > 0 && run?.status !== 'running' && <div className="follow-ups" role="group" aria-label="次の調査の候補">{followUps.map(q => <button key={q} onClick={() => { setInstruction(q); composerRef.current?.focus(); }}><Icon name="spark"/><span>{q}</span></button>)}</div>}</div>}</div><div className="side-composer"><div className="agent-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={composerRef} aria-label={snapshot.entities.length ? '追加の依頼' : 'サーベイしたい研究分野'} value={composerText} disabled={busy} onChange={e => setInstruction(e.target.value)} placeholder={snapshot.entities.length ? '追加の依頼' : 'サーベイしたい研究分野'}/><SendButton busy={busy} disabled={!canResearch} onClick={() => void askCodex()}/></div><div className="composer-meta"><button className="cache-toggle" role="switch" aria-checked={paperCache} onClick={togglePaperCache}><span className="switch-track"><span/></span>保存済みの論文を使う</button><p className="agent-status">{agent}</p></div></div></aside>}</div>
       </main>
     </div>{notice && <div className="toast" role="status"><span>{notice}</span>{undo && <button className="toast-action" onClick={() => { undo(); setUndo(null); setNotice('元に戻しました'); }}>元に戻す</button>}<button aria-label="通知を閉じる" onClick={() => { flushCancel(); setNotice(''); setUndo(null); }}><CloseIcon/></button></div>}

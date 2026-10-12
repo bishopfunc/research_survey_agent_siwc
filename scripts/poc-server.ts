@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { deepenInstructions, INTEGRATE_INSTRUCTIONS, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
+import { deepenInstructions, integrateInstructions, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -23,7 +23,7 @@ import { sanitizeLibrary } from '../packages/agent/src/library';
 import { enrichPatch } from './enrich';
 import { openSqlite, fileBlobStore } from '../packages/storage/src/node';
 import { libraryKey, paperLibrary } from '../packages/storage/src/index';
-import { LIBRARY_FIELDS, MAX_LIBRARY_CHARS, MAX_LIBRARY_PAPERS } from '../packages/agent/src/library';
+import { libraryEntry, MAX_LIBRARY_CHARS, MAX_LIBRARY_PAPERS } from '../packages/agent/src/library';
 import type { LibraryPaper } from '../packages/agent/src/prompt';
 
 const port = Number(process.env.POC_PORT ?? 8788);
@@ -65,12 +65,14 @@ const blobs = fileBlobStore(resolve('.poc/blobs'));
 const arxivDirectory = resolve('.poc/arxiv');
 async function readArxivCache(id: string) {
   // A result without figures may come from a page that was not ready; it is fetched again after a day.
-  const stale = (saved: { figures?: unknown[]; algorithms?: unknown[]; equations?: unknown[]; tables?: unknown[]; retrieved_at?: string }) => ![saved.figures, saved.algorithms, saved.equations, saved.tables].some(list => list?.length) && Date.now() - Date.parse(saved.retrieved_at ?? '') > 86_400_000;
+  const stale = (saved: { figures?: unknown[]; algorithms?: unknown[]; equations?: unknown[]; tables?: unknown[]; sections?: unknown[]; retrieved_at?: string }) => ![saved.figures, saved.algorithms, saved.equations, saved.tables, saved.sections].some(list => list?.length) && Date.now() - Date.parse(saved.retrieved_at ?? '') > 86_400_000;
   const parse = (text: string | null) => { try { const saved = text ? JSON.parse(text) : null; return saved?.parser === FIGURE_PARSER_VERSION && !stale(saved) ? saved : null; } catch { return null; } };
   return parse(await blobs.get(`arxiv/${cacheName(id)}`)) ?? parse((() => { try { return readFileSync(join(arxivDirectory, cacheName(id)), 'utf8'); } catch { return null; } })());
 }
-async function fetchAndCacheArxiv(id: string) {
+async function fetchAndCacheArxiv(id: string, keep: Awaited<ReturnType<typeof readArxivCache>> = null) {
   const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
+  // 最新を取得 never replaces a saved result that has content with an empty one (a page not converted yet, a 404).
+  if (keep && ![result.figures, result.algorithms, result.equations, result.tables, result.sections].some(list => list.length)) return keep;
   await blobs.put(`arxiv/${cacheName(id)}`, JSON.stringify(result), { contentType: 'application/json' });
   return result;
 }
@@ -88,10 +90,10 @@ async function saveReadings(patch: SurveyPatch, runId: string, promptVersion: st
 /** The papers stored in the library that the current survey lacks, plus the browser's entries the library does not have yet. */
 async function libraryForRun(snapshot: SurveySnapshot, fromBrowser: Record<string, unknown>[]) {
   const present = new Set(snapshot.entities.flatMap(e => e.type === 'Paper' ? [libraryKey(e)] : []).filter((k): k is string => !!k));
-  const stored = (await papersDb.libraryFor(present, MAX_LIBRARY_PAPERS)).map(p => Object.fromEntries(LIBRARY_FIELDS.filter(f => p[f] !== undefined).map(f => [f, p[f]])));
+  const stored = (await papersDb.libraryFor(present, MAX_LIBRARY_PAPERS)).map(p => libraryEntry(p));
   const seen = new Set([...present, ...stored.map(p => libraryKey(p)).filter((k): k is string => !!k)]);
   const out: Record<string, unknown>[] = []; let chars = 0;
-  for (const entry of [...stored, ...fromBrowser.filter(p => { const k = libraryKey(p); return !k || !seen.has(k); })]) {
+  for (const entry of [...stored, ...fromBrowser.filter(p => { const k = libraryKey(p); return !k || !seen.has(k); }).map(p => libraryEntry(p))]) {
     const size = JSON.stringify(entry).length;
     if (out.length >= MAX_LIBRARY_PAPERS || chars + size > MAX_LIBRARY_CHARS) break;
     out.push(entry); chars += size;
@@ -107,11 +109,11 @@ const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tok
 function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled' } = {}): Promise<CodexAttempt> {
   return new Promise(done => {
     const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
-    // Run outside the repository and without project docs, so the developer AGENTS.md never reaches the research agent.
+    // Run outside the repository and without project docs or user skills, so the developer AGENTS.md and skills never reach the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
     const webSearch = options.webSearch ?? (step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch);
     const output = options.output ?? outputs[step as keyof typeof outputs] ?? `stage-${step}.json`;
-    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, options.schema ?? 'output-schema.json'), '--output-last-message', join(directory, output), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, '-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, options.schema ?? 'output-schema.json'), '--output-last-message', join(directory, output), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
     children.set(`${run.id}:${step}`, child);
     const log = join(directory, 'events.jsonl');
     appendFileSync(log, JSON.stringify({ type: 'app.step', step }) + '\n', { mode: 0o600 });
@@ -186,7 +188,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library),
       deepen: (snapshot, worker, workers, papers, issues) => stagePrompt(deepenInstructions(worker, workers, papers, issues), snapshot),
-      integrate: snapshot => stagePrompt(INTEGRATE_INSTRUCTIONS, snapshot),
+      integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot),
     },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),
@@ -261,11 +263,13 @@ const server = createServer(async (req, res) => {
     if (arxiv && (req.method === 'GET' || req.method === 'POST')) {
       const id = parseArxivId(decodeURIComponent(arxiv[1]));
       if (!id) { json(res, { error: 'arXiv IDを確認してください' }, 400); return; }
+      // 最新を取得 (design 0026) asks for a fresh fetch past the saved result; only a POST from the app may do so.
+      const refresh = req.method === 'POST' && url.searchParams.get('refresh') === '1';
       const cached = await readArxivCache(id);
-      if (cached) { json(res, cached); return; }
+      if (cached && !refresh) { json(res, cached); return; }
       if (req.method === 'GET') { json(res, { error: 'NOT_FETCHED' }, 404); return; }
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
-      try { json(res, await fetchAndCacheArxiv(id)); }
+      try { json(res, await fetchAndCacheArxiv(id, cached)); }
       catch (error) { json(res, { error: error instanceof Error ? error.message : 'arXivのFigを取得できませんでした' }, 502); }
       return;
     }

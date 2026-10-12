@@ -73,6 +73,7 @@ export function TutorialView({ snapshot, preview, onSelect }: { snapshot: Survey
   };
   return <article className="tutorial">
     <h2>{tutorial.label}</h2>
+    {tutorial.summary?.trim() && <p className="tutorial-summary">{tutorial.summary}</p>}
     <nav className="tutorial-toc" aria-label="目次"><ol>{outline.map(chapter => <li key={chapter.number}>
       <a href={`#${anchor(chapter.sections[0].index)}`} onClick={go(anchor(chapter.sections[0].index))}><span className="toc-number">{chapter.number}</span>{chapter.title}</a>
       {chapter.sections.length > 1 && <ol>{chapter.sections.map(s => <li key={s.index}><a href={`#${anchor(s.index)}`} onClick={go(anchor(s.index))}><span className="toc-number">{s.number}</span>{s.heading}</a></li>)}</ol>}

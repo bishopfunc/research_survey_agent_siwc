@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptySurvey, fixture, validateSnapshot, type SurveyPatch } from '../packages/domain/src/index';
-import { assignWorkers, executeStagedResearch, restrictToWorker, snapshotAsPatch, type StagedSteps, type StageResult } from '../scripts/staged-run';
+import { assignWorkers, executeStagedResearch, restrictToWorker, settleIssueCandidates, snapshotAsPatch, type StagedSteps, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the outline stage's output: everything except readings, claims, evidence and the tutorial. */
 function outlinePatch(): SurveyPatch {
@@ -16,17 +16,45 @@ function steps(over: Partial<StagedSteps> & { results?: Record<string, StageResu
   const calls: string[] = [];
   const s: StagedSteps = {
     run: async stage => { calls.push(stage); return over.results?.[stage] ?? { ok: false, error: 'no output', searches: 0 }; },
-    prompt: { outline: () => 'outline', deepen: (_s, w, n, papers) => `deepen ${w}/${n} ${papers.join(',')}`, integrate: () => 'integrate' },
+    prompt: { outline: () => 'outline', deepen: (_s, w, n, papers) => `deepen ${w}/${n} ${papers.join(',')}`, integrate: (_s, candidates) => { calls.push(`candidates:${candidates.join(',')}`); return 'integrate'; } },
     normalize: p => p, prepare: async p => p, checkpoint: () => {}, active: () => true, progress: m => { calls.push(`progress:${m}`); },
     ...over,
   };
   return { s, calls };
 }
 
-test('workers split the papers by family and the issues by which papers address them', () => {
-  const groups = assignWorkers(fixture, 3);
-  assert.equal(groups.flatMap(g => g.papers).length, fixture.entities.filter(e => e.type === 'Paper').length);
+test('every method family gets a paper read in depth, one per family in turn, and the issues follow the papers', () => {
+  const { groups, unread } = assignWorkers(fixture, 3);
+  const familyOf = new Map(fixture.relations.filter(r => r.type === 'instance_of').map(r => [r.from, r.to]));
+  const families = (ids: string[]) => new Set(ids.map(id => { const p = fixture.entities.find(e => e.id === id); return p?.type === 'Paper' ? p.proposes.map(m => familyOf.get(m)).find(Boolean) ?? 'none' : 'x'; }));
+  const all = new Set(fixture.entities.flatMap(e => e.type === 'Paper' ? [e.proposes.map(m => familyOf.get(m)).find(Boolean) ?? 'none'] : []));
+  assert.deepEqual(families(groups.flatMap(g => g.papers)), all);
+  assert.deepEqual(unread, []);
+  assert.ok(groups.every(g => g.papers.length <= 6));
   assert.deepEqual(new Set(groups.flatMap(g => g.issues)), new Set(fixture.entities.filter(e => e.type === 'Issue').map(e => e.id)));
+  // One worker with room for two papers reads the first paper of two families and reports the rest as unread.
+  const tight = assignWorkers(fixture, 1, 2);
+  assert.equal(tight.groups[0].papers.length, 2);
+  assert.equal(families(tight.groups[0].papers).size, 2);
+  assert.equal(tight.unread.length, all.size - 2);
+});
+test('issue candidates merged into the hierarchy are removed; sourced leftovers stay; papers address the issues citing them', () => {
+  const input = structuredClone(fixture);
+  const ev = (id: string, origin: string) => ({ id, label: id, provenance: 'codex' as const, type: 'Evidence' as const, source_url: 'https://arxiv.org/abs/2211.13432', locator: 'Section 1', excerpt: 'x', verification: 'unverified' as const, retrieved_at: null, content_hash: null, origin });
+  const cand = (id: string, evidence: string[]) => ({ id, label: id, provenance: 'codex' as const, type: 'Issue' as const, description: 'd', kind: 'subproblem' as const, evidence });
+  input.entities.push(ev('w1-ev-a', 'paper-lacam'), ev('w1-ev-b', 'paper-primal'), cand('w1-cand-a', ['w1-ev-a']), cand('w1-cand-b', ['w1-ev-b']), cand('w1-cand-c', []));
+  input.relations.push({ id: 'w1-rel', type: 'part_of', from: 'w1-cand-a', to: 'scalability' });
+  const scalability = input.entities.find(e => e.id === 'scalability');
+  if (scalability?.type !== 'Issue') throw Error('fixture changed');
+  scalability.evidence = [...(scalability.evidence ?? []), 'w1-ev-a'];
+  const out = settleIssueCandidates(input, ['w1-cand-a', 'w1-cand-b', 'w1-cand-c']);
+  const ids = new Set(out.entities.map(e => e.id));
+  assert.ok(!ids.has('w1-cand-a') && ids.has('w1-cand-b') && !ids.has('w1-cand-c'));
+  assert.ok(!out.relations.some(r => r.id === 'w1-rel'));
+  const paper = (id: string) => out.entities.find(e => e.id === id) as Extract<(typeof out.entities)[number], { type: 'Paper' }>;
+  assert.ok(paper('paper-lacam').addresses.includes('scalability'));
+  assert.ok(paper('paper-primal').addresses.includes('w1-cand-b'));
+  assert.deepEqual(validateSnapshot(out), []);
 });
 test('a worker can only replace its own papers and add new things', () => {
   const patch = { schema_version: '0.1.0', base_commit_id: 'x', message: 'm', operations: [
@@ -65,6 +93,25 @@ test('the stages merge into one valid proposal against the empty base; a failed 
   assert.ok(outcome.patch.operations.some(o => o.op === 'add_entity' && o.entity.id === 'paper-ecbs' && o.entity.type === 'Paper' && o.entity.reading));
   assert.ok(run.calls.indexOf('deepen-1') > run.calls.indexOf('outline') && run.calls.indexOf('integrate') > run.calls.indexOf('deepen-2'));
   assert.equal(outcome.searches, 2 + 2 + 1 + 2);
+});
+test('issues the workers extract per paper reach the integration as candidates and are merged into its hierarchy', async () => {
+  const outline = outlinePatch();
+  const scalability = (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'scalability') as { entity: object }).entity;
+  const evidence = { id: 'w1-ev-scale', label: 'e', provenance: 'codex', type: 'Evidence', source_url: 'https://arxiv.org/abs/2211.13432', locator: 'Section 1', excerpt: 'even with hundreds of agents', verification: 'unverified', retrieved_at: null, content_hash: null, origin: 'paper-lacam' };
+  const results: Record<string, StageResult> = {
+    outline: ok(outline),
+    'deepen-1': ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'w1', operations: [{ op: 'add_entity', entity: evidence }, { op: 'add_entity', entity: { id: 'w1-cand-scale', label: '多数のエージェント', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem', evidence: ['w1-ev-scale'] } }] }),
+    integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: '統合した', operations: [{ op: 'replace_entity', entity: { ...scalability, evidence: ['w1-ev-scale'] } }] }),
+  };
+  const run = steps({ results });
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s, 1);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.ok(run.calls.includes('candidates:w1-cand-scale'));
+  const added = outcome.patch.operations.flatMap(o => o.op === 'add_entity' ? [o.entity] : []);
+  assert.ok(!added.some(e => e.id === 'w1-cand-scale'));
+  const lacam = added.find(e => e.id === 'paper-lacam');
+  assert.ok(lacam?.type === 'Paper' && lacam.addresses.includes('scalability'));
 });
 test('a failed outline fails the run; a cancelled run stops', async () => {
   const failed = await executeStagedResearch(emptySurvey('t'), 'b', steps({ results: {} }).s, 2);

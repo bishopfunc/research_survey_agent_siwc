@@ -70,7 +70,7 @@
     },
     {
       "id": "cbs",
-      "label": "CBS",
+      "label": "衝突ベース探索（CBS系）",
       "provenance": "fixture",
       "type": "Method",
       "description": "競合を検出し、高レベルの制約木で解消する探索手法。",
@@ -85,14 +85,14 @@
     },
     {
       "id": "ecbs",
-      "label": "ECBS",
+      "label": "フォーカル探索の有界準最適化（ECBS系）",
       "provenance": "fixture",
       "type": "Method",
-      "description": "bounded-suboptimalな探索を用いるCBSの系統。表示確認用。",
+      "description": "解のコストを最適値の定数倍以内に保ちながらCBSを速くする、有界準最適の探索。",
       "english_terms": [
-        "Enhanced CBS (ECBS)",
+        "focal search",
         "bounded-suboptimal search",
-        "focal search"
+        "Enhanced CBS (ECBS)"
       ],
       "evidence": [
         "src-ecbs"
@@ -103,7 +103,7 @@
       "label": "衝突を分岐して解く探索",
       "provenance": "fixture",
       "type": "Concept",
-      "description": "衝突を見つけるたびに、どちらかのエージェントに制約を課す子に探索を分岐し、各エージェントは制約の下で単独に経路を探す2段階の探索。最適解を求めるもの（CBS・ICBS）と、解の質の上限を保って速くする有界準最適のもの（ECBS・EECBS）がある。",
+      "description": "衝突を見つけるたびにどちらかのエージェントに制約を課す子へ分岐し、各エージェントは制約の下で単独に経路を探す2段階の探索で、最適なもの（CBS・ICBS）と有界準最適なもの（ECBS・EECBS）がある。",
       "english_terms": [
         "conflict-based search",
         "CBS-based solvers",
@@ -204,25 +204,25 @@
     {
       "id": "icbs",
       "type": "Method",
-      "label": "ICBS",
+      "label": "衝突の優先づけと統合（ICBS系）",
       "description": "競合の優先順位づけなどの改良を組み合わせたCBS。",
       "provenance": "fixture",
       "english_terms": [
-        "Improved CBS (ICBS)",
         "prioritizing conflicts",
-        "merge and restart"
+        "merge and restart",
+        "Improved CBS (ICBS)"
       ]
     },
     {
       "id": "eecbs",
       "type": "Method",
-      "label": "EECBS",
+      "label": "見積もりを学ぶ有界準最適化（EECBS系）",
       "description": "オンラインで得たコスト見積もりを用いて探索するbounded-suboptimalなCBS。",
       "provenance": "fixture",
       "english_terms": [
-        "Explicit Estimation CBS (EECBS)",
         "explicit estimation search",
-        "inadmissible heuristics"
+        "inadmissible heuristics",
+        "Explicit Estimation CBS (EECBS)"
       ],
       "evidence": [
         "src-eecbs"
@@ -262,7 +262,11 @@
       ],
       "evidence": [
         "evidence-cbs",
-        "src-cbs"
+        "src-cbs",
+        "src-cbs-analysis",
+        "src-cbs-prior",
+        "src-cbs-levels",
+        "src-cbs-speedup"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -282,8 +286,34 @@
         "key_figures": [],
         "evidence": [
           "evidence-cbs",
-          "src-cbs"
-        ]
+          "src-cbs",
+          "src-cbs-analysis",
+          "src-cbs-prior",
+          "src-cbs-levels",
+          "src-cbs-speedup"
+        ],
+        "cites": {
+          "summary": [
+            "src-cbs"
+          ],
+          "contributions": [
+            "src-cbs",
+            "src-cbs-analysis"
+          ],
+          "novelty": [
+            "src-cbs-prior",
+            "evidence-cbs"
+          ],
+          "key_idea": [
+            "src-cbs-levels"
+          ],
+          "validation": [
+            "src-cbs-speedup"
+          ],
+          "discussion": [
+            "src-cbs-analysis"
+          ]
+        }
       }
     },
     {
@@ -320,7 +350,9 @@
       ],
       "evidence": [
         "evidence-ecbs-np",
-        "src-ecbs"
+        "src-ecbs",
+        "src-ecbs-results",
+        "src-ecbs-outperform"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -340,8 +372,28 @@
         "key_figures": [],
         "evidence": [
           "evidence-ecbs-np",
-          "src-ecbs"
-        ]
+          "src-ecbs",
+          "src-ecbs-results",
+          "src-ecbs-outperform"
+        ],
+        "cites": {
+          "summary": [
+            "src-ecbs"
+          ],
+          "contributions": [
+            "src-ecbs"
+          ],
+          "novelty": [
+            "evidence-ecbs-np"
+          ],
+          "validation": [
+            "src-ecbs-results",
+            "src-ecbs-outperform"
+          ],
+          "discussion": [
+            "src-ecbs-results"
+          ]
+        }
       }
     },
     {
@@ -414,7 +466,8 @@
       "evidence": [
         "src-ecbs-baseline",
         "src-eecbs",
-        "src-optimality"
+        "src-optimality",
+        "src-eecbs-improvements"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/Jiaoyang-Li/EECBS",
@@ -443,8 +496,31 @@
         "evidence": [
           "src-optimality",
           "src-eecbs",
-          "src-ecbs-baseline"
-        ]
+          "src-ecbs-baseline",
+          "src-eecbs-improvements"
+        ],
+        "cites": {
+          "summary": [
+            "src-eecbs"
+          ],
+          "contributions": [
+            "src-eecbs",
+            "src-eecbs-improvements"
+          ],
+          "novelty": [
+            "src-optimality",
+            "src-ecbs-baseline"
+          ],
+          "key_idea": [
+            "src-eecbs"
+          ],
+          "validation": [
+            "src-ecbs-baseline"
+          ],
+          "discussion": [
+            "src-eecbs"
+          ]
+        }
       }
     },
     {
@@ -456,7 +532,7 @@
         "SOC"
       ],
       "category": "metric",
-      "meaning": "全エージェントの経路コスト（ゴールに着くまでの時間ステップ数など）の合計。CBS・ECBS・EECBSのいずれもこのコストで解の良さを測る。",
+      "meaning": "全エージェントの経路コスト（ゴールに着くまでの時間ステップ数など）の合計で、CBS・ECBS・EECBSはいずれもこのコストで解の良さを測る。",
       "papers": [
         "paper-cbs",
         "paper-ecbs",
@@ -482,7 +558,7 @@
         "MovingAI"
       ],
       "category": "benchmark",
-      "meaning": "MAPF用のグリッド地図と問題を集めたベンチマーク。手法どうしを同じ問題で比べるときによく使われる。",
+      "meaning": "手法どうしを同じ問題で比べるときによく使われる、MAPF用のグリッド地図と問題を集めたベンチマーク。",
       "papers": [
         "paper-mapf-benchmark"
       ],
@@ -505,7 +581,7 @@
       "type": "Keyword",
       "aliases": [],
       "category": "metric",
-      "meaning": "最後のエージェントがゴールに着くまでの時間。全体の完了時刻を表し、Sum-of-costsと並ぶMAPFの評価指標。",
+      "meaning": "最後のエージェントがゴールに着くまでの時間で、Sum-of-costsと並ぶMAPFの評価指標。",
       "papers": [],
       "related": [
         "optimality"
@@ -526,7 +602,7 @@
         "success rate"
       ],
       "category": "metric",
-      "meaning": "制限時間内に解けた問題の割合。エージェント数を増やしたときに、どこまで解けるかを比べるために使う。",
+      "meaning": "制限時間内に解けた問題の割合で、エージェント数を増やしたときにどこまで解けるかを比べるために使う。",
       "papers": [],
       "related": [
         "scalability"
@@ -547,7 +623,7 @@
         "Conflict-Based Search"
       ],
       "category": "baseline",
-      "meaning": "最適なMAPFソルバの比較の基準として広く使われる手法。改良版や準最適・学習ベースの手法も、CBSとの比較で評価されることが多い。",
+      "meaning": "改良版・準最適・学習ベースの手法の評価で比較の基準として広く使われる、最適なMAPFソルバ。",
       "papers": [
         "paper-icbs"
       ],
@@ -838,14 +914,15 @@
           "media": [],
           "links": []
         }
-      ]
+      ],
+      "summary": "MAPFは、グラフの上の複数のエージェントを互いにぶつけずにそれぞれの目標へ動かす経路を求める問題で、衝突を分岐して解く探索・優先度で決める準最適解法・学習ベースの3つの系統で研究されている。"
     },
     {
       "id": "family-prioritized",
       "label": "優先度で決める準最適解法",
       "provenance": "fixture",
       "type": "Concept",
-      "description": "各時刻に優先度の高いエージェントから1歩ずつ行き先を決める。最適性は保証しないが、数百台以上でもすぐに解を返す。この1歩の決め方を部品として、全員の位置の組を探索する方法（LaCAM・LaCAM*）もここに入る。",
+      "description": "各時刻に優先度の高いエージェントから1歩ずつ行き先を決め、最適性を保証しない代わりに数百台以上でもすぐに解を返す方法で、この1歩を部品に全員の位置の組を探索するLaCAM・LaCAM*も含む。",
       "english_terms": [
         "priority-based sub-optimal MAPF",
         "rule-based MAPF solvers"
@@ -859,7 +936,7 @@
       "label": "学習ベース",
       "provenance": "fixture",
       "type": "Concept",
-      "description": "エキスパートのプランナを模倣したり強化学習で学んだりして、判断を学習したモデルに任せる。各エージェントが局所観測で動く分散方策と、探索の中の判断（衝突の選び方など）を学習で置き換える方法がある。",
+      "description": "エキスパートの模倣や強化学習で、各エージェントの分散方策や探索の中の判断（衝突の選び方など）を学習したモデルに任せる方法。",
       "english_terms": [
         "learning-based MAPF",
         "multi-agent reinforcement learning (MARL)",
@@ -891,7 +968,7 @@
       "provenance": "fixture",
       "type": "Issue",
       "kind": "method_dependent",
-      "description": "分散して動くときに、どの情報を、いつ、どのロボットと共有すれば協調できるか。手作りの規則では決めにくい。",
+      "description": "分散して動くときに、どの情報をいつどのロボットと共有すれば協調できるかで、手作りの規則では決めにくい。",
       "english_terms": [
         "inter-robot communication",
         "learned communication policy"
@@ -918,14 +995,14 @@
     },
     {
       "id": "pibt",
-      "label": "PIBT",
+      "label": "優先度継承の1ステップ計画（PIBT系）",
       "provenance": "fixture",
       "type": "Method",
       "description": "各時刻に優先度の高いエージェントから行き先を決め、ふさがっていれば相手に優先度を継承させて退かせる（優先度継承とバックトラック）。",
       "english_terms": [
-        "Priority Inheritance with Backtracking (PIBT)",
         "priority inheritance",
-        "iterative MAPF"
+        "iterative MAPF",
+        "Priority Inheritance with Backtracking (PIBT)"
       ],
       "evidence": [
         "src-pibt"
@@ -933,14 +1010,14 @@
     },
     {
       "id": "lacam",
-      "label": "LaCAM",
+      "label": "制約を遅延して加える配置探索（LaCAM系）",
       "provenance": "fixture",
       "type": "Method",
-      "description": "全員の位置の組を上の段で探索し、下の段では位置の制約を必要なときだけ遅延して加える2段階の探索。次の位置の組はPIBTで作る。完全で、数百台以上でも速い。",
+      "description": "全員の位置の組を上の段で探索し、下の段で位置の制約を必要なときだけ遅延して加える（次の位置の組はPIBTで作る）完全な2段階の探索で、数百台以上でも速い。",
       "english_terms": [
-        "Lazy Constraints Addition search for MAPF (LaCAM)",
         "lazy successor generation",
-        "configuration generator"
+        "configuration generator",
+        "Lazy Constraints Addition search for MAPF (LaCAM)"
       ],
       "evidence": [
         "src-lacam"
@@ -948,14 +1025,14 @@
     },
     {
       "id": "lacam-star",
-      "label": "LaCAM*",
+      "label": "最適へ収束する任意時間の配置探索（LaCAM*系）",
       "provenance": "fixture",
       "type": "Method",
       "description": "LaCAMを任意時間アルゴリズムにし、初期解を素早く出したあと、時間をかけると最適解に収束する。",
       "english_terms": [
-        "LaCAM*",
         "anytime MAPF",
-        "eventually optimal"
+        "eventually optimal",
+        "LaCAM*"
       ],
       "evidence": [
         "evidence-lacam-star-optimal"
@@ -963,14 +1040,14 @@
     },
     {
       "id": "primal",
-      "label": "PRIMAL",
+      "label": "強化学習と模倣学習の分散方策（PRIMAL系）",
       "provenance": "fixture",
       "type": "Method",
       "description": "強化学習と、エキスパートのプランナの模倣学習を組み合わせて、局所観測で動く完全分散の方策を学ぶ。",
       "english_terms": [
-        "PRIMAL (Pathfinding via Reinforcement and Imitation Multi-Agent Learning)",
         "reinforcement and imitation learning",
-        "fully decentralized policies"
+        "fully decentralized policies",
+        "PRIMAL (Pathfinding via Reinforcement and Imitation Multi-Agent Learning)"
       ],
       "evidence": [
         "src-primal"
@@ -978,14 +1055,14 @@
     },
     {
       "id": "gnn-mapf",
-      "label": "GNN通信方策",
+      "label": "GNNで通信を学ぶ分散方策",
       "provenance": "fixture",
       "type": "Method",
       "description": "CNNで局所観測の特徴を取り出し、GNNで近くのロボットと共有して行動を決める分散方策を、エキスパートの模倣で学ぶ。",
       "english_terms": [
-        "GNN-based decentralized multi-robot path planning",
         "graph neural networks (GNN)",
-        "learned communication"
+        "learned communication",
+        "GNN-based decentralized multi-robot path planning"
       ],
       "evidence": [
         "src-gnn-mapf"
@@ -993,14 +1070,14 @@
     },
     {
       "id": "ml-cbs",
-      "label": "ML-CBS",
+      "label": "学習による衝突選択",
       "provenance": "fixture",
       "type": "Method",
       "description": "CBSで次に解消する衝突の選び方を、遅いオラクルの判断を模倣する線形ランキング関数で学ぶ。",
       "english_terms": [
-        "ML-guided conflict selection for CBS (ML-S, ML-O)",
         "machine-learning framework for conflict selection",
-        "linear ranking function"
+        "linear ranking function",
+        "ML-guided conflict selection for CBS (ML-S, ML-O)"
       ],
       "evidence": [
         "src-ml-cbs"
@@ -1054,7 +1131,7 @@
       "year": 2022,
       "venue": "AIJ",
       "venue_type": "journal",
-      "one_line_summary": "PIBTのジャーナル版。到達の保証、自動倉庫での繰り返しの搬送、実機のデモを含む。",
+      "one_line_summary": "到達の保証、自動倉庫での繰り返しの搬送、実機のデモを含むPIBTのジャーナル版。",
       "abstract": "In the Multi-Agent Path Finding (MAPF) problem, a set of agents moving on a graph must reach their own respective destinations without inter-agent collisions. In practical MAPF applications such as navigation in automated warehouses, where occasionally there are hundreds or more agents, MAPF must be solved iteratively online on a lifelong basis. Such scenarios rule out simple adaptations of offline compute-intensive optimal approaches; and scalable sub-optimal algorithms are hence appealing for such settings. Ideal algorithms are scalable, applicable to iterative scenarios, and output plausible solutions in predictable computation time. For the aforementioned purpose, this study presents Priority Inheritance with Backtracking (PIBT), a novel sub-optimal algorithm to solve MAPF iteratively. PIBT relies on an adaptive prioritization scheme to focus on the adjacent movements of multiple agents; hence it can be applied to several domains. We prove that, regardless of their number, all agents are guaranteed to reach their destination within finite time when the environment is a graph such that all pairs of adjacent nodes belong to a simple cycle (e.g., biconnected). Experimental results covering various scenarios, including a demonstration with real robots, reveal the benefits of the proposed method. Even with hundreds of agents, PIBT yields acceptable solutions almost immediately and can solve large instances that other established MAPF methods cannot. In addition, PIBT outperforms an existing approach on an iterative scenario of conveying packages in an automated warehouse in both runtime and solution quality.",
       "abstract_source_url": "https://arxiv.org/abs/1901.11282",
       "abstract_ja": "マルチエージェント経路計画（MAPF）問題では、グラフ上を動く複数のエージェントが、互いに衝突せずにそれぞれの目的地へ着かなければならない。自動倉庫での移動のような実用的なMAPFの応用では、ときに数百以上のエージェントがいて、MAPFをオンラインで繰り返し（lifelongに）解く必要がある。このような場面では、オフラインで計算の重い最適な手法を単純に適用することはできず、スケーラブルな準最適アルゴリズムが望ましい。理想的なアルゴリズムはスケーラブルで、繰り返しの場面に使え、予測できる計算時間でもっともらしい解を出す。この目的のため、本研究はMAPFを繰り返し解く新しい準最適アルゴリズムPriority Inheritance with Backtracking（PIBT）を提案する。PIBTは適応的な優先度づけにより、複数のエージェントの隣接する移動に注目するため、いくつかの領域に適用できる。隣り合うすべての頂点の組が単純閉路に属するグラフ（例：2連結グラフ）では、エージェントの数によらず、すべてのエージェントが有限時間で目的地に着くことを証明する。実機ロボットのデモを含む様々な場面の実験で、提案手法の利点を示す。数百のエージェントでもPIBTはほぼ即座に許容できる解を出し、他の確立されたMAPF手法が解けない大きな問題を解ける。さらに、自動倉庫で荷物を運ぶ繰り返しの場面で、既存の手法を実行時間と解の質の両方で上回る。",
@@ -1089,8 +1166,37 @@
         ],
         "evidence": [
           "src-pibt",
-          "src-family-prioritized"
-        ]
+          "src-family-prioritized",
+          "src-pibt-reach",
+          "src-pibt-experiments",
+          "src-pibt-scalable",
+          "src-pibt-immediate",
+          "src-pibt-warehouse"
+        ],
+        "cites": {
+          "summary": [
+            "src-pibt"
+          ],
+          "contributions": [
+            "src-pibt",
+            "src-pibt-reach",
+            "src-pibt-experiments"
+          ],
+          "novelty": [
+            "src-pibt-scalable",
+            "src-pibt-immediate"
+          ],
+          "key_idea": [
+            "src-family-prioritized"
+          ],
+          "validation": [
+            "src-pibt-experiments",
+            "src-pibt-warehouse"
+          ],
+          "discussion": [
+            "src-pibt-reach"
+          ]
+        }
       },
       "citation_count": 148,
       "citation_source": "OpenAlex",
@@ -1114,7 +1220,12 @@
       "claims": [],
       "evidence": [
         "src-family-prioritized",
-        "src-pibt"
+        "src-pibt",
+        "src-pibt-reach",
+        "src-pibt-experiments",
+        "src-pibt-scalable",
+        "src-pibt-immediate",
+        "src-pibt-warehouse"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/Kei18/pibt2",
@@ -1157,7 +1268,33 @@
           "Algorithm 1: LaCAM"
         ],
         "evidence": [
-          "src-lacam"
+          "src-lacam",
+          "src-lacam-complete",
+          "src-lacam-levels",
+          "src-lacam-results"
+        ],
+        "cites": {
+          "summary": [
+            "src-lacam"
+          ],
+          "contributions": [
+            "src-lacam-complete",
+            "src-lacam-levels",
+            "src-lacam-results"
+          ],
+          "novelty": [
+            "src-lacam"
+          ],
+          "key_idea": [
+            "src-lacam-levels"
+          ],
+          "validation": [
+            "src-lacam-results"
+          ]
+        },
+        "key_sections": [
+          "3.1 Concept: 上の段（全員の位置の組）と下の段（制約）の2段階の探索の考え方",
+          "3.2 Pseudocode: 制約を遅延して加えながら次の位置の組を作る手続き"
         ]
       },
       "citation_count": 77,
@@ -1177,7 +1314,10 @@
       ],
       "claims": [],
       "evidence": [
-        "src-lacam"
+        "src-lacam",
+        "src-lacam-complete",
+        "src-lacam-levels",
+        "src-lacam-results"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/Kei18/lacam",
@@ -1233,8 +1373,33 @@
         ],
         "evidence": [
           "evidence-lacam-star-scale",
-          "evidence-lacam-star-optimal"
-        ]
+          "evidence-lacam-star-optimal",
+          "src-lacam-star-initial",
+          "src-lacam-lazy"
+        ],
+        "cites": {
+          "summary": [
+            "evidence-lacam-star-optimal",
+            "src-lacam-star-initial"
+          ],
+          "contributions": [
+            "evidence-lacam-star-optimal",
+            "src-lacam-star-initial"
+          ],
+          "novelty": [
+            "src-lacam-lazy",
+            "evidence-lacam-star-optimal"
+          ],
+          "key_idea": [
+            "evidence-lacam-star-optimal"
+          ],
+          "validation": [
+            "evidence-lacam-star-scale"
+          ],
+          "discussion": [
+            "evidence-lacam-star-optimal"
+          ]
+        }
       },
       "citation_count": 28,
       "citation_source": "OpenAlex",
@@ -1258,7 +1423,9 @@
       ],
       "evidence": [
         "evidence-lacam-star-optimal",
-        "evidence-lacam-star-scale"
+        "evidence-lacam-star-scale",
+        "src-lacam-star-initial",
+        "src-lacam-lazy"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/Kei18/lacam2",
@@ -1304,8 +1471,35 @@
           "evidence-primal",
           "src-decentralized",
           "src-primal",
-          "src-real-robots"
-        ]
+          "src-real-robots",
+          "src-primal-training",
+          "src-primal-copy"
+        ],
+        "cites": {
+          "summary": [
+            "src-primal"
+          ],
+          "contributions": [
+            "src-primal",
+            "src-primal-training",
+            "evidence-primal",
+            "src-real-robots"
+          ],
+          "novelty": [
+            "src-decentralized",
+            "src-primal-copy"
+          ],
+          "key_idea": [
+            "src-primal"
+          ],
+          "validation": [
+            "evidence-primal",
+            "src-real-robots"
+          ],
+          "discussion": [
+            "evidence-primal"
+          ]
+        }
       },
       "citation_count": 421,
       "citation_source": "OpenAlex",
@@ -1335,7 +1529,9 @@
         "evidence-primal",
         "src-decentralized",
         "src-primal",
-        "src-real-robots"
+        "src-real-robots",
+        "src-primal-training",
+        "src-primal-copy"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/gsartoretti/PRIMAL",
@@ -1380,8 +1576,37 @@
           "evidence-gnn",
           "src-communication",
           "src-gnn-mapf",
-          "src-success-rate"
-        ]
+          "src-success-rate",
+          "src-gnn-imitation",
+          "src-gnn-generalize",
+          "src-gnn-synthesize",
+          "src-gnn-simulation"
+        ],
+        "cites": {
+          "summary": [
+            "src-gnn-mapf",
+            "src-gnn-imitation"
+          ],
+          "contributions": [
+            "src-gnn-mapf",
+            "src-gnn-imitation",
+            "src-gnn-generalize"
+          ],
+          "novelty": [
+            "src-communication",
+            "src-gnn-synthesize"
+          ],
+          "key_idea": [
+            "src-gnn-mapf"
+          ],
+          "validation": [
+            "src-gnn-simulation",
+            "src-success-rate"
+          ],
+          "discussion": [
+            "evidence-gnn"
+          ]
+        }
       },
       "citation_count": 276,
       "citation_source": "OpenAlex",
@@ -1408,7 +1633,11 @@
         "evidence-gnn",
         "src-communication",
         "src-gnn-mapf",
-        "src-success-rate"
+        "src-success-rate",
+        "src-gnn-imitation",
+        "src-gnn-generalize",
+        "src-gnn-synthesize",
+        "src-gnn-simulation"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/proroklab/gnn_pathplanning",
@@ -1462,8 +1691,30 @@
         "evidence": [
           "evidence-ml-cbs",
           "src-tree",
-          "src-ml-cbs"
-        ]
+          "src-ml-cbs",
+          "src-ml-cbs-oracle",
+          "src-ml-cbs-classes",
+          "src-ml-cbs-slow"
+        ],
+        "cites": {
+          "summary": [
+            "src-ml-cbs"
+          ],
+          "contributions": [
+            "src-ml-cbs-oracle",
+            "src-ml-cbs"
+          ],
+          "novelty": [
+            "src-ml-cbs-classes"
+          ],
+          "key_idea": [
+            "src-ml-cbs-slow",
+            "src-ml-cbs"
+          ],
+          "validation": [
+            "evidence-ml-cbs"
+          ]
+        }
       },
       "citation_count": 29,
       "citation_source": "OpenAlex",
@@ -1488,7 +1739,10 @@
       "evidence": [
         "evidence-ml-cbs",
         "src-ml-cbs",
-        "src-tree"
+        "src-tree",
+        "src-ml-cbs-oracle",
+        "src-ml-cbs-classes",
+        "src-ml-cbs-slow"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -1530,8 +1784,32 @@
         "evidence": [
           "src-collision",
           "src-objectives",
-          "src-grid-benchmark"
-        ]
+          "src-grid-benchmark",
+          "src-benchmark-terminology",
+          "src-benchmark-baselines",
+          "src-benchmark-assumptions"
+        ],
+        "cites": {
+          "summary": [
+            "src-benchmark-terminology"
+          ],
+          "contributions": [
+            "src-benchmark-terminology",
+            "src-grid-benchmark"
+          ],
+          "novelty": [
+            "src-benchmark-baselines"
+          ],
+          "key_idea": [
+            "src-benchmark-assumptions"
+          ],
+          "validation": [
+            "src-grid-benchmark"
+          ],
+          "discussion": [
+            "src-benchmark-terminology"
+          ]
+        }
       },
       "citation_count": 650,
       "citation_source": "OpenAlex",
@@ -1561,7 +1839,10 @@
       "evidence": [
         "src-collision",
         "src-grid-benchmark",
-        "src-objectives"
+        "src-objectives",
+        "src-benchmark-terminology",
+        "src-benchmark-baselines",
+        "src-benchmark-assumptions"
       ],
       "code_availability": "unknown",
       "code_url": null,
@@ -1592,8 +1873,28 @@
         "key_figures": [],
         "evidence": [
           "evidence-rhcr",
-          "src-lifelong"
-        ]
+          "src-lifelong",
+          "src-rhcr-framework",
+          "src-rhcr-pliable"
+        ],
+        "cites": {
+          "summary": [
+            "src-rhcr-framework"
+          ],
+          "contributions": [
+            "src-rhcr-framework",
+            "evidence-rhcr"
+          ],
+          "novelty": [
+            "src-rhcr-pliable"
+          ],
+          "key_idea": [
+            "src-rhcr-framework"
+          ],
+          "validation": [
+            "evidence-rhcr"
+          ]
+        }
       },
       "citation_count": 254,
       "citation_source": "OpenAlex",
@@ -1618,7 +1919,9 @@
       ],
       "evidence": [
         "evidence-rhcr",
-        "src-lifelong"
+        "src-lifelong",
+        "src-rhcr-framework",
+        "src-rhcr-pliable"
       ],
       "code_availability": "public",
       "code_url": "https://github.com/Jiaoyang-Li/RHCR",
@@ -1858,7 +2161,7 @@
         "hybrid simulation"
       ],
       "category": "hardware",
-      "meaning": "学習した方策やアルゴリズムを、実機のロボットと模擬のロボットを混ぜた環境や実機のデモで確かめる。格子の上での評価との差を見る。",
+      "meaning": "格子の上での評価との差を見るために、学習した方策やアルゴリズムを実機と模擬のロボットを混ぜた環境や実機のデモで確かめること。",
       "papers": [
         "paper-primal",
         "paper-pibt"
@@ -1884,7 +2187,7 @@
         "Partially Observable Grid Environment for Multiple Agents"
       ],
       "category": "simulator",
-      "meaning": "部分観測のMAPFを試す格子の環境。計画と学習の手法を同じ問題で比べられる。",
+      "meaning": "計画と学習の手法を同じ問題で比べられる、部分観測のMAPFを試す格子の環境。",
       "papers": [],
       "related": [
         "decentralized"
@@ -1906,8 +2209,8 @@
       "aliases": [
         "GNN"
       ],
-      "category": "model",
-      "meaning": "近くのロボットどうしをグラフで結び、特徴を集約して行動を決めるモデル。分散の経路計画で、共有する情報を学ぶのに使われる。",
+      "category": "architecture",
+      "meaning": "近くのロボットどうしをグラフで結んで特徴を集約し行動を決めるモデルで、分散の経路計画で共有する情報を学ぶのに使われる。",
       "papers": [
         "paper-gnn"
       ],
@@ -1931,7 +2234,7 @@
       "type": "Keyword",
       "aliases": [],
       "category": "baseline",
-      "meaning": "有界準最適のMAPFソルバを比べるときの基準。新しい準最適ソルバはECBSより速いかで評価されることが多い。",
+      "meaning": "新しい準最適ソルバがECBSより速いかで評価されることが多い、有界準最適のMAPFソルバの比較の基準。",
       "papers": [
         "paper-eecbs"
       ],
@@ -1955,7 +2258,7 @@
       "type": "Keyword",
       "aliases": [],
       "category": "sota",
-      "meaning": "エージェントが最大1000のベンチマークで、ほぼすべての問題を10秒以内に解き、時間をかければ最適解に近づく。時点つきの値で、後の研究で更新されうる。",
+      "meaning": "エージェントが最大1000のベンチマークでほぼすべての問題を10秒以内に解き、時間をかければ最適解に近づくという、後の研究で更新されうる時点つきの値。",
       "papers": [
         "paper-lacam-star"
       ],
@@ -1981,7 +2284,7 @@
         "MAPF benchmark scenarios"
       ],
       "category": "dataset",
-      "meaning": "地図ごとに、エージェントの開始点と目標点の組を多数用意した問題集。台数を増やしながら、どこまで解けるかを比べる。",
+      "meaning": "地図ごとに開始点と目標点の組を多数用意し、台数を増やしながらどこまで解けるかを比べる問題集。",
       "papers": [
         "paper-mapf-benchmark"
       ],
@@ -2010,7 +2313,7 @@
       ],
       "published": "2024-03-01",
       "language": "ja",
-      "summary": "問題設定から、素朴な方法・CBS系・優先度で決める方法・最新の研究までを1本でたどる日本語の入門記事。分野に入って最初に読む。",
+      "summary": "問題設定から素朴な方法・CBS系・優先度で決める方法・最新の研究までを1本でたどる、分野に入って最初に読む日本語の入門記事。",
       "issues": [
         "collision",
         "scalability"
@@ -2034,7 +2337,7 @@
       "authors": [],
       "published": null,
       "language": "en",
-      "summary": "MAPFの研究コミュニティのサイト。論文・研究者・ベンチマーク・コンペティション・ソフトウェア・チュートリアルの一覧と、メーリングリストや会議の案内がある。最新の動向や関連研究を探すときの入口。",
+      "summary": "論文・研究者・ベンチマーク・コンペティション・ソフトウェア・チュートリアルの一覧と会議の案内がある、最新の動向を探す入口となるMAPFの研究コミュニティのサイト。",
       "issues": [
         "collision"
       ],
@@ -2058,7 +2361,7 @@
       ],
       "published": "2019",
       "language": "en",
-      "summary": "MAPFの前提（衝突の種類など）と目的関数を記述する用語を統一し、格子のベンチマークを紹介する。論文を比べる前に、どの前提で解いているかを確かめるために読む。",
+      "summary": "MAPFの前提（衝突の種類など）と目的関数の用語を統一し格子のベンチマークを紹介する論文で、論文を比べる前にどの前提で解いているかを確かめるために読む。",
       "issues": [
         "collision"
       ],
@@ -2079,7 +2382,7 @@
       ],
       "published": "2021",
       "language": "en",
-      "summary": "最適なMAPFの2つの進め方（直接探索する方法と、別の形式に変換して既存のソルバで解くコンパイルベースの方法）のうち、コンパイルベースの方法をまとめたサーベイ。探索ベース以外の最適ソルバを知りたいときに読む。",
+      "summary": "最適なMAPFを別の形式に変換して既存のソルバで解くコンパイルベースの方法をまとめた、探索ベース以外の最適ソルバを知るためのサーベイ。",
       "issues": [
         "optimality"
       ],
@@ -2103,7 +2406,7 @@
       ],
       "published": "2024",
       "language": "en",
-      "summary": "2023年のLeague of Robot Runners（lifelong MAPFのコンペティション）で優勝した手法から、限られた計画時間で大量のエージェントを扱うことなど3つの研究課題をまとめたSoCS 2024の論文。lifelong MAPFで何が未解決かを知るために読む。",
+      "summary": "2023年のLeague of Robot Runnersの優勝手法から、限られた計画時間で大量のエージェントを扱うことなどlifelong MAPFの3つの研究課題をまとめたSoCS 2024の論文。",
       "issues": [
         "lifelong",
         "scalability"
@@ -2128,7 +2431,7 @@
       ],
       "published": null,
       "language": "en",
-      "summary": "LaCAM*（IJCAI-23）の公式の実装。ベンチマークの地図で大規模の挙動を自分で確かめるときに使う。",
+      "summary": "ベンチマークの地図で大規模の挙動を自分で確かめるときに使う、LaCAM*（IJCAI-23）の公式の実装。",
       "issues": [
         "scalability"
       ],
@@ -2149,7 +2452,7 @@
       "authors": [],
       "published": null,
       "language": "en",
-      "summary": "MAPF用の格子地図と問題（シナリオ）を集めたベンチマークのページ。手法を同じ問題で比べるときに使う。",
+      "summary": "手法を同じ問題で比べるときに使う、MAPF用の格子地図と問題（シナリオ）を集めたベンチマークのページ。",
       "issues": [
         "collision"
       ],
@@ -2446,7 +2749,7 @@
       ],
       "published": "2022",
       "language": "en",
-      "summary": "部分観測のMAPFの計画と学習の手法を試す格子の環境。分散の手法を同じ問題で比べるときに使う。",
+      "summary": "分散の手法を同じ問題で比べるときに使う、部分観測のMAPFの計画と学習の手法を試す格子の環境。",
       "issues": [
         "decentralized"
       ],
@@ -2469,6 +2772,409 @@
       "retrieved_at": "2026-10-12T00:00:00+09:00",
       "content_hash": null,
       "origin": "res-pogema"
+    },
+    {
+      "id": "src-cbs-analysis",
+      "label": "CBSの利点と欠点の解析",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W3359552",
+      "locator": "Abstract",
+      "excerpt": "We analyze CBS and show its benefits and drawbacks.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "src-cbs-prior",
+      "label": "従来の最適ソルバは大域的なA*探索",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W3359552",
+      "locator": "Abstract",
+      "excerpt": "Previous optimal solvers applied global A*-based searches.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "src-cbs-levels",
+      "label": "CBSの上の段と下の段",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W3359552",
+      "locator": "Abstract",
+      "excerpt": "At the high level, a search is performed on a tree based on conflicts between agents. At the low level, a search is performed only for a single agent at a time.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "src-cbs-speedup",
+      "label": "CBSの速さ（最大1桁）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W3359552",
+      "locator": "Abstract",
+      "excerpt": "Experimental results on various problems shows a speedup of up to a full order of magnitude over previous approaches.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "src-ecbs-results",
+      "label": "ECBSの実験結果",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W1488757178",
+      "locator": "Abstract",
+      "excerpt": "Experimental results show the benefits of our new approach; a massive reduction in running time is presented while sacrificing a minor loss in solution quality.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "src-ecbs-outperform",
+      "label": "ECBSが既存手法を上回る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://openalex.org/W1488757178",
+      "locator": "Abstract",
+      "excerpt": "Our new algorithms outperform other existing algorithms in most of the cases.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "src-eecbs-improvements",
+      "label": "CBSの改良をEECBSへ適用",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2010.01367",
+      "locator": "Abstract",
+      "excerpt": "We also investigate recent improvements of CBS and adapt them to EECBS.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "src-pibt-reach",
+      "label": "PIBTの到達の保証",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "We prove that, regardless of their number, all agents are guaranteed to reach their destination within finite time when the environment is a graph such that all pairs of adjacent nodes belong to a simple cycle (e.g., biconnected).",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-pibt-experiments",
+      "label": "PIBTの実験と実機のデモ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "Experimental results covering various scenarios, including a demonstration with real robots, reveal the benefits of the proposed method.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-pibt-scalable",
+      "label": "繰り返しの場面には準最適で規模の大きい手法",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "Such scenarios rule out simple adaptations of offline compute-intensive optimal approaches; and scalable sub-optimal algorithms are hence appealing for such settings.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-pibt-immediate",
+      "label": "PIBTは数百台でもほぼ即座に解く",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "Even with hundreds of agents, PIBT yields acceptable solutions almost immediately and can solve large instances that other established MAPF methods cannot.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-pibt-warehouse",
+      "label": "自動倉庫の繰り返しの搬送での比較",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1901.11282",
+      "locator": "Abstract",
+      "excerpt": "In addition, PIBT outperforms an existing approach on an iterative scenario of conveying packages in an automated warehouse in both runtime and solution quality.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "src-lacam-complete",
+      "label": "LaCAMは完全なMAPFアルゴリズム",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2211.13432",
+      "locator": "Abstract",
+      "excerpt": "We propose a novel complete algorithm for multi-agent pathfinding (MAPF) called lazy constraints addition search for MAPF (LaCAM).",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "src-lacam-levels",
+      "label": "LaCAMの上の段と下の段",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2211.13432",
+      "locator": "Abstract",
+      "excerpt": "At the low-level, it searches constraints about agents' locations. At the high-level, it searches a sequence of all agents' locations, following the constraints specified by the low-level.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "src-lacam-results",
+      "label": "LaCAMの実験結果",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2211.13432",
+      "locator": "Abstract",
+      "excerpt": "Our exhaustive experiments reveal that LaCAM is comparable to or outperforms state-of-the-art sub-optimal MAPF algorithms in a variety of scenarios, regarding success rate, planning time, and solution quality of sum-of-costs.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "src-lacam-star-initial",
+      "label": "LaCAM*の初期解の生成の改良",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2305.03632",
+      "locator": "Abstract",
+      "excerpt": "Second, we improve the successor generation to quickly obtain initial solutions.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "src-lacam-lazy",
+      "label": "LaCAMの遅延した後続状態の生成",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2305.03632",
+      "locator": "Abstract",
+      "excerpt": "LaCAM is a sub-optimal search-based algorithm that uses lazy successor generation to dramatically reduce the planning effort.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "src-primal-training",
+      "label": "PRIMALの学習（実演・報酬・環境）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract",
+      "excerpt": "This framework extends our previous work on distributed learning of collaborative policies by introducing demonstrations of an expert MAPF planner during training, as well as careful reward shaping and environment sampling.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-primal"
+    },
+    {
+      "id": "src-primal-copy",
+      "label": "学習した方策を任意の台数へコピー",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1809.03531",
+      "locator": "Abstract",
+      "excerpt": "Once learned, the resulting policy can be copied onto any number of agents and naturally scales to different team sizes and world dimensions.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-primal"
+    },
+    {
+      "id": "src-gnn-imitation",
+      "label": "エキスパートの模倣と局所通信での計画",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "We train the model to imitate an expert algorithm, and use the resulting model online in decentralized planning involving only local communication and local observations.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-gnn-generalize",
+      "label": "大きな環境とチームへの汎化",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "In particular, we show our model's capability to generalize to previously unseen cases (involving larger environments and larger robot teams).",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-gnn-synthesize",
+      "label": "通信と行動の方策を一緒に作る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "To side-step these issues and move beyond hand-crafted heuristics, we propose a combined model that automatically synthesizes local communication and decision-making policies for robots navigating in constrained workspaces.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-gnn-simulation",
+      "label": "2次元の作業空間のシミュレーション",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1912.06095",
+      "locator": "Abstract",
+      "excerpt": "We evaluate our method in simulations {by navigating teams of robots to their destinations in 2D} cluttered workspaces.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "src-ml-cbs-oracle",
+      "label": "衝突選択のオラクル",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2012.06005",
+      "locator": "Abstract",
+      "excerpt": "In this work, we propose an oracle for conflict selection that results in smaller search tree sizes than the one used in previous work.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "src-ml-cbs-classes",
+      "label": "従来の3クラスの衝突選択",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2012.06005",
+      "locator": "Abstract",
+      "excerpt": "Previous work chooses the conflict to resolve by categorizing the conflict into three classes and always picking a conflict from the highest-priority class.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "src-ml-cbs-slow",
+      "label": "オラクルの計算は遅い",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2012.06005",
+      "locator": "Abstract",
+      "excerpt": "However, the computation of the oracle is slow.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "src-benchmark-terminology",
+      "label": "MAPFの前提と目的の統一的な用語",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract",
+      "excerpt": "This paper aims to fill this gap and support researchers and practitioners by providing a unifying terminology for describing common MAPF assumptions and objectives.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "src-benchmark-baselines",
+      "label": "前提の違いで比較の基準が定めにくい",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract",
+      "excerpt": "This makes it difficult to establish appropriate baselines for comparison in research papers, as well as making it difficult for practitioners to find the papers relevant to their concrete application.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "src-benchmark-assumptions",
+      "label": "論文ごとに違う前提と目的関数",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/1906.08291",
+      "locator": "Abstract",
+      "excerpt": "Different MAPF research papers make different assumptions, e.g., whether agents can traverse the same road at the same time, and have different objective functions, e.g., minimize makespan or sum of agents' actions costs.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "src-rhcr-framework",
+      "label": "RHCRの枠組み（時間窓つきMAPFの列）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2005.07371",
+      "locator": "Abstract",
+      "excerpt": "We propose a new framework Rolling-Horizon Collision Resolution (RHCR) for solving lifelong MAPF by decomposing the problem into a sequence of Windowed MAPF instances, where a Windowed MAPF solver resolves collisions among the paths of the agents only within a bounded time horizon and ignores collisions beyond it.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "src-rhcr-pliable",
+      "label": "次々に来る目標に合わせやすい計画",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/abs/2005.07371",
+      "locator": "Abstract",
+      "excerpt": "RHCR is particularly well suited to generating pliable plans that adapt to continually arriving new goal locations.",
+      "verification": "abstract_only",
+      "retrieved_at": "2026-10-12T00:00:00+09:00",
+      "content_hash": null,
+      "origin": "paper-rhcr"
     }
   ],
   "relations": [

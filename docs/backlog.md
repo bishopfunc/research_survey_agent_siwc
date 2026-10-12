@@ -32,6 +32,8 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P25 | Doing | 調査のスキル（網羅的な新規調査・深掘り・違う視点・解説・修正と補完）と追加の依頼の判定。残り：実Codexで判定と解説を確かめ、判定の時間を測る（[0023](design/0023-skills-and-routing.md)、[ADR 0014](adr/0014-skills-as-modules-with-router.md)） | P24 |
 | P26 | Done | 文献ガイド（Resource型とタブ、Promptのguide規則、調査の要件に文献3件以上・サーベイ1件以上）（[0024](design/0024-literature-guide.md)、[ADR 0016](adr/0016-resource-entity.md)） | P25 |
 | P27 | Done | 事実と出典（Evidenceに出典元、課題・手法・系統・ナレッジ・要点に出典、Promptの規則）、論文詳細の4区分、サンプルの作り直し（[0025](design/0025-facts-and-sources.md)、[ADR 0017](adr/0017-evidence-as-common-source.md)） | P26 |
+| P28 | Done | 共通の概要（一言の説明と出典）、論文詳細の9区分（要旨・解説・貢献・図解など）、要点の項目ごとの出典、arXivの節とアンカー、最新を取得、戻る、ツリーの概要と達成度、手法名の規則、コレクションの状態、ナレッジの学習済みモデルとアーキテクチャ（[0026](design/0026-detail-overview-and-figures.md)） | P27 |
+| P29 | Done | 精読の系統ごとのラウンドロビン、論文ごとの課題の候補（出典つき）と統合での3階層以上の木、網羅の批評の段階は未着手（[0027](design/0027-issue-extraction-and-deep-read-allocation.md)） | P28 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験。論文ライブラリ（papers・paper_records・paper_files）とPDF/mdのR2保存（0010） | B02 |
