@@ -416,6 +416,21 @@ test('a capped list keeps two co-authors with the same name; only a uniqueItems 
   assert.deepEqual(m.english_terms, ['CBS', 'ICBS']);
   assert.doesNotThrow(() => applyPatch(fixture, out, head.id));
 });
+test('a literature guide entry whose page title could not be read takes its label as the title', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const head = makeCommit(fixture, [], 'base');
+  const resource = structuredClone(fixture.entities.find(e => e.id === 'res-kei18-intro')!) as unknown as Record<string, unknown>;
+  // A real outline checkpoint: title "" and label 'VLN-CEのEvalAI評価サーバ'.
+  for (const title of ['', '  ', null]) {
+    const raw = { schema_version: '0.1.0', base_commit_id: head.id, message: 'm', operations: [{ op: 'replace_entity', entity: { ...resource, title, label: ' VLN-CEのEvalAI評価サーバ ' } }] };
+    if (title !== '  ') assert.throws(() => applyPatch(fixture, raw as unknown as SurveyPatch, head.id));
+    const out = stripCodexNulls(raw, defs) as SurveyPatch;
+    assert.equal((out.operations[0] as unknown as { entity: { title: string } }).entity.title, 'VLN-CEのEvalAI評価サーバ');
+    assert.doesNotThrow(() => applyPatch(fixture, out, head.id));
+  }
+  const kept = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: resource }] }, defs) as SurveyPatch;
+  assert.equal((kept.operations[0] as unknown as { entity: { title: string } }).entity.title, resource.title);
+});
 test('nullable Codex reading arrays are normalized without losing additions or references', () => {
   const paper = structuredClone(fixture.entities.find(e => e.type === 'Paper' && e.id === 'paper-ecbs')!);
   const input = { schema_version: '0.1.0', base_commit_id: 'empty', message: 'reading repair', operations: [

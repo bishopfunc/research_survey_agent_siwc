@@ -92,7 +92,8 @@ function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, S
   return value;
 }
 /** Drops the nulls Codex had to send for optional fields whose app schema does not accept null (e.g. code_availability),
- * and tidies what is mechanical to fix (follow-ups, capped lists, reading lists, URLs, Evidence status) so it never needs a repair run.
+ * and tidies what is mechanical to fix (follow-ups, capped lists, reading lists, URLs, dates, Evidence status, an empty Resource title)
+ * so it never needs a repair run.
  * Free-text checkpoints skip the strict output schema, so this also applies the rules that schema enforces. */
 export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): unknown {
   const clean = structuredClone(patch) as { operations?: { entity?: Record<string, unknown> }[]; follow_ups?: unknown };
@@ -105,6 +106,8 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
     if (!entity || !def) continue;
     // Codex creates only unverified Evidence without a content hash (codexPatchSchema).
     if (entity.type === 'Evidence') { entity.verification = 'unverified'; entity.content_hash = null; }
+    // A page whose title Codex could not read comes back with title "" (a real outline checkpoint); its label names it.
+    if (entity.type === 'Resource' && !(typeof entity.title === 'string' && entity.title.trim()) && typeof entity.label === 'string' && entity.label.trim()) entity.title = entity.label.trim();
     const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
     if (reading && typeof reading === 'object') {
       for (const key of ['contributions', 'key_figures', 'key_formulas', 'key_sections', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }
