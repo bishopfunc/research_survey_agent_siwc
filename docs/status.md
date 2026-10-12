@@ -76,6 +76,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: P15。論文の詳細に「理解に重要なFig」を追加（[0016](design/0016-paper-key-figures.md)）。単体試験4件PASS。実ネットワーク：ヘッドレスChromeでarXiv 2307.15644を取得（arxiv.org/htmlを1回）、Figure 1（SVG）とFigure 2（PNG）がCodexの挙げたFig. 1・Fig. 2に並んで表示され、Figure 3は「ほかのFig」に入ることと、再読み込みで保存済みの結果が表示されボタンが消えることを確認。
 
+2026-10-12 JST: P13の実Codex確認。12:00版Prompt（`survey-new@…11:45`・`survey-discovery@…11:45`・`survey-rules@…12:00`）で新規調査「学習ベースのマルチエージェント経路計画（MAPF）をサーベイ」をローカルサーバーのAPIから1回実行（run e720a9e4、空の調査）。195秒、Web検索3回、`turn.completed` を受信し、修正なしで検証を通過。変更案は73操作・約39KB：課題7（全件に英語表現3つ）、系統4（Concept）と instance_of 7、手法7、論文8（略称の会場、7本に原文と和訳、7本に要点。Figはキャプションを読んでいないため空）、達成度の主張2件（数値を含む原文の根拠つき、ほかは「未検証」とmessageに明記）、ナレッジ8、候補3つ（1つは論文の本文を読み直して比較する依頼）。問題：ナレッジ1件が旧分類（concept）だったため、Codexの出力スキーマでナレッジの分類を新しい8つに限った。所見：Web検索が3回と少なく、要点はアブストラクト中心（Promptの調整余地）。
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

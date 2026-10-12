@@ -17,7 +17,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P10 | Done | サーベイ論文とawesomeの調査を並列化。Paperにabstractと出典URL、abstract_onlyのEvidenceに原文を必須化。論文ライブラリとPDF/md保存の設計（実装はB03/B04） | P07 |
 | P11 | Done | Codexの「調査」：入力は1つでPromptだけを新規調査・追加調査で切替（空の調査かで判定）、Web検索、シェル等の無効化、開発用AGENTS.mdの除外、strict準拠の出力スキーマ、検証エラー時の1回修正、ChatGPT風の経過表示、Promptの版のタイムスタンプ化。UIは時計アイコンの版の履歴、課題の種類の絞り込みと課題ツリー（0012） | P07/P10 |
 | P12 | Done | 分野の既存ソース（サーベイ論文・awesome・ブログや記事を並行）から調べるPrompt。DSLにKeyword（用語・意味・論文・関連・公式ページ）を追加し、代表的なタスク・データセット・ベンチマーク・評価指標・ベースラインも含むキーワードタブ・論文からの抽出・Labを用意（0013） | P11 |
-| P13 | Doing | 調査の目的（参入者が専門家の水準に追いつきテーマを見つける）と重視点をPromptの先頭に置く。課題の英語表現と論文の数値による達成度（Claim）、手法の系統（Concept＋instance_of）と系統表示、論文の貢献と5つの問い・重要なFig・アブストラクトの和訳、学会の略称、キーワード→ナレッジ（SOTA・モデル・ベースライン）、候補3つ。新しい型は作らない。残り：11:45版Promptでの実Codexの新規調査（論文8〜20件・和訳・要点・候補）を完了・検証まで通す（[0014](design/0014-expert-catch-up-survey.md)、[ADR 0010](adr/0010-reuse-types-for-expert-survey.md)） | P12 |
+| P13 | Done | 調査の目的（参入者が専門家の水準に追いつきテーマを見つける）と重視点をPromptの先頭に置く。課題の英語表現と論文の数値による達成度（Claim）、手法の系統（Concept＋instance_of）と系統表示、論文の貢献と5つの問い・重要なFig・アブストラクトの和訳、学会の略称、キーワード→ナレッジ（SOTA・モデル・ベースライン）、候補3つ。新しい型は作らない。実Codexの新規調査で完了・検証まで確認済み（[0014](design/0014-expert-catch-up-survey.md)、[ADR 0010](adr/0010-reuse-types-for-expert-survey.md)） | P12 |
 | P14 | Done | 引用数の取得（OpenAlex、Google Scholarは公式APIが無く不採用）。論文タブの「引用数を更新」で取得元と取得日つきの新しい版を作る（[0015](design/0015-citation-counts.md)） | P13 |
 | P15 | Done | 論文の理解に重要なFigの画像を論文の詳細に出す。arXivのHTML版（無ければar5iv）から図の番号・キャプション・画像URLを取得し、reading.key_figuresの番号と対応づける。取得はボタンで1論文1回、結果はローカルに保存（[0016](design/0016-paper-key-figures.md)） | P13 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |

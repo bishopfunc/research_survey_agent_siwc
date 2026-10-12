@@ -32,13 +32,19 @@ export function codexOutputSchema(schema: Schema): Schema {
   return out;
 }
 
-/** Patch schema for research runs: Codex may only create unverified Evidence and never a content hash. */
+/** Knowledge categories Codex may use; task, concept, method and other remain in the DSL only for data saved earlier. */
+export const KNOWLEDGE_CATEGORIES = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline'] as const;
+/** Patch schema for research runs: Codex may only create unverified Evidence and never a content hash,
+ * and knowledge uses the current categories. */
 export function codexPatchSchema(patch: Schema): Schema {
   const out = codexOutputSchema(patch);
-  const evidence = ((out.$defs as Record<string, Schema> | undefined)?.Evidence?.properties) as Record<string, Schema> | undefined;
-  if (!evidence) throw Error('Evidence definition is missing from the patch schema');
+  const defs = out.$defs as Record<string, Schema> | undefined;
+  const evidence = defs?.Evidence?.properties as Record<string, Schema> | undefined;
+  const keyword = defs?.Keyword?.properties as Record<string, Schema> | undefined;
+  if (!evidence || !keyword) throw Error('Evidence or Keyword definition is missing from the patch schema');
   evidence.verification = { type: 'string', enum: ['unverified'] };
   evidence.content_hash = { type: 'null' };
+  keyword.category = { type: 'string', enum: [...KNOWLEDGE_CATEGORIES] };
   return out;
 }
 

@@ -289,3 +289,13 @@ test('mechanical slips in English terms and reading are tidied before validation
   assert.deepEqual(validateSnapshot(snapshot), []);
 });
 
+test('research output may use only the current knowledge categories; older ones stay valid in saved data', () => {
+  const strict = codexPatchSchema(patchSchema) as { $defs: { Keyword: { properties: { category: { enum: string[] } } } } };
+  assert.deepEqual(strict.$defs.Keyword.properties.category.enum, ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline']);
+  const input = structuredClone(fixture);
+  const keyword = input.entities.find(e => e.type === 'Keyword');
+  if (keyword?.type !== 'Keyword') throw Error('fixture changed');
+  keyword.category = 'concept';
+  assert.deepEqual(validateSnapshot(input), []);
+});
+
