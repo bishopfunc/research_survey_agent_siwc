@@ -67,8 +67,8 @@ export function parseExplanation(raw: string): Explanation {
   let value: Partial<Explanation>;
   try { value = JSON.parse(raw); } catch { throw Error('解説の出力がJSONではありません'); }
   if (typeof value.message !== 'string' || !value.message.trim() || value.message.length > EXPLANATION_MAX_CHARS) throw Error('解説の本文がありません');
-  const sources = Array.isArray(value.sources) ? value.sources : [];
-  for (const s of sources) if (typeof s?.title !== 'string' || typeof s?.url !== 'string' || !/^https?:\/\//i.test(s.url)) throw Error('解説の出典のURLが不正です');
+  // A source without a confirmed http(s) URL (left empty as [nofabrication] asks, a DOI string, a stored paper without url) is dropped, not the whole answer.
+  const sources = (Array.isArray(value.sources) ? value.sources : []).flatMap(s => typeof s?.title === 'string' && typeof s?.url === 'string' && /^https?:\/\//i.test(s.url.trim()) ? [{ title: s.title, url: s.url.trim() }] : []);
   const follow_ups = Array.isArray(value.follow_ups) ? value.follow_ups.filter((q): q is string => typeof q === 'string' && !!q.trim()).slice(0, 3) : [];
   return { message: value.message.trim(), sources: sources.slice(0, 20), follow_ups };
 }

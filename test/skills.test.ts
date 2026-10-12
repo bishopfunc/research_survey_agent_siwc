@@ -48,7 +48,9 @@ test('the router answer must name a routed skill with a short reason, and the ro
 test('an explanation keeps its text and http sources and changes nothing; its prompt leaves out the patch rules', () => {
   assert.deepEqual(parseExplanation('{"message":" 本文 ","sources":[{"title":"t","url":"https://example.org"}],"follow_ups":["a","b","c","d"]}'), { message: '本文', sources: [{ title: 't', url: 'https://example.org' }], follow_ups: ['a', 'b', 'c'] });
   assert.throws(() => parseExplanation('{"message":"","sources":[],"follow_ups":[]}'), /本文/);
-  assert.throws(() => parseExplanation('{"message":"x","sources":[{"title":"t","url":"javascript:alert(1)"}],"follow_ups":[]}'), /URL/);
+  // A source without an http(s) URL is dropped; the explanation and its other sources stay.
+  const sources = [{ title: 'unsafe', url: 'javascript:alert(1)' }, { title: 'empty', url: '' }, { title: 'doi', url: 'doi:10.1145/1' }, { title: 'kept', url: ' https://arxiv.org/abs/1 ' }, { title: 'no url' }];
+  assert.deepEqual(parseExplanation(JSON.stringify({ message: 'x', sources, follow_ups: [] })).sources, [{ title: 'kept', url: 'https://arxiv.org/abs/1' }]);
   assert.deepEqual(explanationSchema.required, ['message', 'sources', 'follow_ups']);
   const prompt = buildExplainPrompt({ instruction: 'q', snapshot: fixture, as_of: '2026-10-12', instructions: skillInstructions(SKILLS.find(s => s.id === 'explain')!) });
   assert.match(prompt, /Do not change the survey and do not return a patch/);
@@ -82,7 +84,9 @@ test('a skill run researches with the routed skill, explains without a patch, an
   await executeSkillRun('違う視点から調べて', failedRouter);
   assert.deepEqual(failedRouter.log, ['note:依頼の判定に失敗したため語句で判定しました（上限）', 'chosen:perspective:words:依頼の語句から判定', 'research:perspective']);
 
-  const broken = steps({ route: async () => ({ ok: true, output: '{"skill":"explain","reason":"説明"}' }), explain: async () => ({ ok: true, output: '{"message":"x","sources":[{"title":"t","url":"ftp://x"}],"follow_ups":[]}' }) });
+  const unlinked = steps({ route: async () => ({ ok: true, output: '{"skill":"explain","reason":"説明"}' }), explain: async () => ({ ok: true, output: '{"message":"x","sources":[{"title":"t","url":"ftp://x"}],"follow_ups":[]}' }) });
+  assert.deepEqual(await executeSkillRun('q', unlinked), { status: 'explained', explanation: { message: 'x', sources: [], follow_ups: [] }, searches: 0 });
+  const broken = steps({ route: async () => ({ ok: true, output: '{"skill":"explain","reason":"説明"}' }), explain: async () => ({ ok: true, output: '{"message":"","sources":[],"follow_ups":[]}' }) });
   assert.equal((await executeSkillRun('q', broken)).status, 'failed');
 
   let live = true;

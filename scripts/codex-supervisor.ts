@@ -1,8 +1,11 @@
 import { STOP_GRACE_MS } from '../packages/agent/src/time-budget';
 import type { CodexAttempt } from './research-run';
+import { initialCodexState } from './codex-events';
 
+/** A completed turn and exit 0 succeed even after an `error` event: Codex reports transient retries ("Reconnecting... 2/5") that way.
+ * A fatal error ends the turn with turn.failed instead; the last error only explains a failure. */
 export function attemptSucceeded(attempt: CodexAttempt) {
-  return !attempt.timedOut && !attempt.spawnError && attempt.code === 0 && attempt.state.completed && !attempt.state.error;
+  return !attempt.timedOut && !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
 }
 export function attemptError(attempt: CodexAttempt): string | undefined {
   if (attempt.timedOut) return '時間切れ：書き出し猶予を含む実行上限に達しました';
@@ -11,6 +14,11 @@ export function attemptError(attempt: CodexAttempt): string | undefined {
   if (attempt.code !== 0) return `終了コード ${attempt.code ?? '不明'}${attempt.signal ? `（${attempt.signal}）` : ''}`;
   if (!attempt.state.completed) return 'Codexの完了イベントを受信せずに終了しました';
   return undefined;
+}
+/** Starts a Codex process only while its run is still running. A step reached after a cancel, a failure or a shutdown (for example
+ * while results were being enriched) resolves as a failed attempt without spawning, since no cancel would stop that process. */
+export function startWhileActive(active: boolean, start: () => Promise<CodexAttempt>): Promise<CodexAttempt> {
+  return active ? start() : Promise.resolve({ code: null, state: { ...initialCodexState(), error: '実行が終了しているためCodexを起動しませんでした' } });
 }
 /** One process, including cancellation. Termination is bounded; all timers are cleared on close. */
 export function superviseProcess(kill: (signal: 'SIGTERM' | 'SIGKILL') => void, researchMs: number, totalMs: number, hooks: { research(): void; timeout(): void }, timer = {

@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { timeBudget, budgetInstructions } from '../packages/agent/src/time-budget';
 import { STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
-import { attemptSucceeded, attemptError, superviseProcess } from '../scripts/codex-supervisor';
+import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from '../scripts/codex-supervisor';
 import { initialCodexState } from '../scripts/codex-events';
 import { executeResearch } from '../scripts/research-run';
 
@@ -45,6 +45,16 @@ test('timeout overrides code zero and late completion; a missing completed event
   assert.match(attemptError({ code: 0, state: initialCodexState() })!, /完了イベント/);
   const result = await executeResearch({ snapshot: { schema_version: '0.1.0', title: 't', entities: [], relations: [] }, research: async () => attempt, repair: async () => { throw Error('no repair'); }, output: () => { throw Error('no output'); }, normalize: p => p, validate: () => {}, active: () => true, progress: () => {} });
   assert.equal(result.status, 'failed'); if (result.status === 'failed') assert.match(result.message, /時間切れ/);
+});
+
+test('a run cancelled while its result is enriched starts no further Codex process, repair included', async () => {
+  const run = { status: 'running' }; let spawned = 0;
+  const step = () => startWhileActive(run.status === 'running', async () => { spawned++; return { code: 0, state: { ...initialCodexState(), completed: true } }; });
+  const result = await executeResearch({ snapshot: { schema_version: '0.1.0', title: 't', entities: [], relations: [] }, research: step, repair: () => step(), output: () => '{"operations":[{"op":"set_title","title":"t"}]}', normalize: p => p,
+    prepare: async p => { run.status = 'cancelled'; return p; }, validate: () => { throw Error('invalid'); }, active: () => run.status === 'running', progress: () => {} });
+  assert.equal(result.status, 'stopped'); assert.equal(spawned, 1);
+  const skipped = await step();
+  assert.equal(spawned, 1); assert.equal(attemptSucceeded(skipped), false); assert.match(attemptError(skipped)!, /起動しませんでした/);
 });
 
 test('local process integration: an uncooperative child is killed after the TERM grace', async () => {

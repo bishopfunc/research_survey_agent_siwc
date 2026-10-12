@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, deleteBranch, emptySurvey, fixture, initialWorkspace, makeCommit, snapshotSchema, validateSnapshot, validateWorkspace, type SurveyPatch } from '../packages/domain/src/index';
-import { codexOutputSchema, codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
+import { codexOutputSchema, codexPatchSchema, HTTP_URL_PATTERN, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { patchSchema } from '../packages/domain/src/index';
 import { overviewOf, overviewSources } from '../packages/domain/src/overview';
 
@@ -348,6 +348,39 @@ test('the overview is one existing field per type, and its sources come from the
   assert.deepEqual(overviewSources(issue), issue.type === 'Issue' ? issue.evidence ?? [] : []);
   assert.deepEqual(overviewSources(resource), []);
   assert.deepEqual(overviewSources(paper), paper.type === 'Paper' ? paper.reading?.cites?.summary ?? [] : []);
+});
+test('nested strict-output nulls, item caps and strict-schema rules are applied before validation, so checkpoints pass too', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const head = makeCommit(fixture, [], 'base');
+  const find = (id: string) => structuredClone(fixture.entities.find(e => e.id === id)!) as unknown as Record<string, unknown>;
+  // A library reading copied by [keepstored] carries no evidence or sources; a worker writes "sources: empty" as null.
+  const paper = { ...find('paper-ecbs'), reading: { contributions: ['貢献'], novelty: '差', key_idea: '', validation: '', discussion: '', key_figures: [], key_formulas: null, key_sections: null, captions_ja: null, sources: null, evidence: null, cites: null } };
+  const tutorial = find('tutorial'); const sections = structuredClone(tutorial.sections) as { media: Record<string, unknown>[] }[];
+  sections.find(s => s.media.length)!.media[0].caption_ja = null;
+  const terms = ['conflict-based search', 'CBS', 'CBS', 'two-level search', 'constraint tree', 'high-level search', 'ICBS'];
+  const authors = Array.from({ length: 25 }, (_, i) => `Author ${i % 22}`);
+  const resource = { ...find('res-kei18-intro'), url: 'https://zenn.dev/kei/articles/マルチエージェント 経路?q=%E6%97%A5', authors };
+  const evidence = { ...find('evidence-cbs'), verification: 'verified', content_hash: 'abc', retrieved_at: '2026-10-13', source_url: 'https://例え.jp/論文' };
+  const entities = [paper, { ...tutorial, sections }, { ...find('cbs'), english_terms: terms }, { ...find('family-cbs'), english_terms: terms }, resource, evidence];
+  const raw = { schema_version: '0.1.0', base_commit_id: head.id, message: 'm', operations: entities.map(entity => ({ op: 'replace_entity', entity })) };
+  assert.throws(() => applyPatch(fixture, raw as unknown as SurveyPatch, head.id));
+  const out = stripCodexNulls(raw, defs) as SurveyPatch;
+  const [p, t, m, c, r, e] = out.operations.map(op => (op as unknown as { entity: Record<string, unknown> }).entity);
+  const reading = p.reading as Record<string, unknown>;
+  assert.ok(!('sources' in reading) && !('evidence' in reading) && !('cites' in reading));
+  assert.deepEqual(reading.key_formulas, []);
+  assert.ok(!('caption_ja' in (t.sections as { media: object[] }[]).find(s => s.media.length)!.media[0]));
+  assert.deepEqual(m.english_terms, ['conflict-based search', 'CBS', 'two-level search', 'constraint tree', 'high-level search']);
+  assert.deepEqual(c.english_terms, m.english_terms);
+  assert.deepEqual(r.authors, Array.from({ length: 20 }, (_, i) => `Author ${i}`));
+  assert.equal(r.url, 'https://zenn.dev/kei/articles/%E3%83%9E%E3%83%AB%E3%83%81%E3%82%A8%E3%83%BC%E3%82%B8%E3%82%A7%E3%83%B3%E3%83%88%20%E7%B5%8C%E8%B7%AF?q=%E6%97%A5');
+  assert.match(String(e.source_url), new RegExp(HTTP_URL_PATTERN));
+  assert.deepEqual([e.verification, e.content_hash, e.retrieved_at], ['unverified', null, null]);
+  assert.doesNotThrow(() => applyPatch(fixture, out, head.id));
+  assert.deepEqual(stripCodexNulls(out, defs), out, 'normalizing twice changes nothing');
+  // A date-time with a time stays; a copied Evidence keeps its other fields.
+  const timed = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: find('evidence-cbs') }] }, defs) as SurveyPatch;
+  assert.equal((timed.operations[0] as { entity: { retrieved_at: string } }).entity.retrieved_at, '2026-10-12T00:00:00+09:00');
 });
 test('nullable Codex reading arrays are normalized without losing additions or references', () => {
   const paper = structuredClone(fixture.entities.find(e => e.type === 'Paper' && e.id === 'paper-ecbs')!);

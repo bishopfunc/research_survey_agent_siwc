@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { errorText, initialCodexState, readCodexEvent, redact, traceItem } from '../scripts/codex-events';
+import { attemptError, attemptSucceeded } from '../scripts/codex-supervisor';
 const run = (lines: string[]) => lines.reduce(readCodexEvent, initialCodexState());
 test('codex events count web searches and only a completed turn counts as success', () => {
   const ok = run([
@@ -35,6 +36,17 @@ test('codex errors become one short line, unwrapping the API error and ignoring 
   assert.equal(failed.error, 'You have hit your usage limit. Try again later.');
   assert.equal(errorText('{"error":{"message":"The model is not supported."}}'), 'The model is not supported.');
   assert.equal(errorText('x'.repeat(500)).length, 300);
+});
+test('a transient Reconnecting error the turn recovers from is success; a failed turn stays a failure with its reason', () => {
+  const reconnect = '{"type":"error","message":"Reconnecting... 2/5 (unexpected status 503 Service Unavailable)"}';
+  const recovered = run(['{"type":"turn.started"}', reconnect, '{"type":"item.completed","item":{"type":"agent_message","text":"{}"}}', '{"type":"turn.completed","usage":{"input_tokens":1}}']);
+  assert.equal(attemptSucceeded({ code: 0, state: recovered }), true);
+  const failed = run(['{"type":"turn.started"}', reconnect, '{"type":"turn.completed"}', '{"type":"turn.failed","error":{"message":"model at capacity"}}']);
+  assert.equal(attemptSucceeded({ code: 0, state: failed }), false);
+  assert.equal(attemptError({ code: 0, state: failed }), 'model at capacity');
+  const gaveUp = run(['{"type":"turn.started"}', reconnect]);
+  assert.equal(attemptSucceeded({ code: 1, state: gaveUp }), false);
+  assert.match(attemptError({ code: 1, state: gaveUp })!, /Reconnecting/);
 });
 test('credential-like strings are masked before logs are written or shown', () => {
   const masked = redact('Authorization: Bearer abc.def-ghi {"access_token":"secret123","refresh_token": "r-1"} eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.c2lnbmF0dXJlMTIz sk-abcdefghijklmnopqrstu');

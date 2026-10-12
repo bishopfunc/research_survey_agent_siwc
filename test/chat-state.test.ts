@@ -69,6 +69,26 @@ test('a new survey is titled by its running request before a queued or typed one
   assert.equal(provisionalName(empty, []), ''); assert.equal(provisionalName(fixture, ['VLN']), ''); assert.equal(provisionalName({ ...empty, title: '命名済み' }, ['VLN']), '');
 });
 
+test('a running run holds the one Codex slot between its processes; a cancelled one only while its process stops', async () => {
+  const { busyRuns } = await import('../scripts/run-request');
+  assert.equal(busyRuns([{ id: 'a', status: 'running' }], []), 1, 'enriching between two Codex processes');
+  assert.equal(busyRuns([{ id: 'a', status: 'running' }], ['a:deepen-1', 'a:deepen-2']), 1);
+  assert.equal(busyRuns([{ id: 'a', status: 'cancelled' }, { id: 'b', status: 'running' }], ['a:repair']), 2);
+  assert.equal(busyRuns([{ id: 'a', status: 'cancelled' }, { id: 'b', status: 'succeeded' }], []), 0);
+});
+test('a rejected run request tells the user what to fix; unexpected errors stay generic', async () => {
+  const { requestFailure, requestIdentity, repeatedRequest } = await import('../scripts/run-request');
+  const reason = (fn: () => unknown) => { try { fn(); } catch (error) { return requestFailure(error); } throw Error('expected a rejection'); };
+  const input = { request_id: '00000000-0000-4000-8000-000000000002', instruction: 'x', base_commit_id: 'b', snapshot: fixture, context_papers: [] };
+  const identity = requestIdentity(input)!;
+  const run = { request_id: identity.id, request_fingerprint: identity.fingerprint };
+  assert.deepEqual(reason(() => repeatedRequest([run], requestIdentity({ ...input, base_commit_id: 'new-head' }))), { status: 400, error: '同じ依頼IDの内容が変わっています。待機依頼を削除して送信し直してください' });
+  assert.deepEqual(reason(() => requestIdentity({ ...input, request_id: 'invalid' })), { status: 400, error: '依頼IDを確認してください' });
+  assert.deepEqual(reason(() => validateContextPapers(['missing'], fixture)), { status: 400, error: 'コンテキストの論文が現在の版にありません' });
+  assert.deepEqual(reason(() => JSON.parse('{')), { status: 400, error: '入力を確認してください' });
+  assert.deepEqual(requestFailure(Error('INVALID_INPUT')), { status: 400, error: '入力を確認してください' });
+  assert.deepEqual(requestFailure(Error('BODY_TOO_LARGE')), { status: 413, error: 'BODY_TOO_LARGE' });
+});
 test('repeated queued sends recover the same run; reusing an ID with a different base or context fails', async () => {
   const { requestIdentity, repeatedRequest } = await import('../scripts/run-request');
   const input = { request_id: '00000000-0000-4000-8000-000000000001', instruction: 'x', base_commit_id: 'b', snapshot: fixture, context_papers: [paper.id] };

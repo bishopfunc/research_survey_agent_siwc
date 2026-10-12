@@ -28,7 +28,8 @@ export function readCodexEvent(state: CodexEventState, line: string): CodexEvent
   }
   if (event.type === 'turn.completed') return { ...state, completed: true, usage: event.usage && typeof event.usage === 'object' ? event.usage as Record<string, number> : null };
   if (event.type === 'error' && typeof event.message === 'string') return { ...state, error: errorText(event.message) };
-  if (event.type === 'turn.failed') return { ...state, error: errorText(typeof event.error?.message === 'string' ? event.error.message : 'turn.failed') };
+  // A failed turn is never complete; a plain `error` event may be a retry the turn recovers from.
+  if (event.type === 'turn.failed') return { ...state, completed: false, error: errorText(typeof event.error?.message === 'string' ? event.error.message : 'turn.failed') };
   return state;
 }
 

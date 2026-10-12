@@ -16,10 +16,10 @@ import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-st
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
 import { singleFlight } from './single-flight';
-import { requestIdentity, repeatedRequest } from './run-request';
+import { busyRuns, requestFailure, requestIdentity, repeatedRequest } from './run-request';
 import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, budgetInstructions, timeBudget } from '../packages/agent/src/time-budget';
-import { attemptSucceeded, attemptError, superviseProcess } from './codex-supervisor';
+import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
 import { streamCheckpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch, stageStep, stageTraceText } from './staged-run';
@@ -121,7 +121,7 @@ async function warmArxiv(ids: string[]) {
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
 function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; checkpoint?: (line: string) => void } = {}): Promise<CodexAttempt> {
-  return new Promise(done => {
+  return startWhileActive(run.status === 'running', () => new Promise(done => {
     const startedAt = Date.now();
     const budget = timeBudget(timeoutSeconds);
     const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
@@ -170,7 +170,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     child.on('close', (code, signal) => finish({ code, signal, state, timedOut: supervisor.timedOut }));
     child.stdin?.on('error', () => {});
     child.stdin?.end(`${budgetInstructions(timeoutSeconds, startedAt)}\n\n${prompt}`);
-  });
+  }));
 }
 const outputs = { research: 'patch.json', repair: 'patch-repair.json' } as const;
 /** A finished Codex step and its final message, for steps whose output is not a patch. */
@@ -350,13 +350,13 @@ const server = createServer(async (req, res) => {
       const identity = requestIdentity({ ...input, context_papers });
       const repeated = repeatedRequest(runs.values(), identity);
       if (repeated) { json(res, repeated, 202); return; }
-      if (new Set([...children.keys()].map(k => k.split(':')[0])).size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
+      if (busyRuns(runs.values(), children.keys()) >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
       if (input.use_library !== undefined && typeof input.use_library !== 'boolean') throw Error('INVALID_INPUT');
       const useLibrary = input.use_library ?? true, library = useLibrary ? await libraryForRun(input.snapshot as SurveySnapshot, sanitizeLibrary(input.library)) : [];
       // Library reads yield: another request may have acquired the slot or started this same request meanwhile.
       const recovered = repeatedRequest(runs.values(), identity);
       if (recovered) { json(res, recovered, 202); return; }
-      if (new Set([...children.keys()].map(k => k.split(':')[0])).size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
+      if (busyRuns(runs.values(), children.keys()) >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
       // One 調査 button for both cases: an empty survey gets the new-survey prompt, otherwise additional research.
       const mode: ResearchMode = (input.snapshot as SurveySnapshot).entities.length ? 'additional' : 'new';
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
@@ -376,12 +376,14 @@ const server = createServer(async (req, res) => {
     }
     json(res, { error: 'NOT_FOUND' }, 404);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'INVALID_REQUEST';
-    json(res, { error: message === 'BODY_TOO_LARGE' ? message : '入力を確認してください' }, message === 'BODY_TOO_LARGE' ? 413 : 400);
+    const failure = requestFailure(error);
+    json(res, { error: failure.error }, failure.status);
   }
 });
 server.listen(port, '127.0.0.1', () => console.log(`Speedrun Survey: ${origin}`));
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
-  for (const key of children.keys()) { const run = runs.get(key.split(':')[0]); if (run) { run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); } stopChildren.get(key)?.(); }
+  // Every running run stops, also one between two Codex processes, so none starts another step after the server closes.
+  for (const run of runs.values()) if (run.status === 'running') { run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); }
+  for (const stop of stopChildren.values()) stop();
   server.close(); void vite.close(); // Keep the process alive until children's bounded shutdown finishes.
 });

@@ -3,8 +3,13 @@
 type Schema = Record<string, unknown>;
 /** Formats the structured-output API accepts; others (uniqueItems, minLength…) are checked by the app afterwards. */
 const SUPPORTED_FORMATS = ['date', 'date-time'];
+/** Characters a URL may hold raw (RFC 3986); anything else is percent-encoded. */
+const URL_CHARS = "A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%";
 /** `uri` is not accepted by the API, so URL fields get an http(s) pattern limited to RFC 3986 characters (non-ASCII must be percent-encoded). */
-export const HTTP_URL_PATTERN = "^https?://[A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]+$";
+export const HTTP_URL_PATTERN = `^https?://[${URL_CHARS}]+$`;
+const RAW_URL_CHARS = new RegExp(`[^${URL_CHARS}]+`, 'g');
+/** Percent-encodes what HTTP_URL_PATTERN does not allow raw (non-ASCII, spaces, | { }…), keeping existing escapes; a broken surrogate is dropped. */
+const encodeUrl = (url: string) => url.trim().replace(RAW_URL_CHARS, part => { try { return encodeURI(part); } catch { return ''; } });
 
 const allowsNull = (schema: Schema | undefined): boolean => !!schema && (
   (Array.isArray(schema.type) ? schema.type.includes('null') : schema.type === 'null')
@@ -53,8 +58,30 @@ function distinct(value: unknown, limit: number, length = Infinity): string[] | 
   if (!Array.isArray(value)) return undefined;
   return [...new Set(value.filter((v): v is string => typeof v === 'string').map(v => v.trim().slice(0, length)).filter(Boolean))].slice(0, limit);
 }
+/** The definition behind a local $ref, or the non-null branch of a nullable anyOf (Paper.reading, Tutorial sections…). */
+function resolve(schema: Schema | undefined, defs: Record<string, Schema>): Schema | undefined {
+  if (typeof schema?.$ref === 'string') return resolve(defs[schema.$ref.split('/').at(-1)!], defs);
+  if (Array.isArray(schema?.anyOf)) return resolve((schema.anyOf as Schema[]).find(s => !allowsNull(s)), defs);
+  return schema;
+}
+/** Tidies a value against its app definition at any depth (reading.sources, a tutorial figure's caption_ja…): drops the nulls Codex had
+ * to send for optional non-nullable keys, keeps the first distinct strings of a capped list (english_terms, Resource.authors),
+ * percent-encodes URLs and nulls a nullable date-time that is only a date, as the strict output schema would have required. */
+function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, Schema>): unknown {
+  const def = resolve(schema, defs);
+  if (!def) return value;
+  if (typeof value === 'string' && def.format === 'uri') return encodeUrl(value);
+  if (typeof value === 'string' && def.format === 'date-time' && allowsNull(def) && /^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  if (Array.isArray(value)) return typeof def.maxItems === 'number' && (def.items as Schema | undefined)?.type === 'string' ? distinct(value, def.maxItems) : value.map(item => tidy(item, def.items as Schema | undefined, defs));
+  if (value && typeof value === 'object' && def.properties) {
+    const object = value as Record<string, unknown>, required = new Set((def.required as string[] | undefined) ?? []), properties = def.properties as Record<string, Schema>;
+    for (const [key, child] of Object.entries(object)) if (child === null && !required.has(key) && !allowsNull(properties[key])) delete object[key]; else object[key] = tidy(child, properties[key], defs);
+  }
+  return value;
+}
 /** Drops the nulls Codex had to send for optional fields whose app schema does not accept null (e.g. code_availability),
- * and tidies list fields that are mechanical to fix (follow-ups, English issue terms, reading lists) so they never need a repair run. */
+ * and tidies what is mechanical to fix (follow-ups, capped lists, reading lists, URLs, Evidence status) so it never needs a repair run.
+ * Free-text checkpoints skip the strict output schema, so this also applies the rules that schema enforces. */
 export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): unknown {
   const clean = structuredClone(patch) as { operations?: { entity?: Record<string, unknown> }[]; follow_ups?: unknown };
   if (clean && typeof clean === 'object' && 'follow_ups' in clean) {
@@ -64,13 +91,8 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
   for (const op of clean?.operations ?? []) {
     const entity = op?.entity; const def = entity && defs[String(entity.type)];
     if (!entity || !def) continue;
-    const required = new Set((def.required as string[] | undefined) ?? []);
-    const properties = (def.properties ?? {}) as Record<string, Schema>;
-    for (const [key, value] of Object.entries(entity)) if (value === null && !required.has(key) && !allowsNull(properties[key])) delete entity[key];
-    if (entity.type === 'Issue' && 'english_terms' in entity) {
-      const terms = distinct(entity.english_terms, 5);
-      if (terms) entity.english_terms = terms;
-    }
+    // Codex creates only unverified Evidence without a content hash (codexPatchSchema).
+    if (entity.type === 'Evidence') { entity.verification = 'unverified'; entity.content_hash = null; }
     const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
     if (reading && typeof reading === 'object') {
       for (const key of ['contributions', 'key_figures', 'key_formulas', 'key_sections', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }
@@ -94,6 +116,7 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
       }
       if (Object.entries(reading).filter(([key]) => key !== 'sources' && key !== 'cites').every(([, v]) => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
     }
+    tidy(entity, def, defs);
   }
   return clean;
 }

@@ -46,7 +46,7 @@
 ## 契約
 
 - `Run` に `skill`（ID）と `explanation`（`{ message, sources }`）を足す。解説の実行は `patch` を持たない。
-- 解説の出力：`message`（1〜12000字）、`sources`（最大20、`{ title, url }`、URLはhttp/https）、`follow_ups`（最大3）。
+- 解説の出力：`message`（1〜12000字）、`sources`（最大20、`{ title, url }`、URLはhttp/https。URLが空・DOI文字列などhttp/https以外の出典はその出典だけ除き、解説は使う）、`follow_ups`（最大3）。
 - 判定の出力：`skill`（`deepen`・`perspective`・`explain`・`revise`）、`reason`（最大200字）。
 - DSL（調査の型）は変えない。
 
