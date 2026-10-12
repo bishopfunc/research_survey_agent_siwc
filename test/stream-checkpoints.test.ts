@@ -102,6 +102,15 @@ test('a mention of the marker in prose or inside the final response is not a che
   assert.equal(chunks.accept(text(`\n${final}\n`)), 'ignored');
   assert.deepEqual(JSON.parse(chunks.finish(final)).operations, [{ op: 'add_entity', entity: domain }]);
 });
+test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
+  const fence = '```';
+  const forms = ['**SURVEY_CHECKPOINT**\n', '`SURVEY_CHECKPOINT`\n', 'SURVEY_CHECKPOINT 2/4:\n', 'SURVEY_CHECKPOINT — 論文1本\n', `SURVEY_CHECKPOINT\n${fence}JSON\n`];
+  for (const form of forms) {
+    const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+    assert.equal(chunks.accept(text(`${form}${JSON.stringify(patch([{ op: 'add_entity', entity: domain }]))}${form.includes(fence) ? `\n${fence}` : ''}`)), 'saved', form);
+    assert.equal(JSON.parse(chunks.finish(JSON.stringify(patch([])))).operations.length, 1, form);
+  }
+});
 test('a checkpoint that does not validate yet is held and validated with the later checkpoints and the final remainder', () => {
   const saved: SurveyPatch[] = [];
   const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, p => saved.push(p));

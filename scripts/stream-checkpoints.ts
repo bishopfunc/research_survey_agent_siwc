@@ -11,9 +11,6 @@ const remainderSchema = structuredClone(patchSchema);
 remainderSchema.properties.operations.minItems = 0;
 const remainderShape = ajv.compile<SurveyPatch>(remainderSchema);
 const MARKER = 'SURVEY_CHECKPOINT';
-/** The marker followed, after whitespace and an optional fence, by a JSON object: a checkpoint, readable or not. A mention
- * of the marker in prose or inside a string of the final response is not one. */
-const CHECKPOINT = new RegExp(`${MARKER}[:：]?\\s*(?:\`\`\`(?:json)?\\s*)?\\{`);
 const isObject = (text: string) => { try { const value = JSON.parse(text); return !!value && typeof value === 'object' && !Array.isArray(value); } catch { return false; } };
 const blank = (value: unknown) => typeof value !== 'string' || !value.trim();
 /** The stage's prepare (enrichPatch) runs after this check: it fills a Paper's missing abstract or drops the translation it
@@ -36,11 +33,12 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       try { event = JSON.parse(line); } catch { return 'ignored'; }
       const text = typeof event?.item?.text === 'string' ? event.item!.text! : '';
       // The final schema-constrained response is a JSON object on its own and reaches this callback too.
-      const at = text.search(CHECKPOINT);
-      if (event?.type !== 'item.completed' || event.item?.type !== 'agent_message' || at < 0 || isObject(text.trim())) return 'ignored';
+      const at = text.indexOf(MARKER), body = at < 0 ? '' : text.slice(at + MARKER.length), open = body.indexOf('{');
+      // The marker with a JSON object after it is a checkpoint, readable or not, whatever decorates the marker (bold, a number,
+      // a fence). A mention with no object after it, or inside the final response (a JSON object on its own), is not one.
+      if (event?.type !== 'item.completed' || event.item?.type !== 'agent_message' || open < 0 || isObject(text.trim())) return 'ignored';
       let patch: SurveyPatch;
-      // A preamble before the marker, or a fence around the JSON object, does not hide a checkpoint.
-      try { const body = text.slice(at + MARKER.length); patch = normalize(JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1))) as SurveyPatch; }
+      try { patch = normalize(JSON.parse(body.slice(open, body.lastIndexOf('}') + 1))) as SurveyPatch; }
       catch { unreadable = true; return 'rejected'; }
       // Validate shape and base even when there are previously accepted operations.
       if (!shape(patch) || patch.base_commit_id !== baseId) { unreadable = true; return 'rejected'; }
