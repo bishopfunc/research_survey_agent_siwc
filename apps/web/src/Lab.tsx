@@ -139,8 +139,8 @@ export function Lab() {
           </Sub>
 
           <Sub id="rules" title="共通のルール" stamp={PROMPT_VERSION}>
-            <div className="lab-prose"><p>変更案を返す実行では、スキルや手順の指示の前に、次の{PROMPT_RULES.length}個のルールを付けてCodexに渡す。ルールは書き方を1か所ずつ決め、何を書くかは後ろのスキルや手順の指示が決める（制限は指示を優先）。各ルールは「[id]」で始まる1行で、指示はこのidでルールを参照する（例：[facts]は事実と出典、[cache]は論文キャッシュ）。</p></div>
-            <div className="lab-rules">{PROMPT_RULES.map((r,i) => <details key={r.id}><summary><span className="lab-card-number">{String(i+1).padStart(2,'0')}</span>{r.title}</summary><p>{r.explanation}</p></details>)}</div>
+            <div className="lab-prose"><p>変更案を返す実行では、スキルや手順の指示の前に、次の{PROMPT_RULES.length}個のルールを付けてCodexに渡す。ルールが決めるのは書き方で、1つの事柄の書き方は1つのルールにだけ書く。何を書くかは、ルールの後ろに続くスキルや手順の指示が決め、両者の制限が食い違うときは指示を優先する。各ルールは「[id]」で始まる1行で、スキルや手順の指示はこのidでルールを参照する（例：[facts]は事実と出典、[cache]は論文キャッシュ）。</p></div>
+            <div className="lab-rules">{PROMPT_RULES.map((r,i) => <details key={r.id}><summary><span className="lab-card-number">{String(i+1).padStart(2,'0')}</span><span>{r.title}<code className="lab-rule-id">[{r.id}]</code></span></summary><p>{r.explanation}</p></details>)}</div>
             <Source summary="英語の指示を読む"><p>実際には、このルールの後ろにスキルや手順の指示、編集する版（base_commit_id）、調査日、依頼、今の調査を続けて渡す。認証情報や実データはここに表示しない。</p><pre>{SURVEY_RULES_INSTRUCTIONS}</pre></Source>
           </Sub>
 

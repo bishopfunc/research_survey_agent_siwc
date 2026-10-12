@@ -82,6 +82,7 @@ html, body { overflow-x: clip; }
 .lab-rules summary::after { content: '+'; margin-left: auto; padding-left: var(--space-2); color: var(--color-faint); font-weight: 400; }
 .lab-rules details[open] summary::after { content: '−'; }
 .lab-rules summary:hover { color: var(--color-accent); }
+.lab-shell .lab-rule-id { margin-left: var(--space-2); padding: 0; background: none; color: var(--color-faint); font-weight: 400; white-space: nowrap; }
 .lab-rules p { font-size: var(--text-caption); padding: 0 0 var(--space-3) calc(2ch + var(--space-3)); }
 .lab-card-number { color: var(--color-faint); font: var(--text-small) var(--font-code); padding-top: 3px; min-width: 2ch; font-weight: 400; }
 .lab-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
