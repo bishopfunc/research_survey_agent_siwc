@@ -59,8 +59,8 @@ test('the validator rule in the prompt is generated from the domain relation con
 test('rules define a no-change answer, method derivation cycles, and research keeps source text', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /If nothing needs to change, return an empty operations array/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /extends, builds_on and specializes between Methods never form a cycle/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /copy the abstract verbatim into abstract with that page as abstract_source_url/);
-  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /For every Paper you add, copy its abstract verbatim/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /the server fills them from arXiv and OpenAlex after the run/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /give its exact title and an identifier \(the server fills the abstract and bibliography/);
 });
 test('the repair prompt keeps the rejected values and leaves out the retrieve-in-this-run rules', () => {
   const prompt = buildRepairPrompt({ base_commit_id: 'b', snapshot: emptySurvey('t'), patch: { operations: [] }, errors: '/operations/0 bad', as_of: '2026-10-12' });
@@ -104,7 +104,7 @@ test('papers are read for their contributions and the five questions, venues use
   for (const field of ['contributions', 'novelty', 'key_idea', 'validation', 'discussion', 'key_figures']) assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(`${field} (`), field);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Use null for papers you did not read/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Write Paper\.venue as the official acronym or short name/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put a faithful Japanese translation of the stored abstract in abstract_ja, never in abstract/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /put a faithful Japanese translation of the abstract you read in abstract_ja/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /do not add proposes Relations or Paper-to-Issue addresses Relations that repeat them/);
 });
 test('every run ends with three follow-up requests and long reading gets more time', () => {
@@ -160,9 +160,9 @@ test('the paper list does not stop below thirty, every tutorial method section c
   assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
 });
 test('fields copied from the paper library are an explicit exception to the retrieve-in-this-run rules', () => {
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /or copy the stored abstract and its source from the paper library or snapshot/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /copy a stored abstract only when replacing a paper that already has one/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /a paper taken from the paper library keeps its stored reading, sources and key figures instead/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /or you copy them from the paper library/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /for every Paper you add that is not in the paper library/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /give year and the venue acronym when you know them from a retrieved page or the paper library/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Do not write abstracts or full bibliography/);
 });
 

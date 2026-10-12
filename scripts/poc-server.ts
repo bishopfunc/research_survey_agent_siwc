@@ -16,6 +16,7 @@ import { executeResearch, type CodexAttempt } from './research-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 import { sanitizeLibrary } from '../packages/agent/src/library';
+import { enrichPatch } from './enrich';
 import type { LibraryPaper } from '../packages/agent/src/prompt';
 
 const port = Number(process.env.POC_PORT ?? 8788);
@@ -47,6 +48,9 @@ async function body(req: IncomingMessage) {
   for await (const chunk of req) { size += chunk.length; if (size > 4_000_000) throw Error('BODY_TOO_LARGE'); chunks.push(chunk); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
+/** The arXiv API asks for at most one request every three seconds. */
+let arxivApiLast = 0;
+const arxivApi = async <T,>(task: () => Promise<T>) => { const wait = arxivApiLast + 3_000 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait)); arxivApiLast = Date.now(); return task(); };
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 function runCodexStep(run: Run, directory: string, step: 'research' | 'repair', prompt: string, timeoutSeconds: number): Promise<CodexAttempt> {
   return new Promise(done => {
@@ -98,6 +102,14 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), RESEARCH_MODES[input.mode].repairTimeoutSeconds); },
     output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
     normalize: patch => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>),
+    // Bibliography and abstracts come from arXiv and OpenAlex instead of Codex's output; a failure keeps Codex's values.
+    prepare: async patch => {
+      if (!(patch as SurveyPatch)?.operations) return patch;
+      if (run.status === 'running') { run.message = 'Codexの結果に書誌とアブストラクトを補完しています'; save(run); }
+      const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi);
+      if (result.error) addTrace(run, { kind: 'error', text: result.error });
+      return result.patch;
+    },
     validate: patch => { const next = applyPatch(input.snapshot, patch, input.base_commit_id); assertFigureAssets(next, resolve('.poc/figures')); },
     active: () => run.status === 'running',
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },

@@ -10,6 +10,8 @@ export interface ResearchSteps {
   output(step: 'research' | 'repair'): string;
   /** Turns Codex's strict-schema output back into the app shape (drops nulls of optional fields). */
   normalize(patch: unknown): unknown;
+  /** Optional server-side completion (bibliography, abstracts) before validation; must not throw. */
+  prepare?(patch: unknown): Promise<unknown>;
   /** Throws an Error whose message lists the validator errors. */
   validate(patch: SurveyPatch): void;
   /** False once the run was cancelled or timed out. */
@@ -39,13 +41,14 @@ export function mergeRepair(rejected: SurveyPatch, repaired: SurveyPatch): Surve
   const known = new Set(rejected.operations.map(opKey));
   return { ...rejected, message: repaired.message || rejected.message, follow_ups: repaired.follow_ups ?? rejected.follow_ups, operations: [...merged, ...repaired.operations.filter(op => !known.has(opKey(op)))] as SurveyPatch['operations'] };
 }
-function check(steps: ResearchSteps, step: 'research' | 'repair'): { patch?: unknown; error?: string; unchanged?: string } {
+async function check(steps: ResearchSteps, step: 'research' | 'repair'): Promise<{ patch?: unknown; error?: string; unchanged?: string }> {
   let raw: string;
   try { raw = steps.output(step); } catch { return { error: 'Codexの出力が見つかりません' }; }
   let patch: unknown;
   try { patch = steps.normalize(JSON.parse(raw)); } catch { return { error: 'Codexの出力がJSONではありません' }; }
   const empty = patch as { operations?: unknown[]; message?: unknown };
   if (Array.isArray(empty?.operations) && !empty.operations.length) return { patch, unchanged: typeof empty.message === 'string' ? empty.message : '' };
+  if (steps.prepare) patch = await steps.prepare(patch);
   try { steps.validate(patch as SurveyPatch); return { patch }; }
   catch (error) { return { patch, error: error instanceof Error ? error.message : '検証に失敗しました' }; }
 }
@@ -55,7 +58,7 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   if (!steps.active()) return { status: 'stopped' };
   const searches = first.state.searches;
   if (!completed(first)) return { status: 'failed', message: failure(first), searches };
-  const result = check(steps, 'research');
+  const result = await check(steps, 'research');
   if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches, ...followUps(result.patch) };
   if (!result.error) return { status: 'succeeded', patch: result.patch as SurveyPatch, repaired: false, searches };
   if (result.patch === undefined) return { status: 'failed', message: result.error, searches };
@@ -63,7 +66,7 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   const second = await steps.repair(result.patch, result.error);
   if (!steps.active()) return { status: 'stopped' };
   if (!completed(second)) return { status: 'failed', message: `${result.error}\n修正の実行にも失敗しました：${failure(second)}`, searches };
-  const repaired = check(steps, 'repair');
+  const repaired = await check(steps, 'repair');
   if (repaired.unchanged !== undefined) return { status: 'failed', message: `修正で操作が空になりました：\n${result.error}`, searches };
   if (!repaired.error) return { status: 'succeeded', patch: repaired.patch as SurveyPatch, repaired: true, searches };
   // Codex sometimes returns only the corrected operations of a large patch; merged back into the research result, they may validate.
