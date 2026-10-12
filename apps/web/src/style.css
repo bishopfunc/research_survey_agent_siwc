@@ -525,3 +525,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
   .edit-modal { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 1ms !important; animation: none !important; scroll-behavior: auto !important; } }
+.lab-reference { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+.lab-reference div { padding: var(--space-2) var(--space-3); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-small); }
+.lab-reference dt { font-size: var(--text-small); color: var(--color-muted); }
+.lab-reference dd { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 700; }

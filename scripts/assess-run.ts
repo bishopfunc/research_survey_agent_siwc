@@ -7,6 +7,7 @@ import { stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { snapshotSchema } from '../packages/domain/src/index';
 import { assessSurvey } from '../packages/domain/src/survey-assessment';
 import { assessTutorial } from '../packages/domain/src/tutorial';
+import { compareToReference } from '../packages/domain/src/tutorial-reference';
 
 const target = process.argv[2];
 if (!target) { console.error('usage: npm run survey:assess -- <run directory | patch.json>'); process.exit(2); }
@@ -18,4 +19,5 @@ const line = (c: { pass: boolean; label: string; detail: string }) => `${c.pass 
 console.log(`${snapshot.title}：操作${patch.operations.length}件`);
 console.log('調査の要件'); survey.forEach(c => console.log('  ' + line(c)));
 console.log('チュートリアルの要件'); tutorial.forEach(c => console.log('  ' + line(c)));
+console.log('基準のチュートリアル（サンプル）との比較'); compareToReference(snapshot).forEach(r => console.log(`  ${r.label}：${r.value}（基準 ${r.reference}、${Math.round(r.ratio * 100)}%）`));
 process.exit([...survey, ...tutorial].every(c => c.pass) ? 0 : 1);

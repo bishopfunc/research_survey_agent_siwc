@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, validateSnapshot } from '../packages/domain/src/index';
 import { assessTutorial, tutorialOutline } from '../packages/domain/src/tutorial';
+import { compareToReference, referenceOutline } from '../packages/domain/src/tutorial-reference';
+import { SURVEY_RULES_INSTRUCTIONS } from '../packages/agent/src/prompt';
 
 const failing = (snapshot: typeof fixture) => assessTutorial(snapshot).filter(c => !c.pass).map(c => c.id);
 const tutorialOf = (snapshot: typeof fixture) => { const t = snapshot.entities.find(e => e.type === 'Tutorial'); if (t?.type !== 'Tutorial') throw Error('no tutorial'); return t; };
@@ -26,6 +28,7 @@ test('each requirement fails on its own when the tutorial misses it', () => {
     ['captions', t => { for (const s of t.sections) s.media = s.media.map(({ caption_ja, ...m }) => m); }],
     ['figures', t => { for (const s of t.sections) s.media = s.media.filter(m => !/fig/i.test(m.label)); }],
     ['variants', t => { for (const s of t.sections) if (s.role === 'variants') { s.body = '派生問題はたくさんある。'; s.refs = []; } }],
+    ['variants_sections', t => { const first = t.sections.findIndex(s => s.role === 'variants'); t.sections = t.sections.filter((s, i) => s.role !== 'variants' || i === first); }],
     ['hands_on', t => { for (const s of t.sections) if (s.role === 'hands_on') s.links = []; }],
     ['order', t => { t.sections.reverse(); }],
     ['length', t => { for (const s of t.sections) s.body = s.body.slice(0, 120); }],
@@ -60,4 +63,16 @@ test('the tutorial reads as a numbered outline: runs of one role become a chapte
   assert.equal(outline[2].sections[0].heading, '2段階の探索：CBS');
   assert.equal(outline.find(c => c.role === 'variants')!.sections.length, 6);
   assert.equal(outline.flatMap(c => c.sections).length, tutorialOf(fixture).sections.length);
+});
+
+test('the sample is the reference: its outline and scale go into the prompt, and a tutorial is compared against it', () => {
+  const outline = referenceOutline();
+  assert.match(outline, /^Reference tutorial \(the app's MAPF sample/);
+  assert.match(outline, /3 解き方 \(methods, 7 sections/);
+  assert.match(outline, /6 派生問題 \(variants, 6 sections/);
+  assert.ok(!/\[@paper-/.test(outline), 'the example keeps the form, not the sample\'s IDs');
+  assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(outline));
+  assert.ok(compareToReference(fixture).every(r => r.ratio === 1));
+  const empty = compareToReference({ ...fixture, entities: fixture.entities.filter(e => e.type !== 'Tutorial') });
+  assert.ok(empty.every(r => r.value === 0));
 });

@@ -77,6 +77,7 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
     check('challenge_evidence', '課題と達成度：各節が論文を2本以上引用する', challenges.length > 0 && challenges.every(s => sectionCitations(s).filter(id => papers.has(id)).length >= 2), `${challenges.filter(s => sectionCitations(s).filter(id => papers.has(id)).length >= 2).length}/${challenges.length}節`),
     check('challenge_status', '課題と達成度：各節で解決の度合い（未解決・部分的に解決・解決済み）を書く', challenges.length > 0 && challenges.every(s => SOLVED_STATE.test(s.body)), `${challenges.filter(s => SOLVED_STATE.test(s.body)).length}/${challenges.length}節`),
     check('challenge_questions', '課題と達成度：未解決の問いを「- …？」の箇条書きで挙げる節が1つ以上', challenges.some(s => OPEN_QUESTION.test(s.body)), `${challenges.filter(s => OPEN_QUESTION.test(s.body)).length}節`),
+    check('variants_sections', '派生問題：派生問題1つに1節で3節以上（基準のサンプルと同じ構成）', of('variants').length >= 3, `${of('variants').length}節`),
     check('variants', '派生問題：3つ以上を出典つきで', cites(of('variants')) >= 3, `出典${cites(of('variants'))}`),
     check('hands_on', '手を動かす：コードや資料へのリンク', of('hands_on').some(s => s.links.length > 0), `リンク${of('hands_on').reduce((n, s) => n + s.links.length, 0)}`),
     check('further_reading', 'さらに学ぶ：サーベイ・講演・学会など2つ以上', of('further_reading').reduce((n, s) => n + sectionCitations(s).length + s.links.length, 0) >= 2, `${of('further_reading').reduce((n, s) => n + sectionCitations(s).length + s.links.length, 0)}件`),
