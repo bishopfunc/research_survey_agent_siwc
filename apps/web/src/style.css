@@ -77,6 +77,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .collections .collection>span:last-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .collections .collection:hover { color: var(--color-ink); background: var(--color-transparent); }
 .collection-row.current .collection { color: var(--color-accent); font-weight: 600; }
+.collection-rename { flex: 1; min-width: 0; margin: 2px 6px 2px 0; padding: 6px 10px; border: var(--rule-width) solid var(--color-accent); border-radius: var(--radius-small); font: inherit; font-size: var(--text-caption); color: var(--color-ink); background: var(--color-surface); }
+.collection-rename:focus-visible { outline: 2px solid var(--color-accent-soft); }
 .collection-delete { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; margin-right: 6px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); opacity: 0; }
 /* An icon-only close button centers its mark; an inline SVG would otherwise sit on the text baseline. */
 .close-icon { display: block; flex-shrink: 0; }
@@ -333,7 +335,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .agent-icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--color-accent); background: var(--gradient-brand); }
 .agent-input textarea { flex: 1; min-width: 0; height: 44px; min-height: 44px; padding: 10px var(--space-1); border: 0; resize: vertical; background: var(--color-transparent); color: var(--color-ink); font-size: var(--text-body); line-height: 1.6; }
 .agent-input textarea:focus-visible { outline: none; }
-.agent-input .primary { padding: 10px 18px; white-space: nowrap; }
+.agent-input .send-button { padding: 0; }
 .composer-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); margin-top: var(--space-2); }
 .composer-meta .agent-status { margin: 0 var(--space-1); }
 .cache-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px 2px 2px; border: 0; font-size: var(--text-small); color: var(--color-muted); background: var(--color-transparent); }
@@ -387,6 +389,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .change-body small { font-size: 11px; color: var(--color-muted); }
 .change-body p { padding: 8px 10px; border-radius: var(--radius-small); background: var(--color-surface); font-size: var(--text-small); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 
+.start-research .suggestions { margin-bottom: var(--space-3); }
 .start-research { display: flex; flex-direction: column; gap: var(--space-3); max-width: 760px; margin: 6dvh auto 0; }
 .start-input { align-items: flex-end; }
 .start-input textarea { min-height: 84px; font-size: 15px; }
@@ -415,7 +418,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .evolution-sample { padding: 6px 0; border: 0; font-size: var(--text-small); color: var(--color-accent); background: var(--color-transparent); white-space: nowrap; }
 .evolution-sample:hover { background: var(--color-transparent); text-decoration: underline; }
 .send-button { display: inline-grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; }
-.send-button .icon { width: 18px; height: 18px; }
+.send-button .icon { width: 18px; height: 18px; margin: 0 1px 0 0; }
 .send-busy { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: var(--color-transparent); border-radius: 50%; animation: send-spin .9s linear infinite; }
 @keyframes send-spin { to { transform: rotate(360deg); } }
 .subtabs { display: flex; gap: var(--space-4); min-width: 0; max-width: 100%; overflow-x: auto; border-bottom: var(--rule-width) solid var(--color-line); scrollbar-width: none; }
@@ -489,7 +492,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
   .side-body { padding: var(--space-4); }
   .agent-input { flex-wrap: wrap; }
   .agent-input textarea { flex-basis: calc(100% - 44px); }
-  .agent-input .primary { margin-left: auto; }
+  .agent-input .send-button { margin-left: auto; }
   .modal-backdrop { padding: var(--space-3); }
   .edit-modal { padding: 18px; }
 }

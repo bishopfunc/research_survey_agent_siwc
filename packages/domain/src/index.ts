@@ -186,8 +186,18 @@ export function makeCommit(snapshot: SurveySnapshot, parents: string[], message:
   const errors = validateSnapshot(snapshot); if (errors.length) throw Error(errors.join('\n'));
   return { id: crypto.randomUUID(), parents, created_at: new Date().toISOString(), message, snapshot: structuredClone(snapshot), source, instruction, run_id, patch };
 }
+/** The sample's chat: the request it answers and three follow-ups, one for each kind of additional request (design 0023). */
+export const SAMPLE_CHAT = {
+  instruction: 'マルチエージェント経路計画（MAPF）を網羅的にサーベイ',
+  message: 'MAPFのサンプル：課題7・手法10（系統3）・論文14・文献ガイド・ナレッジ・チュートリアルを、論文と文献の出典つきでまとめた。',
+  follow_ups: ['lifelong MAPFの2024年以降の手法を深掘りして', '実機ロボットでの運用と安全性の観点で調べて', 'LaCAMとPIBTの違いを解説して'] as [string, string, string],
+};
+/** The first version of a sample collection, carrying the sample's chat. */
+export function sampleCommit(snapshot = fixture): LocalCommit {
+  return makeCommit(snapshot, [], SAMPLE_CHAT.message, 'fixture', SAMPLE_CHAT.instruction, null, { schema_version: '0.1.0', base_commit_id: 'sample', message: SAMPLE_CHAT.message, follow_ups: SAMPLE_CHAT.follow_ups, operations: [] as unknown as SurveyPatch['operations'] }); // no operations: the patch only carries the chat's follow-ups
+}
 export function initialWorkspace(snapshot = fixture): Workspace {
-  const c = makeCommit(snapshot, [], '初期サンプル', 'fixture');
+  const c = snapshot === fixture ? sampleCommit() : makeCommit(snapshot, [], '初期サンプル', 'fixture');
   return { version: 1, commits: [c], branches: [{ id: 'main', name: 'main', head: c.id, forked_from: null }], active_branch: 'main' };
 }
 /** Removes a collection (branch). Commits still reachable from other branches stay untouched; unreachable ones are dropped. */
