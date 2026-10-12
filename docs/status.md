@@ -12,6 +12,8 @@ P03で開発レビュー画面 `/lab` を追加した。実画面の隔離プレ
 
 Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存SIWC Workerは維持している。
 
+2026-10-12 JST: ユーザー指示「Cloudflareにデプロイする準備。利用者の作成はSign in with ChatGPT、利用者ごとにDB・ストレージを分け、論文のメタDBは共通。LLMの揺れに依存しない、何度取っても変わらないものをメタDBに」。[0028](design/0028-cloudflare-deploy.md)、[ADR 0018](adr/0018-siwc-user-accounts.md)・[0019](adr/0019-per-user-storage-and-shared-paper-meta.md)・[0020](adr/0020-agent-on-workflows-responses.md)、バックログC00〜C08、受け入れA10を追加（文書のみ、実装・デプロイは未実施）。環境：macOS、WebFetchでOpenAIとCloudflareの公式資料を読んだ。結果：Webサイト向けSIWCは商用パートナー向けの限定トライアル、ホスト型のプラン利用はinterest form、OSSの手順のcallbackは `127.0.0.1` に限る（[SIWC実現性](siwc-feasibility.md)）。WorkflowsのFreeはstepのCPUが10msでWorkers Paidが前提。未確認：OpenAIの承認、SIWCのResponses APIでのWeb検索と関数ツール、料金、Cloudflareでの実測。
+
 ## 検証記録
 
 | 日付 | 対象 | 種別 | 結果と限界 |

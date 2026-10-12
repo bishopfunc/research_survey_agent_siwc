@@ -1,8 +1,9 @@
 # ADR 0013: ストレージはSQLite互換のSQLとD1形のアダプタで書く
 
-状態: Accepted
+状態: Superseded
 日付: 2026-10-12 JST
 関連: [論文DBと段階・並行の調査](../design/0021-paper-db-and-staged-runs.md)、[ADR 0001](0001-cloudflare-modular-app.md)、[ADR 0009](0009-paper-library.md)
+superseded by: [ADR 0019](0019-per-user-storage-and-shared-paper-meta.md)（利用者側はDurable ObjectのSQLite、共通側はD1。SQLとアダプタの形は0019で続ける）
 
 ## 背景
 

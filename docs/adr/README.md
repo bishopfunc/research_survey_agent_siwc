@@ -12,12 +12,15 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0006](0006-review-source-of-truth.md) | Labを実行時の定義と接続する | Accepted |
 | [0007](0007-paper-code-compatibility.md) | コード公開情報と既存Commitの互換性 | Accepted |
 | [0008](0008-paper-figure-assets.md) | Fig画像とsnapshotを分離して不変保存 | Accepted |
-| [0009](0009-paper-library.md) | 論文ライブラリで抽出を再利用し、PDFとmdを保存 | Accepted |
+| [0009](0009-paper-library.md) | 論文ライブラリで抽出を再利用し、PDFとmdを保存 | Superseded（0019） |
 | [0010](0010-reuse-types-for-expert-survey.md) | 参入者向けの調査は既存の型に載せ、型名を変えない | Accepted |
 | [0011](0011-katex-math-rendering.md) | 論文の数式はKaTeXで描画する | Accepted |
 | [0012](0012-tutorial-entity.md) | チュートリアルは調査のEntityとして持つ | Accepted |
-| [0013](0013-storage-sqlite-d1-compatible.md) | ストレージはSQLite互換のSQLとD1形のアダプタで書く | Accepted |
+| [0013](0013-storage-sqlite-d1-compatible.md) | ストレージはSQLite互換のSQLとD1形のアダプタで書く | Superseded（0019） |
 | [0014](0014-skills-as-modules-with-router.md) | 調査の手順はTSのスキルモジュールにし、追加の依頼は短い判定で振り分ける | Accepted |
 | [0017](0017-evidence-as-common-source.md) | 事実はすべて出典（Evidence）を参照し、出典は出典元を持つ | Accepted |
 | [0016](0016-resource-entity.md) | サーベイ・ブログなどの情報源は Resource 型として持つ | Accepted |
 | [0015](0015-core-relations.md) | 関係は親子・系統・論文・主張と根拠に絞り、古い型は読めるが書かない | Accepted |
+| [0018](0018-siwc-user-accounts.md) | 利用者はSign in with ChatGPTで作成し、複数の利用者で使う | Accepted |
+| [0019](0019-per-user-storage-and-shared-paper-meta.md) | 利用者ごとのDurable Object（SQLite）とR2のprefix、共通の論文メタはD1 | Accepted |
+| [0020](0020-agent-on-workflows-responses.md) | Cloudflare上のAgentはWorkflowsからResponses APIを直接呼ぶ | Proposed |

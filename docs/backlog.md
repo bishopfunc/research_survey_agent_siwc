@@ -39,5 +39,14 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | B05 | Todo | React/Vite構成、3ビュー、Inspector、Chat、履歴、進捗。fixtureで画面確認後にAPI接続 | B02、接続はB03/B04 |
 | B06 | Todo | 追加指示から局所Patch、v1/v2差分、全体/Subgraph Forkと参照閉包、独立編集の試験 | B03/B04/B05 |
 | B07 | Todo | Cloudflare受け入れ、タブ閉鎖試験、再認可・失敗回復、A01〜A09の証拠と運用手順 | B01〜B06 |
+| C00 | Todo | OpenAIへの申し込み（Webサイト向けSIWC、ホスト型・複数利用者でのプラン利用）とCloudflareのWorkers Paid。回答・client ID・callback URL・host IDの案内を記録（本人の操作）。デプロイの順番は[0028](design/0028-cloudflare-deploy.md) | なし |
+| C01 | Todo | 新しいWorker（`apps/worker`）と `wrangler.jsonc` の staging / production、bindings（ASSETS・USER・PAPERS・FILES・FETCH_GATE・SURVEY_RUN）、新Workerのdry-run。SIWC probeは残す | なし |
+| C02 | Todo | 共通の論文メタDB（D1）。取得処理（arXiv・OpenAlex・Hugging Face・arXiv HTML）をWorkersとNodeで共通のpackageへ。FetchGate。取得処理の値だけを書き、利用者の痕跡を置かない | C01 |
+| C03 | Todo | 利用者ごとの保存（UserStore DO、利用者側のmigration、R2の `users/{uid}/`）と画面の接続。head競合・Commit不変・別uidの404をローカル統合試験に（B03を置き換える） | C01/C02 |
+| C04 | Todo | stagingの公開（本人だけ、Cloudflare Access）。D1・R2・DOの保存と再読込を実測 | C03 |
+| C05 | Todo | SIWCのサインインで利用者を作る。セッション、サインアウトと失効、新規作成の絞り込み（B01の認証部分を置き換える） | C00の承認/C04 |
+| C06 | Todo | プラン利用でWorkflowsのAgentを動かす（ADR 0020の確認、Web検索の可否、取消・再試行・タブを閉じても完走）（B04を置き換える） | C00の承認/C05 |
+| C07 | Todo | ローカルPoCのデータを本人のアカウントへ移す。共通DBへは取得処理の値だけを入れ直す | C05 |
+| C08 | Todo | productionの公開と受け入れ（A01〜A10）、運用手順（B07を置き換える） | C06/C07 |
 
-次は `/lab` でUI・Prompt・DSLをユーザーと調整する。ユーザー指定によりUI＋DSL調整PoCとCodex接続を先行する。P01の結果をB02/B05に反映してからCloudflare MVPへ進む。B00で追加したCIはremoteでの実行が未確認。
+次は `/lab` でUI・Prompt・DSLをユーザーと調整する。ユーザー指定によりUI＋DSL調整PoCとCodex接続を先行する。P01の結果をB02/B05に反映してからCloudflare MVPへ進む。B00で追加したCIはremoteでの実行が未確認。Cloudflareへのデプロイは[0028](design/0028-cloudflare-deploy.md)の順（C00〜C08）で進める。C00はOpenAIの承認待ちが長くなりうるので最初に出し、承認の要らないC01〜C04を先に進める。
