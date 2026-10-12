@@ -18,6 +18,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: ①入口のSIWCログインと②Codexのログインを1つにできるかを検証（ローカル・実アカウント、macOS、codex-cli 0.162.1、本人が今朝 `npm run siwc:login` で保存した資格情報、モデルgpt-6.1-sol）。空の `CODEX_HOME`（Codexのログイン情報なし）で、公式のprovider設定（`env_key="ACCESS_TOKEN"`、`requires_openai_auth=false`）とSIWCのaccess tokenを `codex exec` に渡し、Web検索が要る1問と出力schemaで比べた。結果：推論とschemaは成功。Web検索は、既定ではproviderの `supports_standalone_web_search=false` のため道具が渡らず未実行。`true` にすると、Codexは `POST /v1/alpha/search` を呼び、401（`rejected_by_hardened_oauth_boundary`）。一方、SIWCのトークンでResponses APIに `{"type":"web_search"}` を付けて直接送ると、検索1回と `response.completed` で成功。gpt-6.1-solはCodexの同梱一覧で `use_responses_lite=true` で、lite方式では通常のWeb検索の道具を作らない（ソース `core/src/tools/spec_plan.rs:682-685`）。`model_catalog_json` で同梱の一覧を写し、gpt-6.1-solだけ `use_responses_lite=false` にすると、Codexが通常のWeb検索を使って正しく答えた（検索1回、18秒）。比較として、Codex本人のログインでは既定のままWeb検索2回で成功。注意：`code_mode_host` を無効にするとWeb検索が動かない（main側で修正済み、VPSの版は未反映）。gpt-6.1-solでは `--disable multi_agent` で複数エージェントの道具が止まらず、`-c agents.enabled=false` が要る（ソース）。未確認：一覧の上書きでの数十本規模の調査の質と時間、1時間を超える実行でのトークン更新、VPS上での動作。検証用のスクリプトはリポジトリの外に置き、トークンを含みうるログは削除した。
 
+2026-10-12 JST: V01でログインを1つにまとめた版をデプロイ（`survey-app:d7a5897c7084`、[0032](design/0032-self-hosted-vps.md)）。デプロイ前に3つの観点（セキュリティ・正しさ・運用）で検査し、指摘ごとに反証を試みて5件を確定・修正：429/5xxで保存したトークンを消していた、gateがappのネットワークを共有する構成ではappの再起動で入口が落ちる、本人確認の鍵の取得失敗で更新済みのトークンを失う、起動前の確認と実行で求める残り時間が違う、モデル一覧を毎回GitHubから取得する（記録のみ）。`npm run check` 成功（15＋169件）。VPSで確認：`codex` は包み（本物は0.162.1）、未ログインで `codex login status` は「Not logged in (NOT_CONNECTED)」、一覧は11モデルでlite 0、8090・1456・8080は外から閉じ8090はVPS本体からも届かない、鍵 `GATE_TOKEN_KEY` はgateのプロセスだけに入りPoCのサーバーには無い、`.env` は0600。未確認：本人のSIWCログイン後のトークンの保管と更新、VPSでの調査1回（Web検索を含む）。
+
 ## 検証記録
 
 | 日付 | 対象 | 種別 | 結果と限界 |
