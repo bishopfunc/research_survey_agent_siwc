@@ -1010,6 +1010,13 @@
             "minLength": 1
           }
         },
+        "key_formulas": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "sources": {
           "type": "array",
           "items": {

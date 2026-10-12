@@ -17,6 +17,10 @@
 - 取得の手順（`scripts/arxiv-figures.ts`）：`https://arxiv.org/html/<id>` を1回取得し、図が無ければ（HTML版が無い古い論文など）`https://ar5iv.labs.arxiv.org/html/<id>` を試す。LaTeXMLの最上位の `figure.ltx_figure`（表は除く）から、番号（Figure N）、キャプション（数式はTeXの代替文字列、タグは除いた文字列）、画像（`img` と画像の `object`）を取り出す。
 - 画像はサーバーに保存せず、ブラウザがarXivから直接読む（人がHTML版を見るのと同じ。`referrerpolicy=no-referrer`、遅延読み込み）。押すとarXivの画像を新しいタブで開く。
 
+### 追記：アルゴリズムと数式（2026-10-12）
+
+ユーザー指示「主要アルゴリズムや数式もfigと同様に抽出して」。同じHTML版から、アルゴリズムの囲み（LaTeXMLの `ltx_float_algorithm`：番号・題・各行。行中の数式は `$TeX$`）と、番号つきの数式（`ltx_equation`・`ltx_equationgroup` の行：番号の札とTeX）を取り出す（`extractAlgorithms`・`extractEquations`、抽出の版4）。Codexは要点の `key_formulas` に、理解に重要なアルゴリズムと数式を論文の番号で挙げる（「Algorithm N：何をするか」「Eq. (N)：何を表すか」、読んだものだけ）。画面は「理解に重要なアルゴリズム・数式」に、挙げられたものを番号で引いて並べ、ほかは畳む（挙げられていなければアルゴリズムを開き、数式は畳む）。数式とアルゴリズム中の数式はKaTeXで描画する（[ADR 0011](../adr/0011-katex-math-rendering.md)）。番号が重複するものには画像・数式を付けない。
+
 ## 契約とデータ
 
 DSLは変えない。図の情報は表示用の取得結果で、snapshotにもCommitにも入れない（Codexの調査結果ではなく、出典ページの写しのため）。代表Fig（0006）の保存形式とADR 0008は変えない。

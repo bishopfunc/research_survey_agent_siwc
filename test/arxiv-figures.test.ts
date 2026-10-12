@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cacheName, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
+import { cacheName, extractAlgorithms, extractEquations, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
 
 const page = 'https://arxiv.org/html/2307.15644';
 const html = `<html><body>
@@ -70,5 +70,19 @@ test('side-by-side figures in one float become separate figures; sub-numbered la
   <figure class="ltx_figure"><figure class="ltx_figure_panel"><img src="x/a.png"><figcaption>(a)</figcaption></figure><figure class="ltx_figure_panel"><img src="x/b.png"><figcaption>(b)</figcaption></figure><figcaption>Figure 5: Two panels.</figcaption></figure>
   <figure class="ltx_figure"><img src="x/s1.png"><figcaption>Figure 2.1: Sub-numbered.</figcaption></figure>`;
   assert.deepEqual(extractFigures(twin, page).map(f => [f.label, f.number, f.caption, f.images.length]), [['Figure 3', 3, 'Left.', 1], ['Figure 4', 4, 'Right.', 1], ['Figure 5', 5, 'Two panels.', 2], ['Figure 2.1', null, 'Sub-numbered.', 1]]);
+});
+test('algorithm floats keep their label, title and listing lines with inline math as TeX', () => {
+  const html = `<figure id="alg1" class="ltx_float ltx_float_algorithm ltx_framed"><figcaption class="ltx_caption"><span class="ltx_tag ltx_tag_float"><span class="ltx_text ltx_font_bold">Algorithm 1</span> </span> LaCAM</figcaption>
+    <div class="ltx_listing"><div class="ltx_listingline"><span class="ltx_tag ltx_tag_listingline">1:</span></div>
+    <div class="ltx_listingline"><span class="ltx_tag ltx_tag_listingline">2:</span>initialize <math alttext="\\mathit{Open}"><mi>O</mi></math> &amp; push</div>
+    <div class="ltx_listingline"><span class="ltx_tag ltx_tag_listingline">3:</span><b>while</b> <math alttext="x&lt;y"><mi>x</mi></math> <b>do</b></div></div></figure>
+  <figure class="ltx_figure"><img src="x/a.png"><figcaption>Figure 1: not an algorithm</figcaption></figure>`;
+  assert.deepEqual(extractAlgorithms(html), [{ number: 1, label: 'Algorithm 1', caption: 'LaCAM', lines: ['initialize $\\mathit{Open}$ & push', 'while $x<y$ do'] }]);
+});
+test('display equations give one entry per row with its number label; inline math is not an equation', () => {
+  const html = `<p>inline <math alttext="a" display="inline"></math></p>
+  <table id="S3.E1" class="ltx_equation ltx_eqn_table"><tbody><tr class="ltx_equation ltx_eqn_row"><td class="ltx_eqn_cell"><math alttext="\\argmax_{r} P(r)" display="block"></math></td><td class="ltx_eqn_cell ltx_eqn_eqno"><span class="ltx_tag ltx_tag_equation ltx_align_right">(1)</span></td></tr></tbody></table>
+  <table class="ltx_equationgroup ltx_eqn_table"><tbody><tr class="ltx_eqn_row"><td><math alttext="L" display="block"></math></td><td><math alttext="=a+b" display="block"></math></td><td><span class="ltx_tag ltx_tag_equation">(2a)</span></td></tr><tr class="ltx_eqn_row"><td><math alttext="M=c" display="block"></math></td></tr></tbody></table>`;
+  assert.deepEqual(extractEquations(html), [{ number: 1, label: '(1)', tex: '\\argmax_{r} P(r)' }, { number: null, label: '(2a)', tex: 'L =a+b' }, { number: null, label: null, tex: 'M=c' }]);
 });
 

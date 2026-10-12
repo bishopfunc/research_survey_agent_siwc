@@ -10,8 +10,12 @@ export const ARXIV_MIN_INTERVAL_MS = 15_000;
 
 export interface ArxivFigure { number: number | null; label: string; caption: string; images: string[] }
 /** Bumped when extraction changes, so results saved by an older parser are fetched again. */
-export const FIGURE_PARSER_VERSION = 3;
-export interface ArxivFigures { parser: number; arxiv_id: string; source_url: string; retrieved_at: string; figures: ArxivFigure[] }
+export const FIGURE_PARSER_VERSION = 4;
+/** An algorithm float: its label, title and listing lines, with math kept as $TeX$. */
+export interface ArxivAlgorithm { number: number | null; label: string; caption: string; lines: string[] }
+/** A display equation row: its number label such as "(3)" and its TeX. */
+export interface ArxivEquation { number: number | null; label: string | null; tex: string }
+export interface ArxivFigures { parser: number; arxiv_id: string; source_url: string; retrieved_at: string; figures: ArxivFigure[]; algorithms: ArxivAlgorithm[]; equations: ArxivEquation[] }
 export type PageFetcher = (url: string) => Promise<{ ok: boolean; status: number; url: string; headers: { get(name: string): string | null }; text(): Promise<string> }>;
 
 const ID = /^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?$/i;
@@ -31,10 +35,10 @@ function decode(text: string) {
 }
 /** Caption HTML to plain text: math keeps its TeX alt text, every tag is dropped. Nothing from the page is ever rendered as HTML.
  * Math is swapped for placeholders first, so a "<" in the TeX cannot be mistaken for the start of a tag. */
-function plain(html: string) {
+function plain(html: string, mathAs: (tex: string) => string = tex => tex) {
   const math: string[] = [];
   const marked = html.replace(/<math\b[^>]*?\balttext="([^"]*)"[^>]*>[\s\S]*?<\/math>/gi, (_, alt: string) => ` \u0000${math.push(decode(alt)) - 1}\u0000 `);
-  return decode(marked.replace(/<[^>]+>/g, ' ')).replace(/\u0000(\d+)\u0000/g, (_, n: string) => math[Number(n)]).replace(/\s+/g, ' ').trim();
+  return decode(marked.replace(/<[^>]+>/g, ' ')).replace(/\u0000(\d+)\u0000/g, (_, n: string) => mathAs(math[Number(n)])).replace(/\s+/g, ' ').trim();
 }
 function attribute(tag: string, name: string) { return tag.match(new RegExp(`\\b${name}="([^"]*)"`, 'i'))?.[1] ?? null; }
 /** Only https images under /html/ on an arXiv host survive. */
@@ -91,6 +95,39 @@ export function extractFigures(html: string, pageUrl: string): ArxivFigure[] {
   return figures;
 }
 
+const MAX_ALGORITHMS = 20, MAX_LINES = 80, MAX_EQUATIONS = 80;
+/** Algorithm floats (LaTeXML ltx_float_algorithm) with their listing lines; math inside a line stays TeX between $ signs. */
+export function extractAlgorithms(html: string): ArxivAlgorithm[] {
+  const out: ArxivAlgorithm[] = [];
+  const visit = (nodes: FigureNode[]) => { for (const node of nodes) {
+    if (!/\bltx_float_algorithm\b/.test(attribute(node.open, 'class') ?? '')) { visit(node.children); continue; }
+    if (out.length >= MAX_ALGORITHMS) return;
+    const segment = html.slice(node.inner, node.end);
+    const caption = captions(segment)[0] ?? '';
+    const tag = caption.match(/^Algorithm\s*(\d+(?:\.\d+)*)\s*[:.]?\s*/i);
+    const lines = segment.split(/<div\b[^>]*\bltx_listingline\b[^>]*>/i).slice(1)
+      .map(chunk => plain(chunk.replace(/<span\b[^>]*\bltx_tag_listingline\b[^>]*>[\s\S]*?<\/span>/i, ''), tex => `$${tex}$`))
+      .filter(Boolean).slice(0, MAX_LINES).map(line => line.slice(0, 400));
+    out.push({ number: tag && /^\d+$/.test(tag[1]) ? Number(tag[1]) : null, label: tag ? `Algorithm ${tag[1]}` : 'Algorithm', caption: (tag ? caption.slice(tag[0].length) : caption).slice(0, 300), lines });
+  } };
+  visit(figureTree(html));
+  return out;
+}
+/** Display equations (LaTeXML ltx_equation / ltx_equationgroup rows), one entry per row, with the row's number label. */
+export function extractEquations(html: string): ArxivEquation[] {
+  const out: ArxivEquation[] = [];
+  for (const table of html.matchAll(/<table\b[^>]*\bclass="[^"]*\bltx_(?:equation|equationgroup)\b[^"]*"[^>]*>([\s\S]*?)<\/table>/gi)) {
+    for (const row of table[1].matchAll(/<tr\b[^>]*\bltx_eqn_row\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      if (out.length >= MAX_EQUATIONS) return out;
+      const tex = [...row[1].matchAll(/<math\b[^>]*?\balttext="([^"]*)"[^>]*>/gi)].map(m => decode(m[1])).join(' ').trim();
+      if (!tex) continue;
+      const label = row[1].match(/<span\b[^>]*\bltx_tag_equation\b[^>]*>\s*\(([^)<]{1,12})\)\s*<\/span>/i)?.[1] ?? null;
+      out.push({ number: label && /^\d+$/.test(label) ? Number(label) : null, label: label ? `(${label})` : null, tex: tex.slice(0, 4000) });
+    }
+  }
+  return out;
+}
+
 let last = 0;
 let queue: Promise<unknown> = Promise.resolve();
 /** Serializes arXiv requests with a minimum gap between them. */
@@ -113,11 +150,11 @@ export async function fetchArxivFigures(id: string, fetcher: PageFetcher, retrie
     if (!(response.headers.get('content-type') ?? '').includes('text/html')) continue;
     const html = await response.text();
     if (html.length > MAX_HTML_CHARS) throw Error('ページが大きすぎます');
-    const result = { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href) };
-    if (result.figures.length) return result;
+    const result = { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href), algorithms: extractAlgorithms(html), equations: extractEquations(html) };
+    if (result.figures.length || result.algorithms.length || result.equations.length) return result;
     empty ??= result;
   }
-  return empty ?? { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [] };
+  return empty ?? { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [], algorithms: [], equations: [] };
 }
 /** File name for the cache; old-style IDs contain a slash. */
 export const cacheName = (id: string) => `${id.replace('/', '_')}.json`;

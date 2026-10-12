@@ -90,6 +90,7 @@ export interface Reading {
   validation: string;
   discussion: string;
   key_figures: string[];
+  key_formulas?: string[];
   sources?: {
     url: string;
     locator: string;

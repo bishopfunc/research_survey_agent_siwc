@@ -131,4 +131,7 @@ test('readings cite their original pages, arXiv papers are read in full text, an
   assert.match(SURVEY_RULES_INSTRUCTIONS, /open its HTML full text \(https:\/\/arxiv\.org\/html\/<id>, or https:\/\/ar5iv\.labs\.arxiv\.org\/html\/<id> for older papers\)/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /name in the patch message each category you searched for but could not find/);
 });
+test('readings name the algorithms and equations needed to understand the paper, with the paper\'s numbering', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /key_formulas lists the algorithms and equations needed to understand the paper, each as "Algorithm N: what it does" or "Eq\. \(N\): what it expresses"/);
+});
 
