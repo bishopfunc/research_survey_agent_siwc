@@ -7,7 +7,7 @@
 | [MVP設計](design/0001-mvp.md) | 構成、データ、API、実装順序 |
 | [UI/DSL/Codex PoC](design/0002-ui-dsl-codex-poc.md) | 現在の最優先。UIとスキーマの調整 |
 | [手法系譜・時系列](design/0003-method-evolution.md) | 手法の分岐と代表論文を年順でたどる |
-| [開発レビューLab](design/0004-review-lab.md) | `/lab`でUI・Agent Prompt・DSLをまとめてレビュー |
+| [仕組みを説明するLab](design/0004-review-lab.md) | `/lab`でAgent PromptとDSLのロジックを説明 |
 | [コード公開状況](design/0005-paper-code.md) | 論文の公開コード・確認日と保存互換性 |
 | [代表Figの抽出・保存](design/0006-paper-figures.md) | PDF切り出し・PNG保存・出典と履歴 |
 | [サーベイ調査Prompt](design/0007-survey-discovery-prompt.md) | 代表学会→サーベイ・awesome→一次論文の順序 |
