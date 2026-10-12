@@ -52,7 +52,9 @@ test('the method tree puts a method in its parent family and links its other fam
   assert.deepEqual(tree.layout.rows.map(r => r.key), ['family-cbs', 'family-learned', 'family-prioritized'], 'two families from 2019 are ordered by ID');
   assert.equal(rowOf('ml-cbs'), 'family-cbs', 'its parent CBS is in the CBS family');
   assert.equal(tree.layout.nodes.filter(n => n.id === 'ml-cbs').length, 1);
-  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'member').map(e => [e.from, e.to, tree.layout.rows[e.row].key]), [['gnn-mapf', 'ml-cbs', 'family-learned']], 'the last earlier method of the learned family');
+  assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'member').map(e => [e.from, e.to, tree.layout.rows[e.row].key]), [['primal', 'ml-cbs', 'family-learned']], 'ML-CBS is one generation below CBS; the learned family has two first-generation methods and the top one is the origin');
+  assert.deepEqual(['cbs', 'ecbs', 'eecbs', 'pibt', 'lacam', 'lacam-star'].map(id => at(tree.layout, id).column), [0, 1, 2, 0, 1, 2], 'columns are generations, not years');
+  assert.deepEqual(tree.layout.years, [0, 1, 2]);
   assert.deepEqual(tree.layout.edges.filter(e => e.kind === 'derives').map(e => `${e.from}>${e.to}`).sort(), ['cbs>ecbs', 'cbs>icbs', 'cbs>ml-cbs', 'ecbs>eecbs', 'lacam>lacam-star', 'pibt>lacam']);
   const input = structuredClone(fixture);
   input.relations.push({ id: 'b1', type: 'builds_on', from: 'ml-cbs', to: 'primal' });
@@ -96,7 +98,7 @@ test('an issue cycle still lists every issue and lays out every paper', () => {
   assert.equal(buildIssueTree(input).layout.nodes.length, fixture.entities.filter(e => e.type === 'Issue').length);
 });
 
-test('the issue tree holds issues only: rows are root issues, arrows go parent to sub-issue, and a parent is never right of its children', () => {
+test('the issue tree holds issues only: rows are root issues, columns are generations, arrows go parent to sub-issue', () => {
   const tree = buildIssueTree(fixture);
   assert.deepEqual(tree.layout.rows.map(r => r.key), ['collision', 'decentralized']);
   assert.ok(tree.layout.nodes.every(n => tree.issues.has(n.id)));
@@ -104,7 +106,8 @@ test('the issue tree holds issues only: rows are root issues, arrows go parent t
   assert.equal(tree.years.get('communication'), 2020);
   assert.equal(tree.years.get('decentralized'), 2019, 'PRIMAL (2019) is earlier than its sub-issue communication (2020)');
   assert.deepEqual(tree.layout.edges.map(e => `${e.from}>${e.to}`).sort(), ['collision>lifelong', 'collision>optimality', 'collision>scalability', 'decentralized>communication', 'scalability>tree']);
-  for (const e of tree.layout.edges) assert.ok(at(tree.layout, e.from!).column <= at(tree.layout, e.to).column, `${e.from}>${e.to}`);
+  for (const e of tree.layout.edges) assert.ok(at(tree.layout, e.from!).column < at(tree.layout, e.to).column, `${e.from}>${e.to}: a sub-issue is one generation right of its parent`);
+  assert.deepEqual(['collision', 'scalability', 'tree'].map(id => at(tree.layout, id).column), [0, 1, 2]);
 });
 
 test('the method paper tree has one row per method in method-tree order and one item per paper; a paper without a method is unclassified', () => {

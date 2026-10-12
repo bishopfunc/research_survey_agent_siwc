@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Entity, SurveySnapshot } from '../../../packages/domain/src/index';
 import { TUTORIAL_ROLE_LABELS } from '../../../packages/domain/src/tutorial';
-import { Algorithm, Equation, Images, algorithmNumber, arxivIdOf, equationNumber, figureKey, useArxivData } from './KeyFigures';
+import { Algorithm, Equation, Images, algorithmNumber, arxivIdOf, equationNumber, figureKey, japaneseCaption, useArxivData } from './KeyFigures';
 import { MathText, Tex } from './Tex';
 
 type Paper = Extract<Entity, { type: 'Paper' }>;
@@ -41,8 +41,8 @@ function Media({ paper, label, preview, onSelect }: { paper: Paper | undefined; 
   const equation = /eq|式/i.test(label) ? (data?.equations ?? []).filter(e => e.number === equationNumber(label)) : [];
   const source = paper ? <button className="cite" onClick={() => onSelect(paper.id)}>{citeLabel(paper, paper.id)}</button> : null;
   return <figure className="tutorial-media">
-    {figure && <Images figure={figure}/>}{algorithm.length === 1 && <Algorithm algorithm={algorithm[0]}/>}{equation.length === 1 && <Equation equation={equation[0]}/>}
-    <figcaption>{label}{figure && `: ${figure.caption}`}{source && <> · {source}</>}{!data && state === 'loading' && <span className="muted-label"> arXivから取得中…</span>}</figcaption>
+    {figure && <Images figure={figure}/>}{algorithm.length === 1 && <Algorithm algorithm={algorithm[0]} ja={paper ? japaneseCaption(paper, algorithm[0].label) : null}/>}{equation.length === 1 && <Equation equation={equation[0]}/>}
+    <figcaption>{label}{figure && `: ${(paper && japaneseCaption(paper, figure.label)) ?? figure.caption}`}{source && <> · {source}</>}{!data && state === 'loading' && <span className="muted-label"> arXivから取得中…</span>}</figcaption>
   </figure>;
 }
 

@@ -1,6 +1,6 @@
 import type { Issue, Paper, SurveySnapshot } from './snapshot.types';
 import { buildEvolution } from './evolution';
-import { layoutTimeline, type TimelineLayout } from './timeline';
+import { generations, layoutTimeline, type TimelineLayout } from './timeline';
 import { buildPaperTree, type PaperTree } from './paper-tree';
 
 export interface IssueTree { layout: TimelineLayout; issues: Map<string, Issue>; years: Map<string, number | null> }
@@ -29,9 +29,9 @@ function issuesOfPaper(snapshot: SurveySnapshot, paper: Paper, ids: Set<string>)
   return snapshot.relations.filter(r => r.type === 'addresses' && methods.has(r.from) && ids.has(r.to)).map(r => r.to);
 }
 
-/** The issue tree: only issues. Years left to right, one row per root issue and its descendants, arrows from parent to
- * sub-issue. An issue's year is the earliest paper working on it or on one of its descendants, directly or through a
- * method's representative paper, so a parent never sits right of its children. */
+/** The issue tree: only issues. Generations left to right (no years), one row per root issue and its descendants,
+ * arrows from parent to sub-issue. Rows are ordered by the earliest paper working on the root issue or its descendants
+ * (directly or through a method's representative paper); `years` keeps that year for each issue. */
 export function buildIssueTree(snapshot: SurveySnapshot): IssueTree {
   const { issues, ids, hierarchy } = issueHierarchy(snapshot);
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
@@ -58,7 +58,8 @@ export function buildIssueTree(snapshot: SurveySnapshot): IssueTree {
   }
   const byYear = issues.map((issue, index) => ({ issue, index })).sort((a, b) => (years.get(a.issue.id) ?? Infinity) - (years.get(b.issue.id) ?? Infinity) || a.index - b.index).map(x => x.issue);
   const roots = [...new Set(byYear.map(i => rootOf(i.id)))];
-  const items = issues.map(i => ({ id: i.id, year: years.get(i.id) ?? null, rows: [rootOf(i.id)] }));
+  const generation = generations(issues.map(i => i.id), parentsOf);
+  const items = issues.map(i => ({ id: i.id, year: generation.get(i.id)!, rows: [rootOf(i.id)] }));
   return { layout: layoutTimeline(items, roots, hierarchy.map(r => ({ from: r.to, to: r.from }))), issues: new Map(issues.map(i => [i.id, i])), years };
 }
 

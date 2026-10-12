@@ -96,7 +96,7 @@ test('the shared rules open with the purpose and the priorities of an expert cat
   assert.match(SURVEY_RULES_INSTRUCTIONS, /keep the important ones \(problems experts treat as central, unresolved or decisive for progress\) rather than generic ones/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /put 1-3 English phrases exactly as papers use them in english_terms/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /quantify how far the issue has been achieved/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /Create method families as Concept entities whose description states the shared idea, and link every Method to its family with instance_of/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Create method families as Concept entities whose description states the shared idea; name each family after that idea .*never after a representative method .*and link every Method to its family with instance_of/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Cover each family chronologically from the seminal work to the latest state of the art/);
 });
 test('papers are read for their contributions and the five questions, venues use acronyms and abstracts keep the original', () => {

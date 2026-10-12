@@ -1,5 +1,5 @@
 import type { Concept, Method, Paper, Relation, SurveySnapshot } from './snapshot.types';
-import { layoutTimeline, type TimelineLayout } from './timeline';
+import { generations, layoutTimeline, type TimelineLayout } from './timeline';
 
 export interface EvolutionNode { method: Method; papers: Paper[]; representative: Paper | null; year: number | null; parents: { id: string; type: Relation['type'] }[] }
 export interface Evolution { nodes: EvolutionNode[]; years: (number | null)[]; warnings: string[] }
@@ -58,17 +58,18 @@ export function buildFamilies(snapshot: SurveySnapshot): MethodFamily[] {
   return rest ? [...grouped, { family: null, nodes: rest }] : grouped;
 }
 
-/** The method tree: years left to right, one row per family. A method in several families sits in the family of
- * one of its parents (else its first family) and the layout links it to the other family rows. */
+/** The method tree: generations of derivation left to right (no years), one row per family. A method in several
+ * families sits in the family of one of its parents (else its first family) and the layout links it to the other rows. */
 export function buildMethodTree(snapshot: SurveySnapshot): MethodTree {
   const evolution = buildEvolution(snapshot);
   const groups = buildFamilies(snapshot).filter((g): g is { family: Concept; nodes: EvolutionNode[] } => g.family !== null);
   const familiesOf = new Map<string, string[]>();
   for (const g of groups) for (const n of g.nodes) familiesOf.set(n.method.id, [...(familiesOf.get(n.method.id) ?? []), g.family.id]);
+  const generation = generations(evolution.nodes.map(n => n.method.id), id => evolution.nodes.find(n => n.method.id === id)?.parents.map(p => p.id) ?? []);
   const items = evolution.nodes.map(n => {
     const own = familiesOf.get(n.method.id) ?? [];
     const first = own.find(f => n.parents.some(p => familiesOf.get(p.id)?.includes(f))) ?? own[0];
-    return { id: n.method.id, year: n.year, rows: first ? [first, ...own.filter(f => f !== first)] : [] };
+    return { id: n.method.id, year: generation.get(n.method.id)!, rows: first ? [first, ...own.filter(f => f !== first)] : [] };
   });
   const links = evolution.nodes.flatMap(n => n.parents.map(p => ({ from: p.id, to: n.method.id })));
   return { layout: layoutTimeline(items, groups.map(g => g.family.id), links), nodes: new Map(evolution.nodes.map(n => [n.method.id, n])), families: new Map(groups.map(g => [g.family.id, g.family])), warnings: evolution.warnings };

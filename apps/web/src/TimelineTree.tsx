@@ -2,7 +2,7 @@ import React, { useId } from 'react';
 import type { TimelineLayout } from '../../../packages/domain/src/timeline';
 import type { Entity } from '../../../packages/domain/src/index';
 
-const COLUMN = 180, NODE_W = 156, NODE_H = 64, LANE = NODE_H + 10, ROW_PAD = 14, HEAD = 30, INSET = 16;
+const COLUMN = 180, NODE_W = 156, NODE_H = 64, LANE = NODE_H + 10, ROW_PAD = 14, INSET = 16;
 
 export interface TimelineCard { title: string; meta?: string; dot?: string; hint?: string }
 /** A paper item in every paper tree: its title, then year and venue, nothing else. */
@@ -10,8 +10,10 @@ export function paperCard(paper: Extract<Entity, { type: 'Paper' }>): TimelineCa
   return { title: paper.title, meta: [paper.year ?? '年未取得', paper.venue].filter(Boolean).join(' · '), hint: paper.title };
 }
 
-/** Years left to right, one row per lineage. Positions come from layoutTimeline; this only draws them. */
-export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect }: { layout: TimelineLayout; label: string; card: (id: string) => TimelineCard; rowLabel?: (key: string | null) => React.ReactNode; selected: string; onSelect: (id: string) => void }) {
+/** Years (or generations) left to right, one row per lineage. Positions come from layoutTimeline; this only draws them. */
+/** years=false: the columns are generations of a hierarchy, shown without a header. */
+export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect, years = true }: { layout: TimelineLayout; label: string; card: (id: string) => TimelineCard; rowLabel?: (key: string | null) => React.ReactNode; selected: string; onSelect: (id: string) => void; years?: boolean }) {
+  const HEAD = years ? 30 : 0;
   const marker = useId().replace(/:/g, '');
   const tops: number[] = [];
   let bottom = HEAD;
@@ -37,7 +39,7 @@ export function TimelineTree({ layout, label, card, rowLabel, selected, onSelect
   return <div className="timeline" role="group" aria-label={label}>
     {rowLabel && <div className="timeline-labels" style={{ height: bottom }}>{layout.rows.map((row, i) => <div key={row.key ?? 'none'} className="timeline-label" style={{ top: tops[i], height: (tops[i + 1] ?? bottom) - tops[i] }}>{rowLabel(row.key)}</div>)}</div>}
     <div className="timeline-canvas" style={{ width, height: bottom }}>
-      {layout.years.map((year, i) => <div key={year ?? 'none'} className="timeline-year" style={{ left: INSET + i * COLUMN, width: NODE_W }}>{year ?? '未取得'}</div>)}
+      {years && layout.years.map((year, i) => <div key={year ?? 'none'} className="timeline-year" style={{ left: INSET + i * COLUMN, width: NODE_W }}>{year ?? '未取得'}</div>)}
       {layout.rows.map((row, i) => <div key={row.key ?? 'none'} className="timeline-row" style={{ top: tops[i], height: (tops[i + 1] ?? bottom) - tops[i] }}/>)}
       <svg className="timeline-edges" width={width} height={bottom} aria-hidden="true">
         <defs>{['', 'active'].map(state => <marker key={state} id={`${marker}${state}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path className={`timeline-arrow ${state}`} d="M0 0L8 4L0 8z"/></marker>)}</defs>

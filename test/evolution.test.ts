@@ -18,13 +18,13 @@ test('unknown years sort last and missing papers never get fabricated dates', ()
   assert.equal(e.years.at(-1),null);
   assert.equal(e.nodes.find(n => n.method.id === 'unknown')?.representative,null);
 });
-test('same-year methods occupy distinct lanes and representative ties use stable IDs', () => {
+test('methods of the same generation in a family stack in lanes, and representative ties use stable IDs', () => {
   const next = structuredClone(fixture);
   next.entities.push({id:'same-year',type:'Method',label:'Same year',description:'',provenance:'user'});
   next.entities.filter(e => e.type === 'Paper').find(e => e.id === 'paper-ecbs')!.proposes.push('same-year');
   const first = structuredClone(next.entities.filter(e => e.type === 'Paper').find(e => e.id === 'paper-cbs-2012')!);
   first.id = 'a-earliest-tie'; next.entities.push(first);
-  next.relations.push({id:'same-year-family',type:'instance_of',from:'same-year',to:'family-cbs'});
+  next.relations.push({id:'same-year-family',type:'instance_of',from:'same-year',to:'family-cbs'},{id:'same-year-parent',type:'builds_on',from:'same-year',to:'cbs'});
   const e = buildEvolution(next);
   const at = (id: string) => buildMethodTree(next).layout.nodes.find(n => n.id === id)!;
   assert.deepEqual([at('ecbs').column, at('ecbs').row], [at('same-year').column, at('same-year').row]);

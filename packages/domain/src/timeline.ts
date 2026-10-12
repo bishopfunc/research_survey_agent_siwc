@@ -12,7 +12,24 @@ export interface TimelineNode { id: string; column: number; row: number; lane: n
 export interface TimelineEdge { from: string | null; to: string; row: number; kind: 'derives' | 'member'; curved: boolean }
 export interface TimelineLayout { years: (number | null)[]; rows: TimelineRow[]; nodes: TimelineNode[]; edges: TimelineEdge[] }
 
-/** allRows keeps rows no item belongs to (the issue tree lists every issue). */
+/** Generation of each item for trees without years: 0 for items without parents, else one more than the deepest parent.
+ * An item caught in a cycle stops the walk, so every item gets a finite depth. */
+export function generations(ids: string[], parentsOf: (id: string) => string[]): Map<string, number> {
+  const depth = new Map<string, number>(), visiting = new Set<string>();
+  const walk = (id: string): number => {
+    if (depth.has(id)) return depth.get(id)!;
+    if (visiting.has(id)) return 0;
+    visiting.add(id);
+    const parents = parentsOf(id).filter(p => p !== id && ids.includes(p));
+    const value = parents.length ? 1 + Math.max(...parents.map(walk)) : 0;
+    visiting.delete(id); depth.set(id, value);
+    return value;
+  };
+  ids.forEach(walk);
+  return depth;
+}
+
+/** allRows keeps rows no item belongs to (the issue tree lists every issue). Items may use a generation instead of a year. */
 export function layoutTimeline(items: TimelineItem[], rowKeys: string[], links: TimelineLink[], allRows = false): TimelineLayout {
   const years = [...new Set(items.flatMap(i => i.year === null ? [] : [i.year]))].sort((a, b) => a - b) as (number | null)[];
   if (items.some(i => i.year === null)) years.push(null);

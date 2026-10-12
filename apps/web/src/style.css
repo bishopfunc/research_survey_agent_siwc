@@ -431,6 +431,10 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .evolution-panel { display: flex; flex-direction: column; gap: var(--space-3); }
 .evolution-sample { padding: 6px 0; border: 0; font-size: var(--text-small); color: var(--color-accent); background: var(--color-transparent); white-space: nowrap; }
 .evolution-sample:hover { background: var(--color-transparent); text-decoration: underline; }
+.send-button { display: inline-grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; }
+.send-button .icon { width: 18px; height: 18px; }
+.send-busy { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: var(--color-transparent); border-radius: 50%; animation: send-spin .9s linear infinite; }
+@keyframes send-spin { to { transform: rotate(360deg); } }
 .subtabs { display: flex; gap: var(--space-4); min-width: 0; max-width: 100%; overflow-x: auto; border-bottom: var(--rule-width) solid var(--color-line); scrollbar-width: none; }
 .subtabs button { flex-shrink: 0; margin-bottom: -1px; padding: 6px 2px 8px; border: 0; border-bottom: 2px solid var(--color-transparent); border-radius: 0; font-size: var(--text-caption); color: var(--color-muted); background: var(--color-transparent); white-space: nowrap; }
 .subtabs button:hover { color: var(--color-ink); background: var(--color-transparent); }
