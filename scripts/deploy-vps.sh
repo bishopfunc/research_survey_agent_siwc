@@ -29,6 +29,10 @@ fi
 
 sha=$(git rev-parse --short=12 "${1:-HEAD}^{commit}")
 image="survey-app:$sha"
+# A restart marks running research runs as failed, so wait for them unless FORCE=1.
+if [ "${FORCE:-0}" != 1 ] && remote "cd ~/apps/survey 2>/dev/null && docker compose exec -T app sh -c 'grep -qs \"\\\"status\\\":\\\"running\\\"\" .poc/runs/*/status.json'" 2>/dev/null; then
+  echo "a research run is in progress (FORCE=1 to deploy anyway)" >&2; exit 1
+fi
 remote "mkdir -p ~/apps/survey"
 git archive --format=tar "$sha" deploy/vps | remote "tar -x --strip-components=2 -C ~/apps/survey"
 git archive --format=tar "$sha" | remote "docker build -q -t $image -f deploy/vps/Dockerfile -" >/dev/null

@@ -42,7 +42,7 @@ VPS（Ubuntu 24.04、2コア、メモリ1GBとswap 2GB）の `~/apps/survey` に
 `scripts/deploy-vps.sh [rev]`（手元で実行）：
 
 1. `git archive <rev>` をSSHでVPSの `docker build` に流す。コミット済みのファイルだけが送られ、VPSのDockerのlayer cacheで `npm ci` を再利用する。タグは `survey-app:<sha>`。
-2. 同じrevの `deploy/vps/` を `~/apps/survey` に展開し、`.env` のタグを替えて `docker compose up -d`。
+2. 実行中の調査があれば止める（`FORCE=1` で続行）。同じrevの `deploy/vps/` を `~/apps/survey` に展開し、`.env` のタグを替えて `docker compose up -d`。
 3. VPSの上で `https://<host>/auth/health` を確かめる。
 4. 新しい順に3つより古いイメージを消す（動いているものと直前のものは残す）。
 
