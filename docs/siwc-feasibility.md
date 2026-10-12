@@ -19,7 +19,7 @@
 - リモートのVMで自分のアプリを動かす手順はある（[Self-hosted VMs](https://developers.openai.com/siwc/token-sharing-open-source/self-hosted-vms)）。サーバーレスについての記述は無い。
 - 規約（https://openai.com/policies/sign-in-with-chatgpt-terms/ 。直接は403で、プロキシ経由で読んだ）は、要求が本人のローカル環境か「本人だけが管理するリモート環境」から出ることを求め、1人のプランで他人の要求を処理することを禁じている。
 
-結論：複数の利用者が使うホスト型（[0028](design/0028-cloudflare-deploy.md)、保留）にはOpenAIの承認が要る。自分だけが自分のVPSで使う形（[0029](design/0029-self-hosted-vps.md)、[ADR 0020](adr/0020-self-hosted-vps.md)）は、loopbackの手順のままSSHで転送してログインする。
+結論：複数の利用者が使うホスト型（[0031](design/0031-cloudflare-deploy.md)、保留）にはOpenAIの承認が要る。自分だけが自分のVPSで使う形（[0032](design/0032-self-hosted-vps.md)、[ADR 0020](adr/0020-self-hosted-vps.md)）は、loopbackの手順のままSSHで転送してログインする。
 
 ## 証拠の範囲
 

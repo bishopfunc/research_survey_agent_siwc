@@ -1,8 +1,8 @@
-# ADR 0019: 利用者ごとのDurable Object（SQLite）とR2のprefix、共通の論文メタはD1に置く
+# ADR 0022: 利用者ごとのDurable Object（SQLite）とR2のprefix、共通の論文メタはD1に置く
 
 状態: Proposed（保留。複数の利用者にするときに採る）
 日付: 2026-10-12 JST
-関連design doc: [0028 Cloudflareへのデプロイ](../design/0028-cloudflare-deploy.md)
+関連design doc: [0031 Cloudflareへのデプロイ](../design/0031-cloudflare-deploy.md)
 採用時に置き換えるもの: [ADR 0009](0009-paper-library.md)、[ADR 0013](0013-storage-sqlite-d1-compatible.md)
 
 ## 背景

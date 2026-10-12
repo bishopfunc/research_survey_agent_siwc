@@ -60,8 +60,16 @@ Codexに渡す出力スキーマ（`codexPatchSchema`）は、アプリの検証
 - 調査中の経過は、ChatGPT風の最低限の表示にする。Web検索の語と思考の見出し（`model_reasoning_summary="concise"`）、エラー、修正の開始だけを1行ずつ出す。最新の1行を要約に出し、完了後は折りたたむ。
 - 新規調査・追加調査では、追加した論文ごとにアブストラクトの原文を取得元URLと一緒に残すよう指示を戻した（レビューで、P10の原文保存の指示が抜けていたと指摘）。
 - 修正用Promptには、ページ取得に関する共通ルールを入れない。拒否されたPatchの値は前回の調査で取得したものとして保つ。
-- Codex 0.144.6には `view_image` を止める設定が無い（`tools.view_image=false` は効かず、ローカル画像を表示できた）。ローカル画像の表示は残る危険として扱う。
+- Codex 0.144.6には `view_image` を止める設定が無い（`tools.view_image=false` は効かず、ローカル画像を表示できた）。ローカル画像の表示は残る危険として扱う。（2026-10-12追記：0.162.1で `--disable view_image` が効くようになったため止めた。下の追記を参照）
 - Promptの版はタイムスタンプ（本文を変えたJST日時）で表す。
+
+2026-10-12追記（モデルの固定とCodex 0.162.1）：
+
+- ユーザー指示により、モデルを `gpt-6.1-sol`、推論の強さを `medium` に固定する（`CODEX_EXECUTION.model` / `reasoningEffort`、`-m` と `model_reasoning_effort` で渡す）。これまでは指定が無く、`--ignore-user-config` のためCLIの既定（0.144.6では `gpt-5.6-sol`）で動いていた。既定はCLIの更新やモデル一覧の変更で黙って変わる。
+- `gpt-6.1-sol` はCodex 0.144.6ではChatGPTアカウントで使えない（400）。CLIを0.162.1に更新した。
+- 0.162.1ではWeb検索がcode mode経由で呼ばれる。`code_mode_host` を無効にするとWeb検索も使えなくなり、Codexは記憶から答える（`gpt-5.6-sol` でも同じ）。このため `code_mode_host` は無効化の一覧から外す。code modeのスクリプトには `fs`・`require`・`fetch` が無く、ローカルのファイルは読めなかった。
+- 代わりに `view_image` を無効にする。有効なままだと、code mode経由でローカル画像を読めた。
+- ユーザーのスキル（`~/.agents/skills` など）の一覧が、`--ignore-user-config` を付けても研究用のCodexに渡っていた。`-c skills.include_instructions=false` で渡さない。
 
 ## 失敗と競合
 

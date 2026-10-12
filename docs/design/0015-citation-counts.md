@@ -15,7 +15,7 @@
 | --- | --- |
 | Google Scholar | 公式APIが無い。画面の自動取得は利用規約で禁じられている。SerpApiなどの代行は有料・要APIキーで、規約上の扱いも不明確。採用しない |
 | OpenAlex | 無料、キーなしで使える（無料キーで上限10倍）、`cited_by_count` を返す。DOIは1回の絞り込みで最大100件をまとめて問い合わせられる。毎秒100件を超えると429。第一候補 |
-| Semantic Scholar | 無料、`citationCount`、一括取得あり。キーなしは全利用者で共有の上限で、混雑時に絞られる。OpenAlexで見つからない論文（arXivのみ等）の補完候補 |
+| Semantic Scholar | 無料、`citationCount`、一括取得あり。キーなしは全利用者で共有の上限で、混雑時に絞られる。使用しない（ユーザー指示、2026-10-12） |
 
 引用数は取得元ごとに違う（Google Scholarは一般に多く数える）。値には必ず取得元（`citation_source`）と取得日（`citation_as_of`）を付け、取得元をまたいで比べない。
 
@@ -33,6 +33,8 @@
 
 - 2026-10-12追記（ユーザー報告「OpenAlexに接続できませんでした（429）」）：OpenAlexはキーなしでも使えるが、1日の利用枠（キーなしは$0.10、無料キーで$1。UTC 0時＝日本時間9時に回復）がある。費用は単体の作品（IDやDOIで1件）が無料、一覧と絞り込みが1,000回で$0.10、検索が1,000回で$1。実測では、キーなしの枠1000クレジットのうち残り8で429になっていた。タイトル検索（`title.search`）は検索として数えられるとみられ（1回10クレジット。未確認の推定）、新規調査の補完（最大40回）と引用数の更新（最大30回）を何回か行うと枠を使い切る。対策：DOIは一覧の絞り込み（`filter=doi:a|b`）をやめて単体の作品（`/works/doi:…`、費用0を実測）で照会する。照合の各段階は前の段階が失敗しても続け、検索の枠切れでもDOIの照会は行う。429の通知は「1日の無料枠を使い切りました。日本時間9時に回復します。OPENALEX_API_KEYで枠が10倍になります」とする。書誌の補完（[0020](0020-paper-enrichment-and-parallel-runs.md)）にも `OPENALEX_API_KEY` を渡す。
 
+- 2026-10-12追記：取得元を一度Semantic Scholarに移したが、ユーザー指示「Semantic Scholarは使用しない」で取りやめ、OpenAlexに戻した（[ADR 0019](../adr/0019-openalex-with-key.md)、[ADR 0018](../adr/0018-semantic-scholar-for-citations.md)はSuperseded）。代わりに無料キーで枠を10倍（1日$1）にする。キーはリポジトリ直下のGit管理外の `.env`（権限0600）に置き、`npm run dev:poc` が `--env-file-if-exists=.env` で読む。キーはCodexの子プロセスの環境変数から外す。
+
 ## 契約とデータ
 
 DSLは変えない（citation_count・citation_source・citation_as_ofは既存）。PoCでは現在値をsnapshotに入れ、更新は新しい版にする（既存の方針。MVPで最新値の別保存を検討）。
@@ -47,7 +49,7 @@ DSLは変えない（citation_count・citation_source・citation_as_ofは既存�
 
 ## 未解決事項
 
-- Semantic Scholarでの補完を入れるか（OpenAlexで見つからない論文の救済）。
+- キー付きでも1日の枠を使い切るか（タイトル検索1回$0.001として、1日約1,000回）。
 - 引用数の定期更新（今は手動）。
 - 取得元の利用規約・上限の再確認（実装時）。
 

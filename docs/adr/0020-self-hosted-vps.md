@@ -2,7 +2,7 @@
 
 状態: Accepted
 日付: 2026-10-12 JST
-関連design doc: [0029 自分のVPSで動かす](../design/0029-self-hosted-vps.md)
+関連design doc: [0032 自分のVPSで動かす](../design/0032-self-hosted-vps.md)
 
 ## 背景
 
@@ -21,7 +21,7 @@
 
 ## 代替案
 
-- Cloudflare：OpenAIの承認待ちになり、Codex CLIも動かない（[0028](../design/0028-cloudflare-deploy.md)、保留）。
+- Cloudflare：OpenAIの承認待ちになり、Codex CLIも動かない（[0031](../design/0031-cloudflare-deploy.md)、保留）。
 - SSHトンネルだけで使う：URLからのアクセスという指示に合わない。
 - Cloudflare Tunnel＋AccessやTailscale：入口がSIWCにならない。
 - ホストにNodeを入れてsystemdで動かす：sudo、lingerの設定、Nodeの導入が要る。このVPSではDockerが既にあり、ubuntuはdockerグループに入っている。
@@ -29,7 +29,7 @@
 
 ## 影響
 
-VPSの運用（OSの更新、ディスク、メモリ1GB）を本人が持つ。ログインは30日ごとにSSHの転送が要る。80/443を持っていたHedgeDoc v2のCaddyは止まる。複数の利用者にするときは、0028の計画に戻る。
+VPSの運用（OSの更新、ディスク、メモリ1GB）を本人が持つ。ログインは30日ごとにSSHの転送が要る。80/443を持っていたHedgeDoc v2のCaddyは止まる。複数の利用者にするときは、0031の計画に戻る。
 
 ## 根拠
 

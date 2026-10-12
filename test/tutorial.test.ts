@@ -4,6 +4,8 @@ import { fixture, validateSnapshot } from '../packages/domain/src/index';
 import { assessTutorial, tutorialOutline } from '../packages/domain/src/tutorial';
 import { compareToReference, referenceOutline } from '../packages/domain/src/tutorial-reference';
 import { SURVEY_RULES_INSTRUCTIONS } from '../packages/agent/src/prompt';
+import { tutorialInstructions } from '../packages/agent/src/research-prompt';
+import { skillById, skillInstructions } from '../packages/agent/src/skills/index';
 
 const failing = (snapshot: typeof fixture) => assessTutorial(snapshot).filter(c => !c.pass).map(c => c.id);
 const tutorialOf = (snapshot: typeof fixture) => { const t = snapshot.entities.find(e => e.type === 'Tutorial'); if (t?.type !== 'Tutorial') throw Error('no tutorial'); return t; };
@@ -71,7 +73,8 @@ test('the sample is the reference: its outline and scale go into the prompt, and
   assert.match(outline, /3 解き方 \(methods, 7 sections/);
   assert.match(outline, /6 派生問題 \(variants, 6 sections/);
   assert.ok(!/\[@paper-/.test(outline), 'the example keeps the form, not the sample\'s IDs');
-  assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(outline));
+  // Only the prompts that write a whole tutorial carry the reference; the common rules do not.
+  assert.ok(tutorialInstructions().includes(outline) && skillInstructions(skillById('revise')).includes(outline) && !SURVEY_RULES_INSTRUCTIONS.includes(outline));
   assert.ok(compareToReference(fixture).every(r => r.ratio === 1));
   const empty = compareToReference({ ...fixture, entities: fixture.entities.filter(e => e.type !== 'Tutorial') });
   assert.ok(empty.every(r => r.value === 0));

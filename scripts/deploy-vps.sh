@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys a committed revision to the self-hosted VPS (design 0029), or rolls back to the previous one.
+# Deploys a committed revision to the self-hosted VPS (design 0032), or rolls back to the previous one.
 #   scripts/deploy-vps.sh [rev]      build rev (default HEAD) on the VPS and switch to it
 #   scripts/deploy-vps.sh --rollback switch back to the image that ran before the last deploy
 # Only committed files are sent (git archive); the VPS builds with its own Docker layer cache.

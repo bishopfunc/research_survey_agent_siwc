@@ -1,15 +1,15 @@
-# 0029: 自分のVPSで動かす（SIWCで入口を絞る）
+# 0032: 自分のVPSで動かす（SIWCで入口を絞る）
 
 状態: Draft
 日付: 2026-10-12 JST
 対象タスク: V01
-関連ADR: [ADR 0020](../adr/0020-self-hosted-vps.md)、[SIWC実現性](../siwc-feasibility.md)、複数の利用者にするとき：[0028](0028-cloudflare-deploy.md)（保留）
+関連ADR: [ADR 0020](../adr/0020-self-hosted-vps.md)、[SIWC実現性](../siwc-feasibility.md)、複数の利用者にするとき：[0031](0031-cloudflare-deploy.md)（保留）
 
 ## 目的と範囲
 
 ユーザー指示（2026-10-12）：さくらのVPSにデプロイする。自分はURLからアクセスし、自分のSign in with ChatGPT（SIWC）で認証し、自分だけが使う。VMへの効率的なデプロイ方法を調べて使う。80/443を持っていたHedgeDoc v2のCaddyは止めて置き換え、再起動を繰り返す `paper_graph_agent-nginx` は止める（どちらも削除しない）。swapは本人が2GB足した。
 
-ローカルPoC（`npm run dev:poc`）をそのまま動かす。複数の利用者とCloudflareは[0028](0028-cloudflare-deploy.md)（保留）。
+ローカルPoC（`npm run dev:poc`）をそのまま動かす。複数の利用者とCloudflareは[0031](0031-cloudflare-deploy.md)（保留）。
 
 ## 構成
 

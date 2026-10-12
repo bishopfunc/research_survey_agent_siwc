@@ -1,5 +1,3 @@
-import type { Entity } from '../../../packages/domain/src/index';
 export const codeAvailabilityLabels = {public:'公開あり',not_found:'見つからず',unknown:'未確認'};
-export function paperCodeLabel(paper: Extract<Entity,{type:'Paper'}>) {
-  return `コード ${codeAvailabilityLabels[paper.code_availability ?? 'unknown']}`;
-}
+/** Short tags for paper cards; 見つからず is not a claim that the code is private (ADR 0007). */
+export const codeTagLabels = {public:'コードあり',not_found:'コード見つからず',unknown:'コード未確認'};

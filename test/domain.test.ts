@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { applyPatch, deleteBranch, emptySurvey, fixture, initialWorkspace, makeCommit, snapshotSchema, validateSnapshot, validateWorkspace, type SurveyPatch } from '../packages/domain/src/index';
 import { codexOutputSchema, codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { patchSchema } from '../packages/domain/src/index';
+import { overviewOf, overviewSources } from '../packages/domain/src/overview';
 
 test('Codex output schema strips unsupported format/uniqueness but retains field names and required structure', () => {
   const projected = codexOutputSchema(patchSchema);
@@ -225,7 +226,7 @@ test('deleting a collection keeps shared history, drops unreachable commits and 
   assert.throws(() => deleteBranch(withoutMain, 'missing'), /見つかりません/);
 });
 
-test('expert-survey fields: English issue terms, a translation tied to its original, complete paper reading and dated SOTA', () => {
+test('expert-survey fields: English issue terms, a translation tied to its original, complete paper reading and dated SoTA', () => {
   const input = structuredClone(fixture);
   const issue = input.entities.find(e => e.id === 'scalability');
   const paper = input.entities.find(e => e.id === 'paper-ecbs');
@@ -251,9 +252,9 @@ test('expert-survey fields: English issue terms, a translation tied to its origi
   paper.reading = null;
   assert.deepEqual(validateSnapshot(input), []);
   keyword.category = 'sota';
-  assert.match(validateSnapshot(input).join(), /SOTAには時点/);
+  assert.match(validateSnapshot(input).join(), /SoTAには時点/);
   keyword.as_of = '2026-10-12';
-  assert.match(validateSnapshot(input).join(), /SOTAには時点/);
+  assert.match(validateSnapshot(input).join(), /SoTAには時点/);
   keyword.papers = ['paper-eecbs'];
   assert.deepEqual(validateSnapshot(input), []);
   keyword.as_of = '2026/10/12';
@@ -294,7 +295,7 @@ test('mechanical slips in English terms and reading are tidied before validation
 
 test('research output may use only the current knowledge categories; older ones stay valid in saved data', () => {
   const strict = codexPatchSchema(patchSchema) as { $defs: { Keyword: { properties: { category: { enum: string[] } } } } };
-  assert.deepEqual(strict.$defs.Keyword.properties.category.enum, ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'baseline']);
+  assert.deepEqual(strict.$defs.Keyword.properties.category.enum, ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'architecture', 'baseline']);
   const input = structuredClone(fixture);
   const keyword = input.entities.find(e => e.type === 'Keyword');
   if (keyword?.type !== 'Keyword') throw Error('fixture changed');
@@ -317,6 +318,33 @@ test('a paper reading names the original pages it is based on; unsafe links are 
   assert.equal(onlySources.operations[0].entity.reading, null);
 });
 
+test('each reading field cites its own sources; references must be Evidence and Codex nulls in cites are dropped', () => {
+  const input = structuredClone(fixture);
+  const paper = input.entities.find(e => e.id === 'paper-cbs-2012');
+  const evidence = input.entities.find(e => e.type === 'Evidence');
+  if (paper?.type !== 'Paper' || !paper.reading || !evidence) throw Error('fixture changed');
+  paper.reading.cites = { summary: [evidence.id], novelty: ['paper-cbs-2012'], key_idea: ['missing'] };
+  const errors = validateSnapshot(input).join('\n');
+  assert.match(errors, /要点（novelty）/); assert.match(errors, /要点（key_idea）/); assert.doesNotMatch(errors, /要点（summary）/);
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const reading = { ...paper.reading, cites: { summary: [' e1 ', 'e1'], contributions: null, novelty: [], key_idea: null, validation: null, discussion: null }, key_sections: null };
+  const out = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: { ...paper, reading } }] }, defs) as { operations: { entity: { reading: Record<string, unknown> } }[] };
+  assert.deepEqual(out.operations[0].entity.reading.cites, { summary: ['e1'] });
+  assert.ok((out.operations[0].entity.reading.evidence as string[]).includes('e1'), 'reading.evidence lists the per-field sources too');
+  assert.deepEqual(out.operations[0].entity.reading.key_sections, []);
+  const none = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: { ...paper, reading: { ...paper.reading, cites: { summary: null, contributions: [] } } } }] }, defs) as { operations: { entity: { reading: Record<string, unknown> } }[] };
+  assert.ok(!('cites' in none.operations[0].entity.reading));
+});
+test('the overview is one existing field per type, and its sources come from the item or the paper summary', () => {
+  const paper = fixture.entities.find(e => e.type === 'Paper')!, issue = fixture.entities.find(e => e.type === 'Issue')!, keyword = fixture.entities.find(e => e.type === 'Keyword')!, resource = fixture.entities.find(e => e.type === 'Resource')!;
+  assert.equal(overviewOf(paper), paper.type === 'Paper' ? paper.one_line_summary : '');
+  assert.equal(overviewOf(issue), issue.type === 'Issue' ? issue.description : '');
+  assert.equal(overviewOf(keyword), keyword.type === 'Keyword' ? keyword.meaning : '');
+  assert.equal(overviewOf(resource), resource.type === 'Resource' ? resource.summary : '');
+  assert.deepEqual(overviewSources(issue), issue.type === 'Issue' ? issue.evidence ?? [] : []);
+  assert.deepEqual(overviewSources(resource), []);
+  assert.deepEqual(overviewSources(paper), paper.type === 'Paper' ? paper.reading?.cites?.summary ?? [] : []);
+});
 test('nullable Codex reading arrays are normalized without losing additions or references', () => {
   const paper = structuredClone(fixture.entities.find(e => e.type === 'Paper' && e.id === 'paper-ecbs')!);
   const input = { schema_version: '0.1.0', base_commit_id: 'empty', message: 'reading repair', operations: [

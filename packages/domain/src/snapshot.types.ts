@@ -120,6 +120,21 @@ export interface Reading {
     locator: string;
   }[];
   evidence?: string[];
+  /**
+   * Evidence IDs for each reading field; summary is the paper's one_line_summary.
+   */
+  cites?: {
+    summary?: string[];
+    contributions?: string[];
+    novelty?: string[];
+    key_idea?: string[];
+    validation?: string[];
+    discussion?: string[];
+  };
+  /**
+   * Sections needed to understand the paper, each starting with its section number, e.g. "3.2 Pseudocode: why".
+   */
+  key_sections?: string[];
 }
 export interface Figure {
   asset_id: string;
@@ -180,6 +195,7 @@ export interface Keyword {
     | "metric"
     | "sota"
     | "model"
+    | "architecture"
     | "baseline"
     | "task"
     | "concept"
@@ -201,6 +217,10 @@ export interface Tutorial {
   provenance: "fixture" | "user" | "codex";
   type: "Tutorial";
   sections: TutorialSection[];
+  /**
+   * One sentence explaining the field the tutorial covers.
+   */
+  summary?: string;
 }
 export interface TutorialSection {
   role:

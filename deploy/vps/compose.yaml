@@ -1,4 +1,4 @@
-# Self-hosted VPS (design 0029). APP_IMAGE and PUBLIC_HOST come from .env, written by scripts/deploy-vps.sh.
+# Self-hosted VPS (design 0032). APP_IMAGE and PUBLIC_HOST come from .env, written by scripts/deploy-vps.sh.
 name: survey
 services:
   app:

@@ -1,4 +1,4 @@
-/** Front door of the self-hosted VPS (design 0029). Only the owner's ChatGPT account gets in, through Sign in with ChatGPT;
+/** Front door of the self-hosted VPS (design 0032). Only the owner's ChatGPT account gets in, through Sign in with ChatGPT;
  * then requests go to the PoC server unchanged except Host and Origin, which that server checks against its loopback address.
  * The login returns to a 127.0.0.1 callback as the official flow requires; it reaches this gate only through the owner's SSH
  * port forward. ChatGPT tokens are used to confirm who signed in and are not kept. */

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Self-hosted VPS image (design 0029): the PoC server, the SIWC gate and the Codex CLI. Built on the VPS from `git archive`.
+# Self-hosted VPS image (design 0032): the PoC server, the SIWC gate and the Codex CLI. Built on the VPS from `git archive`.
 FROM node:24-bookworm-slim
 RUN npm install -g @openai/codex@0.162.1 && npm cache clean --force \
  && mkdir -p /app /home/node/.codex && chown node:node /app /home/node/.codex

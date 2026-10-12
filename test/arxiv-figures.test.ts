@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ARXIV_MIN_INTERVAL_MS, cacheName, extractAlgorithms, extractEquations, extractTables, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
+import { keySections, sectionNumber, sourceHref } from '../apps/web/src/arxiv-parts';
+import { ARXIV_MIN_INTERVAL_MS, cacheName, extractAlgorithms, extractEquations, extractSections, extractTables, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
 
 const page = 'https://arxiv.org/html/2307.15644';
 const html = `<html><body>
@@ -17,8 +18,8 @@ const html = `<html><body>
 
 test('top-level figures keep their number, plain-text caption and arXiv images; tables, panels and foreign images are left out', () => {
   assert.deepEqual(extractFigures(html, page), [
-    { number: 1, label: 'Figure 1', caption: 'Success rate with 4.9\\text{M} pairs & human results.', images: ['https://arxiv.org/html/2307.15644v2/intro.svg'] },
-    { number: 2, label: 'Figure 2', caption: 'Overview of the pipeline. alert(1)', images: ['https://arxiv.org/html/2307.15644v2/a.png', 'https://arxiv.org/html/2307.15644v2/b.png'] },
+    { number: 1, label: 'Figure 1', caption: 'Success rate with 4.9\\text{M} pairs & human results.', images: ['https://arxiv.org/html/2307.15644v2/intro.svg'], anchor: 'S1.F1' },
+    { number: 2, label: 'Figure 2', caption: 'Overview of the pipeline. alert(1)', images: ['https://arxiv.org/html/2307.15644v2/a.png', 'https://arxiv.org/html/2307.15644v2/b.png'], anchor: 'S3.F2' },
   ]);
 });
 test('arXiv IDs come from the field or an arxiv.org link; anything else is refused', () => {
@@ -74,7 +75,7 @@ test('arXiv requests are serialized with a minimum gap', async () => {
 });
 test('appendix figures keep their label without a number that could match a main-text figure', () => {
   const figures = extractFigures('<figure class="ltx_figure"><img src="x/c1.svg"><figcaption><span class="ltx_tag ltx_tag_figure">Figure C.1: </span>Beam size.</figcaption></figure>', page);
-  assert.deepEqual(figures, [{ number: null, label: 'Figure C.1', caption: 'Beam size.', images: ['https://arxiv.org/html/x/c1.svg'] }]);
+  assert.deepEqual(figures, [{ number: null, label: 'Figure C.1', caption: 'Beam size.', images: ['https://arxiv.org/html/x/c1.svg'], anchor: null }]);
 });
 test('a "<" inside math does not swallow the caption text after it', () => {
   const [figure] = extractFigures('<figure class="ltx_figure"><img src="x/a.png"><figcaption>Figure 5: Success rate when <math alttext="\\epsilon&lt;0.1"><mi>ε</mi></math> compared with HAMT <cite>[9]</cite>. Higher is better.</figcaption></figure>', page);
@@ -94,13 +95,13 @@ test('algorithm floats keep their label, title and listing lines with inline mat
     <div class="ltx_listingline"><span class="ltx_tag ltx_tag_listingline">2:</span>initialize <math alttext="\\mathit{Open}"><mi>O</mi></math> &amp; push</div>
     <div class="ltx_listingline"><span class="ltx_tag ltx_tag_listingline">3:</span><b>while</b> <math alttext="x&lt;y"><mi>x</mi></math> <b>do</b></div></div></figure>
   <figure class="ltx_figure"><img src="x/a.png"><figcaption>Figure 1: not an algorithm</figcaption></figure>`;
-  assert.deepEqual(extractAlgorithms(html), [{ number: 1, label: 'Algorithm 1', caption: 'LaCAM', lines: ['initialize $\\mathit{Open}$ & push', 'while $x<y$ do'] }]);
+  assert.deepEqual(extractAlgorithms(html), [{ number: 1, label: 'Algorithm 1', caption: 'LaCAM', lines: ['initialize $\\mathit{Open}$ & push', 'while $x<y$ do'], anchor: 'alg1' }]);
 });
 test('display equations give one entry per row with its number label; inline math is not an equation', () => {
   const html = `<p>inline <math alttext="a" display="inline"></math></p>
   <table id="S3.E1" class="ltx_equation ltx_eqn_table"><tbody><tr class="ltx_equation ltx_eqn_row"><td class="ltx_eqn_cell"><math alttext="\\argmax_{r} P(r)" display="block"></math></td><td class="ltx_eqn_cell ltx_eqn_eqno"><span class="ltx_tag ltx_tag_equation ltx_align_right">(1)</span></td></tr></tbody></table>
   <table class="ltx_equationgroup ltx_eqn_table"><tbody><tr class="ltx_eqn_row"><td><math alttext="L" display="block"></math></td><td><math alttext="=a+b" display="block"></math></td><td><span class="ltx_tag ltx_tag_equation">(2a)</span></td></tr><tr class="ltx_eqn_row"><td><math alttext="M=c" display="block"></math></td></tr></tbody></table>`;
-  assert.deepEqual(extractEquations(html), [{ number: 1, label: '(1)', tex: '\\argmax_{r} P(r)' }, { number: null, label: '(2a)', tex: 'L =a+b' }, { number: null, label: null, tex: 'M=c' }]);
+  assert.deepEqual(extractEquations(html), [{ number: 1, label: '(1)', tex: '\\argmax_{r} P(r)', anchor: 'S3.E1' }, { number: null, label: '(2a)', tex: 'L =a+b', anchor: null }, { number: null, label: null, tex: 'M=c', anchor: null }]);
 });
 test('arXiv requests keep the robots.txt crawl delay', () => { assert.equal(ARXIV_MIN_INTERVAL_MS, 15_000); });
 test('table floats keep their label, caption and cells with spans and math', () => {
@@ -112,6 +113,40 @@ test('table floats keep their label, caption and cells with spans and math', () 
     [{ text: 'Methods', colspan: 1, rowspan: 2, head: false }, { text: 'Val-Unseen', colspan: 2, rowspan: 1, head: false }],
     [{ text: 'SR $\\uparrow$', colspan: 1, rowspan: 1, head: true }, { text: 'SPL', colspan: 1, rowspan: 1, head: false }],
     [{ text: 'Ours', colspan: 1, rowspan: 1, head: false }, { text: '72.9', colspan: 1, rowspan: 1, head: false }, { text: '62.8', colspan: 1, rowspan: 1, head: false }],
-  ] }]);
+  ], anchor: 'S4.T1' }]);
+});
+test('sections keep their number, title, anchor and own paragraphs; the bibliography and acknowledgements are left out', () => {
+  const html = `<section id="S3" class="ltx_section"><h2 class="ltx_title ltx_title_section"><span class="ltx_tag ltx_tag_section">3 </span>Algorithm</h2>
+    <div class="ltx_para"><p class="ltx_p">LaCAM is a two-level search over <math alttext="G=(V,E)"></math> ( Stern et al. 2019 ) .</p></div>
+    <section id="S3.SS0.Px1" class="ltx_paragraph"><h4 class="ltx_title">Low-level</h4><div class="ltx_para"><p class="ltx_p">Constraints are added lazily.</p></div></section>
+    <section id="S3.SS1" class="ltx_subsection"><h3 class="ltx_title ltx_title_subsection"><span class="ltx_tag ltx_tag_subsection">3.1 </span>Pseudocode<script>x</script></h3><div class="ltx_para"><p class="ltx_p">${'word '.repeat(400)}</p></div></section></section>
+  <section id="A1" class="ltx_appendix"><h2 class="ltx_title"><span class="ltx_tag ltx_tag_appendix">Appendix A </span>Proofs</h2><div class="ltx_para"><p class="ltx_p">Lemma.</p></div></section>
+  <section id="Sx1" class="ltx_section"><h2 class="ltx_title">Acknowledgments</h2><div class="ltx_para"><p class="ltx_p">Thanks.</p></div></section>
+  <section id="bib" class="ltx_bibliography"><h2 class="ltx_title">References</h2></section>`;
+  const sections = extractSections(html);
+  assert.deepEqual(sections.map(s => [s.number, s.title, s.anchor]), [['3', 'Algorithm', 'S3'], ['3.1', 'Pseudocode x', 'S3.SS1'], ['A', 'Proofs', 'A1']]);
+  assert.equal(sections[0].text, 'LaCAM is a two-level search over $G=(V,E)$ (Stern et al. 2019). Constraints are added lazily.');
+  assert.ok(sections[1].text.length <= 1201 && sections[1].text.endsWith('…'));
+  // A cut never ends inside math, and citation spacing is tidied outside math only.
+  const long = `<section id="S5" class="ltx_section"><h2 class="ltx_title"><span class="ltx_tag">5 </span>Proof</h2><div class="ltx_para"><p class="ltx_p">${'word '.repeat(238)}see <math alttext="f( x , y ) = ( a )"></math> and more</p></div></section>`;
+  const [proof] = extractSections(long);
+  assert.equal((proof.text.match(/\$/g)?.length ?? 0) % 2, 0);
+  assert.equal(extractSections(long.replace('word '.repeat(238), 'cite ( Li 2020 ) . ')).at(0)!.text, 'cite (Li 2020). see $f( x , y ) = ( a )$ and more');
 });
 
+test('key sections match the numbers named in the reading, or fall back to the sections describing the method', () => {
+  const sections = [
+    { number: '1', title: 'Introduction', anchor: 'S1', text: 'intro' },
+    { number: '3', title: 'Algorithm', anchor: 'S3', text: 'two-level search' },
+    { number: '3.1', title: 'Concept', anchor: 'S3.SS1', text: 'concept' },
+    { number: '3.2', title: 'Pseudocode', anchor: 'S3.SS2', text: 'listing' },
+    { number: '4', title: 'Evaluation', anchor: 'S4', text: 'results' },
+    { number: 'A', title: 'Proposed proofs', anchor: 'A1', text: 'lemma' },
+  ];
+  assert.deepEqual([sectionNumber('3.2 Pseudocode: why'), sectionNumber('Section 4'), sectionNumber('§A: proofs'), sectionNumber('Pseudocode'), sectionNumber('Appendix A: lemma'), sectionNumber('Sec 3.1'), sectionNumber('第3節：手法')], ['3.2', '4', 'a', null, 'a', '3.1', '3']);
+  assert.deepEqual(keySections(['3.2 shows the search loop', '3.1 Concept'], sections).map(k => k.note), ['shows the search loop', null]);
+  assert.deepEqual(keySections(['3.2 Pseudocode: 探索の流れ', 'Section 9: 無い節'], sections), [{ note: '探索の流れ', section: sections[3] }, { note: 'Section 9: 無い節', section: null }]);
+  assert.deepEqual(keySections([], sections).map(k => k.section?.anchor), ['S3', 'S3.SS1']);
+  assert.equal(sourceHref('https://arxiv.org/html/2211.13432', 'S3.SS2'), 'https://arxiv.org/html/2211.13432#S3.SS2');
+  assert.equal(sourceHref('https://arxiv.org/html/2211.13432', null), 'https://arxiv.org/html/2211.13432');
+});

@@ -1,4 +1,4 @@
-// Types for siwc.mjs, so TypeScript callers (the VPS gate, design 0029) are checked.
+// Types for siwc.mjs, so TypeScript callers (the VPS gate, design 0032) are checked.
 export interface SiwcAccount { client_id: string; subject: string; id_token?: string }
 export interface SiwcTransaction { state: string; nonce: string; verifier: string; redirectUri: string; expires: number; account?: SiwcAccount; used?: boolean }
 export interface SiwcLogin { client_id: string; subject: string; email: string; access_token: string; refresh_token?: string; id_token?: string; scopes: string[]; expires_at: number }

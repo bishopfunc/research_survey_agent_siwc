@@ -1,8 +1,8 @@
-# ADR 0018: 利用者はCloudflare Accessで作り、SIWCはChatGPTプランの接続にだけ使う
+# ADR 0021: 利用者はCloudflare Accessで作り、SIWCはChatGPTプランの接続にだけ使う
 
 状態: Proposed（保留。まず自分だけのVPSで使う：[ADR 0020](0020-self-hosted-vps.md)）
 日付: 2026-10-12 JST
-関連design doc: [0028 Cloudflareへのデプロイ](../design/0028-cloudflare-deploy.md)
+関連design doc: [0031 Cloudflareへのデプロイ](../design/0031-cloudflare-deploy.md)
 
 ## 背景
 

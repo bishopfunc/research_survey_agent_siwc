@@ -1,11 +1,11 @@
-# 0028: Cloudflareへのデプロイ（最小構成）
+# 0031: Cloudflareへのデプロイ（最小構成）
 
 状態: Draft（保留）
 日付: 2026-10-12 JST
 対象タスク: C00〜C03（[バックログ](../backlog.md)）
-関連ADR・受け入れ条件: [ADR 0018](../adr/0018-access-users-and-siwc-plan-link.md)、[ADR 0019](../adr/0019-per-user-storage-and-shared-paper-meta.md)、[MVP設計](0001-mvp.md)、[SIWC実現性](../siwc-feasibility.md)、[受け入れ条件](../acceptance.md)（採用時に利用者の分離を足す）
+関連ADR・受け入れ条件: [ADR 0021](../adr/0021-access-users-and-siwc-plan-link.md)、[ADR 0022](../adr/0022-per-user-storage-and-shared-paper-meta.md)、[MVP設計](0001-mvp.md)、[SIWC実現性](../siwc-feasibility.md)、[受け入れ条件](../acceptance.md)（採用時に利用者の分離を足す）
 
-2026-10-12：ユーザー指示で、まず自分だけが使う環境を自分のVPSに置く（[0029](0029-self-hosted-vps.md)）。この文書は複数の利用者にするときの計画として保留する。
+2026-10-12：ユーザー指示で、まず自分だけが使う環境を自分のVPSに置く（[0032](0032-self-hosted-vps.md)）。この文書は複数の利用者にするときの計画として保留する。
 
 ## 目的と範囲
 

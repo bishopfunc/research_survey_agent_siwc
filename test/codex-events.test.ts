@@ -10,8 +10,20 @@ test('codex events count web searches and only a completed turn counts as succes
     '{"type":"item.completed","item":{"id":"c","type":"agent_message","text":"{}"}}',
     '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":2}}',
   ]);
-  assert.deepEqual(ok, { searches: 2, completed: true, error: null, usage: { input_tokens: 10, output_tokens: 2 } });
+  assert.deepEqual(ok, { searches: 2, completed: true, error: null, usage: { input_tokens: 10, output_tokens: 2 }, queries: [], opened: [] });
   assert.equal(run(['{"type":"turn.started"}']).completed, false);
+});
+test('codex events collect the search memory: the queries searched and the pages opened (design 0028)', () => {
+  const state = run([
+    '{"type":"item.completed","item":{"type":"web_search","query":"q","action":{"type":"search","queries":["MAPF survey","awesome MAPF"]}}}',
+    '{"type":"item.completed","item":{"type":"web_search","query":"https://arxiv.org/abs/1809.03531","action":{"type":"other"}}}',
+    '{"type":"item.completed","item":{"type":"web_search","query":"https://kei18.github.io/","action":{"type":"open_page","url":"https://kei18.github.io/"}}}',
+    '{"type":"item.completed","item":{"type":"web_search","query":"token Bearer abc.def","action":{"type":"search","query":"token Bearer abc.def"}}}',
+  ]);
+  assert.equal(state.searches, 4);
+  assert.deepEqual(state.queries, ['MAPF survey', 'awesome MAPF', 'token Bearer [redacted]']);
+  assert.deepEqual(state.opened, ['https://arxiv.org/abs/1809.03531', 'https://kei18.github.io/']);
+  assert.deepEqual(traceItem('{"type":"item.completed","item":{"type":"web_search","query":"https://kei18.github.io/","action":{"type":"open_page","url":"https://kei18.github.io/"}}}'), { kind: 'open', text: 'https://kei18.github.io/' });
 });
 test('codex errors become one short line, unwrapping the API error and ignoring warning items', () => {
   const failed = run([

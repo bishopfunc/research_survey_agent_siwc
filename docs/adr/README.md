@@ -21,6 +21,8 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0017](0017-evidence-as-common-source.md) | 事実はすべて出典（Evidence）を参照し、出典は出典元を持つ | Accepted |
 | [0016](0016-resource-entity.md) | サーベイ・ブログなどの情報源は Resource 型として持つ | Accepted |
 | [0015](0015-core-relations.md) | 関係は親子・系統・論文・主張と根拠に絞り、古い型は読めるが書かない | Accepted |
-| [0018](0018-access-users-and-siwc-plan-link.md) | 複数の利用者にするときは、利用者をCloudflare Accessで作り、SIWCはChatGPTプランの接続にだけ使う | Proposed |
-| [0019](0019-per-user-storage-and-shared-paper-meta.md) | 複数の利用者にするときは、利用者ごとのDurable Object（SQLite）とR2のprefix、共通の論文メタはD1 | Proposed |
+| [0018](0018-semantic-scholar-for-citations.md) | 引用数と書誌の補完はSemantic Scholarを主にし、OpenAlexはDOIの単体照会だけに残す | Superseded |
+| [0019](0019-openalex-with-key.md) | Semantic Scholarは使わず、OpenAlexを無料キー付きで使う | Accepted |
 | [0020](0020-self-hosted-vps.md) | 自分だけが使う環境は自分のVPSで動かし、URLの入口をSIWCで絞る | Accepted |
+| [0021](0021-access-users-and-siwc-plan-link.md) | 複数の利用者にするときは、利用者をCloudflare Accessで作り、SIWCはChatGPTプランの接続にだけ使う | Proposed |
+| [0022](0022-per-user-storage-and-shared-paper-meta.md) | 複数の利用者にするときは、利用者ごとのDurable Object（SQLite）とR2のprefix、共通の論文メタはD1 | Proposed |

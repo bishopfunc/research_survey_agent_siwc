@@ -16,10 +16,14 @@ export function paperKey(paper: { doi?: unknown; arxiv_id?: unknown; title?: unk
   const title = typeof paper.title === 'string' ? paper.title.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() : '';
   return `title:${title}:${typeof paper.year === 'number' ? paper.year : ''}`;
 }
-export function toLibraryPaper(paper: Paper): LibraryPaper {
-  const source = paper as unknown as Record<string, unknown>;
-  return Object.fromEntries(LIBRARY_FIELDS.filter(key => source[key] !== undefined).map(key => [key, source[key]]));
+/** A library entry from a stored paper. Its reading keeps the text but not reading.evidence and reading.cites: those point at
+ * Evidence of the survey it came from, which the new survey does not have. */
+export function libraryEntry(source: Record<string, unknown>): LibraryPaper {
+  const entry: Record<string, unknown> = Object.fromEntries(LIBRARY_FIELDS.filter(key => source[key] !== undefined).map(key => [key, source[key]]));
+  if (entry.reading && typeof entry.reading === 'object') { const { evidence: _evidence, cites: _cites, ...reading } = entry.reading as Record<string, unknown>; entry.reading = reading; }
+  return entry;
 }
+export function toLibraryPaper(paper: Paper): LibraryPaper { return libraryEntry(paper as unknown as Record<string, unknown>); }
 const richness = (p: Paper) => (p.reading ? 4 : 0) + (p.abstract ? 2 : 0) + (p.abstract_ja ? 1 : 0);
 
 /** Papers stored in the other surveys, minus those already in the current one; the richest copy of each paper wins. */
@@ -49,7 +53,7 @@ export function sanitizeLibrary(value: unknown): LibraryPaper[] {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw Error('INVALID_INPUT');
     const source = item as Record<string, unknown>;
     if (typeof source.title !== 'string' || !source.title.trim()) throw Error('INVALID_INPUT');
-    return Object.fromEntries(LIBRARY_FIELDS.filter(key => key in source).map(key => [key, source[key]]));
+    return libraryEntry(source);
   });
   if (JSON.stringify(library).length > MAX_LIBRARY_CHARS * 1.25) throw Error('BODY_TOO_LARGE');
   return library;
