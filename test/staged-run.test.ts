@@ -249,3 +249,26 @@ test('a stage that returned no operations changed nothing: no failure note, its 
   const none = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results: { outline: empty('該当する分野が見つかりませんでした', { follow_ups: ['別の語で'] }) } }).s, 1);
   assert.deepEqual(none, { status: 'unchanged', message: '該当する分野が見つかりませんでした', searches: 2, follow_ups: ['別の語で'] });
 });
+test('a stage whose every operation was outside its scope is reported, not taken for an empty stage', async () => {
+  const outline = outlinePatch();
+  const entity = (id: string) => (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === id) as unknown as { entity: Record<string, unknown> }).entity;
+  const stage = (message: string, operations: unknown[]) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations });
+  const results = {
+    outline: ok(outline),
+    // The worker re-adds an outline paper, the divergent search only replaces, the fill only removes.
+    'deepen-1': stage('w1', [{ op: 'add_entity', entity: entity('paper-lacam') }]),
+    diverge: stage('置換だけ', [{ op: 'replace_entity', entity: { ...entity('scalability'), description: 'changed' } }]),
+    integrate: stage('統合した', []),
+    fill: stage('削除だけ', [{ op: 'remove_entity', id: 'paper-lacam' }]),
+  };
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results, now: () => 0 }).s, 1);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.match(outcome.patch.message, /手順2の作業1（\d+本）の結果を使えませんでした：操作はすべて担当外でした/);
+  assert.match(outcome.patch.message, /発散の結果を使えませんでした：操作はすべて担当外でした/);
+  assert.match(outcome.patch.message, /補完の段階を使えませんでした：操作はすべて担当外でした/);
+  // The divergent search's addition that a worker made first is out of scope once the workers' results are applied.
+  const shared = { id: 'shared', label: 's', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem' };
+  const both = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results: { ...results, 'deepen-1': stage('w1', [{ op: 'add_entity', entity: shared }]), diverge: stage('追加', [{ op: 'add_entity', entity: shared }]) }, now: () => 0 }).s, 1);
+  assert.ok(both.status === 'succeeded' && /発散の結果を使えませんでした：操作はすべて担当外でした/.test(both.patch.message));
+});

@@ -149,8 +149,13 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     steps.checkpoint(stage, patch);
     return patch;
   };
-  // A stage that returned no operations changed nothing (its message and follow_ups still count); it is not applied.
-  const apply = (snapshot: SurveySnapshot, patch: SurveyPatch, id: string) => patch.operations.length ? applyPatch(snapshot, { ...patch, base_commit_id: id }, id) : snapshot;
+  // A stage that returned no operations changed nothing (its message and follow_ups still count); it is not applied. One whose
+  // operations (`own`, before the server restricted them to its scope) were all out of scope is reported instead.
+  const apply = (snapshot: SurveySnapshot, patch: SurveyPatch, id: string, own = patch) => {
+    if (!own.operations.length) return snapshot;
+    if (!patch.operations.length) throw Error('操作はすべて担当外でした');
+    return applyPatch(snapshot, { ...patch, base_commit_id: id }, id);
+  };
   const reason = (e: unknown) => (e instanceof Error ? e.message : '').split('\n')[0];
   const total = RESEARCH_STEPS.length;
   let followUps: string[] | undefined, message = '';
@@ -183,12 +188,12 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     return { r, g, i, kind };
   }));
   const divergeBranch = async () => {
-    let patch: SurveyPatch | null = null, extendResults: Awaited<ReturnType<typeof runWorkers>> = [];
-    try { patch = restrictToWorker(await parse('diverge', await steps.run('diverge', steps.prompt.diverge(outline, memory), outline)), outline, []); }
+    let patch: SurveyPatch | null = null, own: SurveyPatch | null = null, extendResults: Awaited<ReturnType<typeof runWorkers>> = [];
+    try { own = await parse('diverge', await steps.run('diverge', steps.prompt.diverge(outline, memory), outline)); patch = restrictToWorker(own, outline, []); }
     catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); return { patch, extendResults }; }
     if (!steps.active()) return { patch, extendResults };
     let diverged: SurveySnapshot;
-    try { diverged = apply(outline, patch, 'diverge'); } catch (e) { notes.push(`発散の結果を使えませんでした：${reason(e)}`); return { patch: null, extendResults }; }
+    try { diverged = apply(outline, patch, 'diverge', own); } catch (e) { notes.push(`発散の結果を使えませんでした：${reason(e)}`); return { patch: null, extendResults }; }
     const added = (type: string) => new Set(diverged.entities.filter(e => e.type === type && !outline.entities.some(o => o.id === e.id)).map(e => e.id));
     const found = new Set([...added('Paper')].filter(id => { const p = diverged.entities.find(e => e.id === id); return p?.type === 'Paper' && !p.reading; }));
     if (found.size) extendResults = await runWorkers('extend', diverged, assignWorkers(diverged, EXTEND_WORKERS, EXTEND_PER_WORKER, { papers: found, issues: added('Issue') }).groups);
@@ -198,13 +203,13 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   if (!steps.active()) return { status: 'stopped' };
   const applyWorkers = async (results: Awaited<ReturnType<typeof runWorkers>>) => {
     for (const { r, g, i, kind } of results) {
-      try { snapshot = apply(snapshot, restrictToWorker(await parse(`${kind}-${i + 1}`, r), snapshot, g.papers), `${kind}-${i + 1}`); }
+      try { const own = await parse(`${kind}-${i + 1}`, r); snapshot = apply(snapshot, restrictToWorker(own, snapshot, g.papers), `${kind}-${i + 1}`, own); }
       catch (e) { notes.push(`${kind === 'deepen' ? '手順2' : '手順5'}の作業${i + 1}（${g.papers.length}本）の結果を使えませんでした：${reason(e)}`); }
     }
   };
   await applyWorkers(deepenResults);
   if (branch.patch) {
-    try { snapshot = apply(snapshot, restrictToWorker(branch.patch, snapshot, []), 'diverge'); if (branch.patch.message) notes.push(`発散：${branch.patch.message}`); }
+    try { snapshot = apply(snapshot, restrictToWorker(branch.patch, snapshot, []), 'diverge', branch.patch); if (branch.patch.message) notes.push(`発散：${branch.patch.message}`); }
     catch (e) { notes.push(`発散の結果を使えませんでした：${reason(e)}`); }
   }
   await applyWorkers(branch.extendResults);
@@ -248,7 +253,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     steps.progress(`8/${total} Fill gaps：抜け漏れを埋めています`);
     try {
       const patch = await parse('fill', await steps.run('fill', steps.prompt.fill(snapshot, gaps, memory), snapshot));
-      snapshot = apply(snapshot, withoutRemovals(patch), 'fill'); keep(patch);
+      snapshot = apply(snapshot, withoutRemovals(patch), 'fill', patch); keep(patch);
     } catch (e) { if (!steps.active()) return { status: 'stopped' }; notes.push(`補完の段階を使えませんでした：${reason(e)}`); }
   } else if (gaps.length) notes.push(`時間の上限のため補完を省きました（抜け漏れ${gaps.length}件）`);
   if (!steps.active()) return { status: 'stopped' };
