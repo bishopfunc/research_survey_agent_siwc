@@ -149,7 +149,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     steps.checkpoint(stage, patch);
     return patch;
   };
-  const apply = (snapshot: SurveySnapshot, patch: SurveyPatch, id: string) => applyPatch(snapshot, { ...patch, base_commit_id: id }, id);
+  // A stage that returned no operations changed nothing (its message and follow_ups still count); it is not applied.
+  const apply = (snapshot: SurveySnapshot, patch: SurveyPatch, id: string) => patch.operations.length ? applyPatch(snapshot, { ...patch, base_commit_id: id }, id) : snapshot;
   const reason = (e: unknown) => (e instanceof Error ? e.message : '').split('\n')[0];
   const total = RESEARCH_STEPS.length;
   let followUps: string[] | undefined, message = '';
@@ -160,6 +161,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   try { outlinePatch = await parse('outline', await steps.run('outline', steps.prompt.outline(), base)); }
   catch (e) { return steps.active() ? { status: 'failed', message: `Map（全体像）の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
   if (!steps.active()) return { status: 'stopped' };
+  if (!outlinePatch.operations.length) return { status: 'unchanged', message: outlinePatch.message, searches, ...(outlinePatch.follow_ups?.length ? { follow_ups: [...outlinePatch.follow_ups] } : {}) };
   let snapshot: SurveySnapshot;
   try { snapshot = apply(base, outlinePatch, baseId); } catch (e) { return { status: 'failed', message: `Map（全体像）の段階の変更案が検証に通りませんでした：\n${e instanceof Error ? e.message : ''}`, searches }; }
   keep(outlinePatch);
@@ -206,6 +208,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     catch (e) { notes.push(`発散の結果を使えませんでした：${reason(e)}`); }
   }
   await applyWorkers(branch.extendResults);
+  // Applying the results enriches them for a while; a cancel meanwhile must not start the next processes.
+  if (!steps.active()) return { status: 'stopped' };
   // Wave 3 (steps 3 and 6 together): one integration, and a separate agent writing the Tutorial from the same snapshot.
   steps.progress(`3/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
   // The divergent search's issues are sourced perspectives, not per-paper candidates, so only the workers' issues are merged.
@@ -222,6 +226,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     try {
       const patch = await parse('tutorial', tutorial);
       const ops = patch.operations.filter(op => (op.op === 'add_entity' || op.op === 'replace_entity') && op.entity.type === 'Tutorial');
+      if (!ops.length) throw Error('Tutorialがありません');
       const exists = snapshot.entities.some(e => e.type === 'Tutorial');
       snapshot = apply(snapshot, { ...patch, operations: ops.map(op => ({ ...op, op: exists ? 'replace_entity' : 'add_entity' })) as SurveyPatch['operations'] }, 'tutorial');
     } catch (e) { notes.push(`チュートリアルの段階を使えませんでした：${reason(e)}`); }
@@ -231,6 +236,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const errors = validateSnapshot(settled);
     if (errors.length) notes.push(`課題の候補をまとめられませんでした：${errors[0]}`); else snapshot = settled;
   }
+  if (!steps.active()) return { status: 'stopped' };
   // Wave 4 (steps 7 and 8): the server checks the schema mechanically; the fill runs only for gaps and only if time remains.
   steps.progress(`7/${total} Validate：スキーマの抜け漏れを点検しています`);
   steps.mark?.('check');

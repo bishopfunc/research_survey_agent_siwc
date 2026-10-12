@@ -1,10 +1,12 @@
 // Research run orchestration: one Codex research step, then at most one repair step when the app validator rejects the patch.
-import type { SurveyPatch } from '../packages/domain/src/index';
+import type { SurveyPatch, SurveySnapshot } from '../packages/domain/src/index';
 import { attemptSucceeded, attemptError } from './codex-supervisor';
 import type { CodexEventState } from './codex-events';
 
 export interface CodexAttempt { code: number | null; state: CodexEventState; spawnError?: boolean; timedOut?: boolean; signal?: string | null }
 export interface ResearchSteps {
+  /** The base the patch applies to: an addition of an ID already in it collided, and a repair's replace of it stays a replace. */
+  snapshot: SurveySnapshot;
   research(): Promise<CodexAttempt>;
   repair(patch: unknown, errors: string): Promise<CodexAttempt>;
   /** Raw final message written by Codex for the given step. May throw when the file is missing. */
@@ -34,18 +36,20 @@ const failure = (attempt: CodexAttempt) => attempt.spawnError
 
 type Operation = SurveyPatch['operations'][number];
 const opKey = (op: Operation) => 'entity' in op ? `e:${op.entity.id}` : 'relation' in op ? `r:${op.relation.id}` : 'id' in op ? `${op.op === 'remove_entity' ? 'e' : 'r'}:${op.id}` : 'title';
-/** A correction to an operation of the same patch. An item the patch itself adds stays an addition: a replace updates
- * the added item, a remove withdraws the addition (null). Otherwise the correction wins. */
-function correct(op: Operation, fix: Operation): Operation | null {
-  if (!op.op.startsWith('add_')) return fix;
+/** A correction to an operation of the same patch. An item the patch itself adds (absent from the base) stays an addition:
+ * a replace updates the added item, a remove withdraws the addition (null). Otherwise, including an addition that collided
+ * with an ID of the base, the correction wins. */
+function correct(op: Operation, fix: Operation, existing: Set<string>): Operation | null {
+  if (!op.op.startsWith('add_') || existing.has(opKey(op))) return fix;
   if (fix.op.startsWith('remove_')) return null;
   return 'entity' in fix ? { op: 'add_entity', entity: fix.entity } : 'relation' in fix ? { op: 'add_relation', relation: fix.relation } : fix;
 }
 /** A repair or a later checkpoint that returned only the corrected operations: they replace the earlier operations with
  * the same target, new targets are appended, and everything else is kept. Relations added to a withdrawn entity go too. */
-export function mergeRepair(rejected: SurveyPatch, repaired: SurveyPatch): SurveyPatch {
+export function mergeRepair(rejected: SurveyPatch, repaired: SurveyPatch, base: SurveySnapshot): SurveyPatch {
+  const existing = new Set([...base.entities.map(e => `e:${e.id}`), ...base.relations.map(r => `r:${r.id}`)]);
   const fixes = new Map(repaired.operations.map(op => [opKey(op), op]));
-  const merged = rejected.operations.map(op => { const fix = fixes.get(opKey(op)); return fix ? correct(op, fix) : op; });
+  const merged = rejected.operations.map(op => { const fix = fixes.get(opKey(op)); return fix ? correct(op, fix, existing) : op; });
   const withdrawn = new Set(rejected.operations.filter((op, i) => op.op === 'add_entity' && !merged[i]).map(op => 'entity' in op ? op.entity.id : ''));
   const kept = merged.filter((op): op is Operation => !!op && !(op.op === 'add_relation' && 'relation' in op && (withdrawn.has(op.relation.from) || withdrawn.has(op.relation.to))));
   const known = new Set(rejected.operations.map(opKey));
@@ -69,6 +73,8 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   const searches = first.state.searches;
   if (!completed(first)) return { status: 'failed', message: failure(first), searches };
   const result = await check(steps, 'research');
+  // A cancel during prepare (enrichment) must not start the repair process.
+  if (!steps.active()) return { status: 'stopped' };
   if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches, ...followUps(result.patch) };
   if (!result.error) return { status: 'succeeded', patch: result.patch as SurveyPatch, repaired: false, searches };
   if (result.patch === undefined) return { status: 'failed', message: result.error, searches };
@@ -78,12 +84,15 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   if (!completed(second)) return { status: 'failed', message: `${result.error}\n修正の実行にも失敗しました：${failure(second)}`, searches };
   const repaired = await check(steps, 'repair');
   if (repaired.unchanged !== undefined) return { status: 'failed', message: `修正で操作が空になりました：\n${result.error}`, searches };
-  if (!repaired.error) return { status: 'succeeded', patch: repaired.patch as SurveyPatch, repaired: true, searches };
-  // Codex sometimes returns only the corrected operations of a large patch; merged back into the research result, they may validate.
   const partial = repaired.patch as SurveyPatch | undefined, original = result.patch as SurveyPatch;
-  if (partial?.operations && original.operations && partial.operations.length < original.operations.length) {
-    const merged = mergeRepair(original, partial);
-    try { steps.validate(merged); return { status: 'succeeded', patch: merged, repaired: true, searches }; } catch { /* report the repair's own errors */ }
+  // Codex often returns only the corrected operations of a large patch. A repair that leaves out any target of the research
+  // result is merged back into it, and only the merged patch can succeed; such a repair alone never replaces the result.
+  const returned = new Set((partial?.operations ?? []).map(opKey));
+  if (partial?.operations && original.operations?.some(op => !returned.has(opKey(op)))) {
+    const merged = mergeRepair(original, partial, steps.snapshot);
+    try { steps.validate(merged); return { status: 'succeeded', patch: merged, repaired: true, searches }; }
+    catch (error) { return { status: 'failed', message: `修正後も検証に失敗しました：\n${error instanceof Error ? error.message : '検証に失敗しました'}`, searches }; }
   }
+  if (!repaired.error) return { status: 'succeeded', patch: partial!, repaired: true, searches };
   return { status: 'failed', message: `修正後も検証に失敗しました：\n${repaired.error}`, searches };
 }

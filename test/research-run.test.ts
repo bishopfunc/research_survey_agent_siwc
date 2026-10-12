@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { executeResearch, type CodexAttempt, type ResearchSteps } from '../scripts/research-run';
 import { initialCodexState } from '../scripts/codex-events';
+import { emptySurvey, fixture, applyPatch, type SurveyPatch } from '../packages/domain/src/index';
 const done = (searches = 0): CodexAttempt => ({ code: 0, state: { ...initialCodexState(), searches, completed: true } });
 const patch = (message: string) => JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message, operations: [{ op: 'set_title', title: message }] });
 function steps(over: Partial<ResearchSteps> & { outputs?: Record<string, string>; invalid?: string[] }) {
   const calls: string[] = [];
   const s: ResearchSteps = {
+    snapshot: emptySurvey('t'),
     research: async () => { calls.push('research'); return done(4); },
     repair: async (_p, errors) => { calls.push(`repair:${errors}`); return done(); },
     output: step => { const value = over.outputs?.[step]; if (value === undefined) throw Error('missing'); return value; },
@@ -76,5 +78,35 @@ test('a repair that returns only the corrected operations is merged back into th
   assert.ok(outcome.status === 'succeeded' && outcome.repaired);
   assert.deepEqual(outcome.status === 'succeeded' && outcome.patch.operations.map(o => 'title' in o ? o.title : 'entity' in o ? o.entity.id : ''), ['good', 'x', 'y']);
   assert.deepEqual(seen, [3, 1, 3]);
+});
+test('a repair that returns only a valid correction is merged back and never replaces the whole research result', async () => {
+  const research = JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'big', operations: [{ op: 'set_title', title: 'bad' }, { op: 'add_entity', entity: { id: 'x', label: 'x' } }, { op: 'add_entity', entity: { id: 'y', label: 'y' } }] });
+  const repair = JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'fixed', operations: [{ op: 'set_title', title: 'good' }] });
+  const bad = (p: SurveyPatch) => p.operations.some(o => ('title' in o && o.title === 'bad') || ('entity' in o && o.entity.label === 'bad'));
+  const run = steps({ outputs: { research, repair }, validate: p => { if (bad(p)) throw Error('invalid'); } });
+  const outcome = await executeResearch(run.s);
+  assert.deepEqual(outcome.status === 'succeeded' && outcome.patch.operations.map(o => 'title' in o ? o.title : 'entity' in o ? o.entity.id : ''), ['good', 'x', 'y']);
+  // When the merged patch still fails, the run fails instead of returning the lone correction.
+  const still = steps({ outputs: { research: research.replace('"label":"y"', '"label":"bad"'), repair }, validate: p => { if (bad(p)) throw Error('invalid'); } });
+  const failed = await executeResearch(still.s);
+  assert.ok(failed.status === 'failed' && failed.message.startsWith('修正後も検証に失敗しました'));
+});
+test('a repair that turns a colliding addition into a replace of the base keeps the replace when merged', async () => {
+  const cbs = fixture.entities.find(e => e.id === 'paper-cbs')!;
+  const evidence = { ...fixture.entities.find(e => e.id === 'evidence-cbs')!, id: 'ev-new' };
+  const cited = { ...cbs, evidence: ['ev-new'] };
+  const research = JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'reread', operations: [{ op: 'add_entity', entity: cited }, { op: 'add_entity', entity: evidence }] });
+  // Alone, the replace cites Evidence only the research result adds.
+  const repair = JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'reread', operations: [{ op: 'replace_entity', entity: cited }] });
+  const run = steps({ snapshot: fixture, outputs: { research, repair }, validate: p => { applyPatch(fixture, p, 'b'); } });
+  const outcome = await executeResearch(run.s);
+  assert.equal(outcome.status, 'succeeded');
+  assert.deepEqual(outcome.status === 'succeeded' && outcome.patch.operations.map(o => o.op), ['replace_entity', 'add_entity']);
+});
+test('a cancel while the research result is prepared does not start the repair', async () => {
+  let active = true;
+  const run = steps({ outputs: { research: patch('bad') }, invalid: ['bad'], prepare: async p => { active = false; return p; }, active: () => active });
+  assert.deepEqual(await executeResearch(run.s), { status: 'stopped' });
+  assert.ok(!run.calls.some(c => c.startsWith('repair')));
 });
 

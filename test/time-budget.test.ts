@@ -43,7 +43,7 @@ test('timeout overrides code zero and late completion; a missing completed event
   const attempt = { code: 0, state: { ...initialCodexState(), completed: true }, timedOut: true };
   assert.equal(attemptSucceeded(attempt), false); assert.match(attemptError(attempt)!, /時間切れ/);
   assert.match(attemptError({ code: 0, state: initialCodexState() })!, /完了イベント/);
-  const result = await executeResearch({ research: async () => attempt, repair: async () => { throw Error('no repair'); }, output: () => { throw Error('no output'); }, normalize: p => p, validate: () => {}, active: () => true, progress: () => {} });
+  const result = await executeResearch({ snapshot: { schema_version: '0.1.0', title: 't', entities: [], relations: [] }, research: async () => attempt, repair: async () => { throw Error('no repair'); }, output: () => { throw Error('no output'); }, normalize: p => p, validate: () => {}, active: () => true, progress: () => {} });
   assert.equal(result.status, 'failed'); if (result.status === 'failed') assert.match(result.message, /時間切れ/);
 });
 

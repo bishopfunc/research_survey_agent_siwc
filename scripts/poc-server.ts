@@ -213,7 +213,9 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
       const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: outputFile, failRunOnTimeout: false, checkpoint: line => {
-        if (chunks.accept(line) === 'rejected') { addTrace(run, { kind: 'error', text: `${stage}：途中保存の変更案が検証に通りませんでした` }); save(run); }
+        const outcome = chunks.accept(line);
+        if (outcome === 'rejected') { addTrace(run, { kind: 'error', text: `${stage}：途中保存の変更案を読めませんでした` }); save(run); }
+        if (outcome === 'held') { addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存を最終出力と合わせて検証します` }); save(run); }
       } });
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
@@ -249,6 +251,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     },
     explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), skillById('explain').timeoutSeconds, { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
     research: skillId => { const skill = skillById(skillId); return executeResearch({
+      snapshot: input.snapshot,
       research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: skillInstructions(skill) }), skill.timeoutSeconds),
       repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), skill.repairTimeoutSeconds); },
       output: step => readFileSync(join(directory, outputs[step]), 'utf8'),

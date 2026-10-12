@@ -224,3 +224,28 @@ test('stages are numbered 1–8 in the trace; the search memory has no duplicate
   assert.equal(stageTraceText('check'), '7/8 Validate');
   assert.deepEqual(mergeMemory({ queries: ['a'], opened: ['u'] }, { queries: ['a', 'b', 'b'], opened: ['u', 'v'] }), { queries: ['a', 'b'], opened: ['u', 'v'] });
 });
+test('a cancel while results are prepared starts no further Codex step', async () => {
+  const outline = outlinePatch();
+  const stage = (message: string) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations: [{ op: 'set_title', title: message }] });
+  const results = { outline: ok(outline), 'deepen-1': stage('w1'), integrate: stage('i'), tutorial: stage('t') };
+  for (const at of ['w1', 'i']) {
+    let active = true;
+    const run = steps({ results, prepare: async p => { if ((p as SurveyPatch).message === at) active = false; return p; }, active: () => active });
+    assert.deepEqual(await executeStagedResearch(emptySurvey('t'), 'b', run.s, 1), { status: 'stopped' });
+    const later = at === 'w1' ? ['integrate', 'tutorial', 'fill'] : ['fill'];
+    assert.deepEqual(run.calls.filter(c => later.includes(c)), [], `nothing starts after a cancel at ${at}`);
+  }
+});
+test('a stage that returned no operations changed nothing: no failure note, its message and follow-ups stay; an empty outline is no change', async () => {
+  const empty = (message: string, extra: object = {}) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations: [], ...extra });
+  const results = { outline: ok(outlinePatch()), 'deepen-1': empty('w1'), diverge: empty('新しい観点はありませんでした'), integrate: empty('統合することはありませんでした', { follow_ups: ['次'] }), tutorial: empty('t'), fill: empty('埋められる抜けはありませんでした') };
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results, now: () => 0 }).s, 1);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.doesNotMatch(outcome.patch.message, /must NOT|作業1|統合の段階|補完の段階|発散の段階/);
+  assert.match(outcome.patch.message, /^埋められる抜けはありませんでした[\s\S]*発散：新しい観点はありませんでした/);
+  assert.match(outcome.patch.message, /チュートリアルの段階を使えませんでした：Tutorialがありません/);
+  assert.deepEqual(outcome.patch.follow_ups, ['次']);
+  const none = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results: { outline: empty('該当する分野が見つかりませんでした', { follow_ups: ['別の語で'] }) } }).s, 1);
+  assert.deepEqual(none, { status: 'unchanged', message: '該当する分野が見つかりませんでした', searches: 2, follow_ups: ['別の語で'] });
+});
