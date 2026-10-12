@@ -19,7 +19,8 @@
     "schema:types": "node scripts/generate-types.mjs",
     "typecheck": "tsc --noEmit",
     "build": "vite build --config apps/web/vite.config.ts",
-    "test:poc": "tsx --test test/*.test.ts"
+    "test:poc": "tsx --test test/*.test.ts",
+    "survey:assess": "tsx scripts/assess-run.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

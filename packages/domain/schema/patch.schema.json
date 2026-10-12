@@ -21,7 +21,7 @@
     "operations": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 300,
+      "maxItems": 2000,
       "items": {
         "anyOf": [
           {
@@ -992,12 +992,12 @@
             },
             "width": {
               "type": "number",
-              "minimum": 0.000001,
+              "minimum": 1e-06,
               "maximum": 1
             },
             "height": {
               "type": "number",
-              "minimum": 0.000001,
+              "minimum": 1e-06,
               "maximum": 1
             }
           },

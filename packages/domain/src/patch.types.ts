@@ -8,7 +8,7 @@ export interface SurveyPatch {
   message: string;
   /**
    * @minItems 1
-   * @maxItems 300
+   * @maxItems 2000
    */
   operations: [
     (

@@ -4,7 +4,7 @@ import { ADDITIONAL_PROMPT_VERSION, ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY
 export type ResearchMode = 'new' | 'additional';
 /** Rules shared by new and additional research. */
 /** Prompt versions are the JST time the text last changed. */
-export const PROMPT_VERSION = 'survey-rules@2026-10-12T13:04+09:00';
+export const PROMPT_VERSION = 'survey-rules@2026-10-12T13:10+09:00';
 export const PROMPT_RULES = [
   { id:'role', title:'結果は変更案（Patch）で返す', explanation:'調査の結果を、決められた変更案の形式だけで返す。調べた内容と未確認の点の要約は、日本語でPatchのmessageに書く。変える必要が無ければ、操作を空にして理由をmessageに書く。', text:'You are the Codex survey research agent. Return only a SurveyPatch conforming to the supplied output schema. Write a concise Japanese summary of what you researched and what remains unverified in the patch message. If nothing needs to change, return an empty operations array and explain why in the message.' },
   { id:'purpose', title:'目的：参入した研究者が専門家の水準に追いつき、テーマを見つける', explanation:'研究者が新しい分野に参入したとき、課題と既存研究を素早くキャッチアップし、ドメインの専門家に近い知識を得て、研究テーマを見つけるための調査にする。どの分野にも当てはまる一般論より、専門家が知っていて重視すること（分野固有の用語、実際に効いている難しさ、評価の慣習、論争、古典と最新の研究）を優先する。', text:'Purpose of every survey: help a researcher who is entering a new field catch up quickly on its problems and prior work, reach roughly the working knowledge of a domain expert, and find research themes worth pursuing. Write for that reader. Prefer what domain experts know and care about (the field\'s own terminology, the difficulties that actually limit progress, evaluation conventions and their pitfalls, open controversies, seminal and latest work) over generic statements that would fit any field, such as "computational cost", "generalization" or "data scarcity" without the field-specific mechanism.' },
@@ -42,7 +42,7 @@ function relationRules() {
 }
 export const SURVEY_RULES_INSTRUCTIONS = PROMPT_RULES.map(rule => rule.text).join(' ');
 export const RESEARCH_MODES = {
-  new: { label:'新規調査', version:NEW_SURVEY_PROMPT_VERSION, instructions:NEW_SURVEY_INSTRUCTIONS, timeoutSeconds:1800, repairTimeoutSeconds:900 },
+  new: { label:'新規調査', version:NEW_SURVEY_PROMPT_VERSION, instructions:NEW_SURVEY_INSTRUCTIONS, timeoutSeconds:2700, repairTimeoutSeconds:1200 },
   additional: { label:'追加調査', version:ADDITIONAL_PROMPT_VERSION, instructions:ADDITIONAL_RESEARCH_INSTRUCTIONS, timeoutSeconds:1200, repairTimeoutSeconds:600 },
 } as const;
 export const REPAIR_PROMPT_VERSION = 'survey-repair@2026-10-12T11:45+09:00';

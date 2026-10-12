@@ -24,6 +24,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P17 | Done | 新規調査の6段階（抽象→具体→抽象→発散→具体→抽象）、すべての課題の達成度、論文キャッシュのトグルとほかのコレクションの論文ライブラリ、課題ツリーの凡例（[0017](design/0017-research-flow-and-paper-cache.md)） | P16 |
 | P18 | Done | 「課題と手法」タブの削除。arXiv HTML版からアルゴリズムと数式を抽出し、要点のkey_formulasと並べてKaTeXで描画（[0016](design/0016-paper-key-figures.md)、[ADR 0011](adr/0011-katex-math-rendering.md)） | P17 |
 | P19 | Done | チュートリアルタブ。Tutorial（節の役割・本文・引用・media・リンク）、Promptのtutorial規則、採点表（試験要件13項目）、サンプル（全要件を満たす）（[0018](design/0018-tutorial.md)、[ADR 0012](adr/0012-tutorial-entity.md)） | P18 |
+| P20 | Doing | 数十〜百本規模の新規調査（論文を30〜100本挙げて10〜20本を深く読む、操作上限2000、上限45分）と試験要件（調査の採点表10項目、`npm run survey:assess`）。残り：実Codexで要件を満たすか確認（[0019](design/0019-survey-scale.md)） | P19 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験。論文ライブラリ（papers・paper_records・paper_files）とPDF/mdのR2保存（0010） | B02 |

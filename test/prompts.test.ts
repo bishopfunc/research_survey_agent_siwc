@@ -9,12 +9,12 @@ test('a new survey alternates abstract, concrete, abstract, divergent, concrete,
   assert.ok(!(RESEARCH_STEPS as readonly { id: string }[]).some(s => s.id === 'venues'));
   assert.match(NEW_SURVEY_INSTRUCTIONS, /abstract → concrete → abstract → divergent → concrete → abstract/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /1\. Abstract: map the field from trustworthy sources/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /list the primary papers worth reading in depth/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /list the primary papers of the field broadly/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /4\. Divergent: look for what is still missing/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /adjacent fields that solved a similar problem and whose ideas could transfer/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /6\. Abstract: integrate everything again/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Blogs and articles are leads only, never Evidence/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Keep the first survey focused/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Aim for breadth in papers and depth in the 10–20 key ones/);
 });
 test('every issue gets an achievement claim; without a number it is qualitative and unknown, never invented', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Write an achievement Claim for every Issue, with an about relation to it/);
@@ -142,5 +142,13 @@ test('a new survey ends with a newcomer tutorial modeled on a good field tutoria
   assert.match(NEW_SURVEY_INSTRUCTIONS, /write the Tutorial from the integrated survey/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Add the Tutorial \(one entity, id tutorial\)/);
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /update the matching tutorial sections and citations/);
+});
+test('a new survey lists tens to a hundred papers and reads ten to twenty in depth, with time to write them', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /list the primary papers of the field broadly, about 30 to 100 of them/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /mark about 10 to 20 of them as the ones to read in depth/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Add every paper you listed, about 30–100 survey and primary Papers/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /never add the same paper twice/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Fill reading \(with sources\) for the 10–20 papers you read in depth/);
+  assert.ok(RESEARCH_MODES.new.timeoutSeconds >= 2700 && RESEARCH_MODES.new.repairTimeoutSeconds >= 1200);
 });
 
