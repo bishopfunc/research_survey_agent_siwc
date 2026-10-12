@@ -17,7 +17,7 @@ export function stageStep(stage: StageId): number {
 /** The trace line for a stage: "2/8 事実と出典（作業1）". */
 export function stageTraceText(stage: StageId): string {
   const step = stageStep(stage); const worker = stage.match(/-(\d+)$/)?.[1];
-  return `${step}/${RESEARCH_STEPS.length} ${stage === 'tutorial' ? 'チュートリアル' : RESEARCH_STEPS[step - 1].short}${worker ? `（作業${worker}）` : ''}`;
+  return `${step}/${RESEARCH_STEPS.length} ${stage === 'tutorial' ? 'Tutorial' : RESEARCH_STEPS[step - 1].short}${worker ? `（作業${worker}）` : ''}`;
 }
 /** A gap for the fill step, from the server's schema check. */
 export interface CheckedGap extends SurveyGap { fill: 'existing' | 'search'; query: string | null }
@@ -153,13 +153,13 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   let followUps: string[] | undefined, message = '';
   const keep = (patch: SurveyPatch) => { if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) message = patch.message; };
   // Step 1: the map of the field.
-  steps.progress(`1/${total} 全体像を調べています`);
+  steps.progress(`1/${total} Map：分野の全体像を調べています`);
   let outlinePatch: SurveyPatch;
   try { outlinePatch = await parse('outline', await steps.run('outline', steps.prompt.outline())); }
-  catch (e) { return steps.active() ? { status: 'failed', message: `全体像の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
+  catch (e) { return steps.active() ? { status: 'failed', message: `Map（全体像）の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
   if (!steps.active()) return { status: 'stopped' };
   let snapshot: SurveySnapshot;
-  try { snapshot = apply(base, outlinePatch, baseId); } catch (e) { return { status: 'failed', message: `全体像の段階の変更案が検証に通りませんでした：\n${e instanceof Error ? e.message : ''}`, searches }; }
+  try { snapshot = apply(base, outlinePatch, baseId); } catch (e) { return { status: 'failed', message: `Map（全体像）の段階の変更案が検証に通りませんでした：\n${e instanceof Error ? e.message : ''}`, searches }; }
   keep(outlinePatch);
   // The issues the workers add are per-paper candidates (design 0027): the next integration merges them, then the server settles them.
   const newIssues = (before: SurveySnapshot) => snapshot.entities.filter(e => e.type === 'Issue' && !before.entities.some(o => o.id === e.id)).map(e => e.id);
@@ -170,7 +170,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const outline = snapshot;
   // Wave 2 (steps 2, 4 and 5): the deepen workers read the outline's papers while a separate agent searches for missing
   // perspectives from the same outline and its papers are read as soon as it returns. The results are applied afterwards.
-  steps.progress(`2/${total} ${groups.length}つの作業で論文を読み、別のAgentが抜けている観点を探しています`);
+  steps.progress(`2/${total} Extract：${groups.length}つの作業で論文を読み、Explore：別のAgentが抜けている観点を探しています`);
   const runWorkers = (kind: 'deepen' | 'extend', from: SurveySnapshot, list: { papers: string[]; issues: string[] }[]) => Promise.all(list.map(async (g, i) => {
     const stage: StageId = `${kind}-${i + 1}`;
     const prompt = (kind === 'deepen' ? steps.prompt.deepen : steps.prompt.extend)(from, i + 1, list.length, g.papers, g.issues);
@@ -205,7 +205,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   }
   await applyWorkers(branch.extendResults);
   // Wave 3 (steps 3 and 6 together): one integration, and a separate agent writing the Tutorial from the same snapshot.
-  steps.progress(`3/${total} 統合し、別のAgentがチュートリアルを書いています`);
+  steps.progress(`3/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
   // The divergent search's issues are sourced perspectives, not per-paper candidates, so only the workers' issues are merged.
   const divergeIssues = new Set((branch.patch?.operations ?? []).flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []));
   const before = snapshot, candidates = newIssues(outline).filter(id => !divergeIssues.has(id));
@@ -230,14 +230,14 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     if (errors.length) notes.push(`課題の候補をまとめられませんでした：${errors[0]}`); else snapshot = settled;
   }
   // Wave 4 (steps 7 and 8): the server checks the schema mechanically; the fill runs only for gaps and only if time remains.
-  steps.progress(`7/${total} スキーマの抜け漏れを点検しています`);
+  steps.progress(`7/${total} Validate：スキーマの抜け漏れを点検しています`);
   steps.mark?.('check');
   const unmet = assessSurvey(snapshot).filter(c => !c.pass).map(({ id, label, detail }) => ({ id, label, detail }));
   const gaps: CheckedGap[] = [...unmet.map(c => ({ target: 'survey', field: c.id, problem: `${c.label}（${c.detail}）` })), ...findGaps(snapshot)].slice(0, MAX_GAPS).map(g => ({ ...g, fill: 'search' as const, query: null }));
   steps.checkpoint('check', { gaps });
   const late = steps.now ? steps.now() - started > FILL_DEADLINE_SECONDS * 1000 : false;
   if (gaps.length && !late) {
-    steps.progress(`8/${total} 抜け漏れを埋めています`);
+    steps.progress(`8/${total} Fill gaps：抜け漏れを埋めています`);
     try {
       const patch = await parse('fill', await steps.run('fill', steps.prompt.fill(snapshot, gaps, memory)));
       snapshot = apply(snapshot, withoutRemovals(patch), 'fill'); keep(patch);

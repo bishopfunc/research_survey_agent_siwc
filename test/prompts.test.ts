@@ -10,7 +10,7 @@ const memory = { queries: [], opened: [] };
 test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract, then checks and fills, without a separate venue step', () => {
   assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['integrate', 3, '抽象'], ['diverge', 4, '発散'], ['primary2', 5, '具体'], ['integrate2', 6, '抽象'], ['check', 7, '点検'], ['fill', 8, '具体']]);
   assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6', '7', '8']);
-  assert.deepEqual(RESEARCH_STEPS.map(s => s.short), ['全体像', '事実と出典', '統合', '発散', '追加の論文', '統合し直し', '点検', '補完']);
+  assert.deepEqual(RESEARCH_STEPS.map(s => s.short), ['Map', 'Extract', 'Synthesize', 'Explore', 'Expand', 'Resynthesize', 'Validate', 'Fill gaps']);
   assert.equal(RESEARCH_STEPS[1].title, '一次論文から事実と出典を整理する');
   assert.match(RESEARCH_STEPS[1].instruction, /Everything you take from a paper is a fact with its source \(\[facts\]\), and nearly every piece of information in it counts/);
   // Each step runs as its own process and is told which of the eight steps it is.

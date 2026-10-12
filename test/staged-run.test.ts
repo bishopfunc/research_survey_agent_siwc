@@ -212,8 +212,8 @@ test('the fill is skipped when the run is already past the deadline; nothing fou
 });
 test('stages are numbered 1–8 in the trace; the search memory has no duplicates', () => {
   assert.deepEqual((['outline', 'deepen-2', 'integrate', 'diverge', 'extend-1', 'tutorial', 'check', 'fill'] as const).map(stageStep), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(stageTraceText('deepen-2'), '2/8 事実と出典（作業2）');
-  assert.equal(stageTraceText('tutorial'), '6/8 チュートリアル');
-  assert.equal(stageTraceText('check'), '7/8 点検');
+  assert.equal(stageTraceText('deepen-2'), '2/8 Extract（作業2）');
+  assert.equal(stageTraceText('tutorial'), '6/8 Tutorial');
+  assert.equal(stageTraceText('check'), '7/8 Validate');
   assert.deepEqual(mergeMemory({ queries: ['a'], opened: ['u'] }, { queries: ['a', 'b', 'b'], opened: ['u', 'v'] }), { queries: ['a', 'b'], opened: ['u', 'v'] });
 });

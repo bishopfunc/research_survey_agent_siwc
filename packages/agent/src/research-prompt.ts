@@ -12,42 +12,42 @@ export const MISSING_PERSPECTIVES = 'evaluation conditions, real-world deploymen
  * check and a fill (user instruction, design 0028). `short` names the step in the run trace; `runner` says which process runs it. */
 export const RESEARCH_STEPS = [
   {
-    id:'sources',stage:1,level:'抽象',short:'全体像',runner:'1つ',title:'信頼できる情報源から、分野の全体像と論文を挙げる',
+    id:'sources',stage:1,level:'抽象',short:'Map',runner:'1つ',title:'信頼できる情報源から、分野の全体像と論文を挙げる',
     explanation:'まず分野名と汎用的な語（文献ガイドのルール）で一般のWebを検索し、最初の検索ではsite指定・URLやドメインの限定・既知の論文名を使わない。見つけた情報源を開いて、課題・手法の系統・評価の慣習をURL付きでまとめてから、arXivや論文集、個別の論文に絞る。代表的なサーベイ（古典と最近）、awesomeレポジトリ、主要な学会の論文集、リーダーボード、ブログ・チュートリアル・講演を使い、標準とされるデータセット・ベンチマーク・指標・シミュレータ・ハードウェア・ベースライン・学習済みモデル・アーキテクチャ・SoTAを控えて公式ページを開く。一次論文を広く（古典・引用の多いもの・系統ごとの最初から最新まで・最近の転換点・強いベースライン）、記憶ではなくサーベイの文献表・一覧・論文集から挙げる。',
     instruction:'Abstract: map the field before collecting papers. Start with broad web searches of the field name with the generic terms of [guide]; in the first batch use no site: filters, URL or domain restrictions, or names of papers you already know. Open what they find and first summarize for yourself the main issues, method families and evaluation practices with their URLs (record the sources as Resources, never as URLs in the Domain description); only then narrow to arXiv, proceedings or individual papers. Draw on foundational and recent surveys, awesome-<field> repositories, main-venue proceedings, leaderboards, and blogs, tutorials and talks. Note the datasets, benchmarks, metrics, simulators, hardware, baselines, widely used pretrained models, architectures and the state of the art that the surveys treat as standard, and open their official pages or leaderboards. List the primary papers of the field broadly (seminal, most cited, each family from its first paper to the state of the art, recent turning points, strong baselines), taking them from survey bibliographies, curated lists and proceedings rather than from memory.',
   },
   {
-    id:'primary',stage:2,level:'具体',short:'事実と出典',runner:`並行（最大${MAX_PARALLEL_WORKERS}）`,title:'一次論文から事実と出典を整理する',
+    id:'primary',stage:2,level:'具体',short:'Extract',runner:`並行（最大${MAX_PARALLEL_WORKERS}）`,title:'一次論文から事実と出典を整理する',
     explanation:'担当の論文を本文まで読む（arXivはHTML版）。論文から取り出すものは、すべて事実と出典の組にする。扱う課題、手法と派生元、結果の数値とベンチマーク・指標・比較対象、使うデータセット・シミュレータ・ハードウェア・モデル、限界、理解に重要なFigなど、ほぼすべての情報が該当する。これらと出典で和訳と要点を埋める。',
     instruction:'Concrete: read your papers in full ([papers]). Everything you take from a paper is a fact with its source ([facts]), and nearly every piece of information in it counts: the issues it tackles, the method and what it derives from, the reported numbers with their benchmarks, metrics and baselines, the datasets, simulators, hardware and models it uses, its limitations and the figures needed to understand it. Fill its abstract_ja and reading with these facts and their Evidence.',
   },
   {
-    id:'integrate',stage:3,level:'抽象',short:'統合',runner:'6と1回にまとめる',title:'各論文の情報を統合する',
+    id:'integrate',stage:3,level:'抽象',short:'Synthesize',runner:'6と1回にまとめる',title:'各論文の情報を統合する',
     explanation:'論文から取り出した事実をまたいで、課題の候補を課題の階層にまとめ、手法を系統にまとめて古典から最新までそろえ、ナレッジを作り、すべての課題に達成度を書く。',
     instruction:'Abstract: integrate the facts across the papers: merge the issue candidates into the issue hierarchy ([issues]), group the methods into families covered chronologically ([methods]), build the knowledge items ([knowledge]) and write an achievement Claim for every Issue.',
   },
   {
-    id:'diverge',stage:4,level:'発散',short:'発散',runner:'別Agent（2と同時）',title:'抜けている観点を探し、他の分野から参考にできるものを調べる',
+    id:'diverge',stage:4,level:'発散',short:'Explore',runner:'別Agent（2と同時）',title:'抜けている観点を探し、他の分野から参考にできるものを調べる',
     explanation:'別のAgentが、1の全体像を受け取り、2と同時に調べる。調査が扱っていない観点（評価条件、実環境での運用、安全性、データ、理論、反対の結果）、似た問題を解いた隣の分野で移せそうな考え方（分野・考え方・代表論文）、未解決の問題を、それぞれ狙って検索する。',
     instruction:`Divergent: look for what is still missing: perspectives the survey does not cover (${MISSING_PERSPECTIVES}), adjacent fields that solved a similar problem and whose ideas could transfer (name the field, the idea and a representative paper), and open problems. Search specifically for each.`,
   },
   {
-    id:'primary2',stage:5,level:'具体',short:'追加の論文',runner:`4の後に並行（最大${EXTEND_WORKERS}、2と同時）`,title:'見つけた一次論文から事実と出典を整理する',
+    id:'primary2',stage:5,level:'具体',short:'Expand',runner:`4の後に並行（最大${EXTEND_WORKERS}、2と同時）`,title:'見つけた一次論文から事実と出典を整理する',
     explanation:'4で見つけた一次論文を、2と同じように読み、事実と出典の組として取り出す。',
     instruction:'Concrete: read the primary papers found in step 4 the same way as in step 2: everything you take from them is a fact with its source ([facts]).',
   },
   {
-    id:'integrate2',stage:6,level:'抽象',short:'統合し直し',runner:'3と1回にまとめ、チュートリアルは別Agentで同時',title:'全体を統合し直す',
+    id:'integrate2',stage:6,level:'抽象',short:'Resynthesize',runner:'3と1回にまとめ、チュートリアルは別Agentで同時',title:'全体を統合し直す',
     explanation:'3と1回にまとめ、2と5の論文から課題の階層・手法の系統・ナレッジ・達成度を作る。他の分野の考え方は、課題に対応する手法（addresses）として残す。同じ調査から、別のAgentが同時に参入者向けのチュートリアルを書く。',
     instruction:'Abstract: integrate everything again with the new papers: merge their issue candidates, update the issue hierarchy, families, knowledge and achievement Claims, and connect each idea from another field to the issues it could address; a separate agent writes the Tutorial ([tutorial]) from the same snapshot.',
   },
   {
-    id:'check',stage:7,level:'点検',short:'点検',runner:'サーバー（機械的）',title:'スキーマの抜け漏れを点検する',
+    id:'check',stage:7,level:'点検',short:'Validate',runner:'サーバー（機械的）',title:'スキーマの抜け漏れを点検する',
     explanation:'サーバーが調査をDSLのスキーマと調査の要件に機械的に照らし、空の欄（英語表現・出典・達成度・系統・年・識別子・公式ページ・概要など）と要件の未達を重要な順に一覧にする。Agentは使わない。',
     instruction:'Check (the server, without an agent): compare the survey with the DSL schema and the survey requirements, and list the empty fields the rules expect and the requirements not met, most important first.',
   },
   {
-    id:'fill',stage:8,level:'具体',short:'補完',runner:'抜けがあり時間内のときだけ',title:'追加調査またはこれまでの情報から埋める',
+    id:'fill',stage:8,level:'具体',short:'Fill gaps',runner:'抜けがあり時間内のときだけ',title:'追加調査またはこれまでの情報から埋める',
     explanation:'7の一覧を、まず調査とこれまでに開いたページから埋め、検索が必要なものだけ追加で調べる。保存済みの分析は消さず、変えた項目に合わせてチュートリアルの節を直す。埋められなかったものはmessageに書き、最後の候補3つにする。',
     instruction:'Fill: fill the gaps from step 7, first from the survey and the pages already opened in this run, searching only for the gaps that need it.',
   },
