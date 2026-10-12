@@ -14,10 +14,12 @@
 Codexは論文ごとにタイトルと識別子（arXiv ID・DOI・URLのどれか）と、深く読んだ論文の和訳・要点だけを書く。Codexの出力の後、検証の前に、サーバーが空の項目だけを補完する（`scripts/enrich.ts`、research-runの `prepare`）。
 
 - arXiv API（export.arxiv.org、3秒に1回、40本ずつ）：アブストラクト原文（取得元はarXivのabsページ）、著者、年、URL、DOI。
-- OpenAlex（出版社のDOIで1本ずつ単体の作品として照会（無料）、無ければタイトルと年で完全一致、最大40本）：アブストラクト（転置索引から復元、取得元はOpenAlexの作品ページ）、著者、年、会議・論文誌の正式名（略称が無いとき）、DOI、引用数（取得元・取得日つき）。
+- OpenAlex（出版社のDOIがある論文だけ、1本ずつ単体の作品として照会。費用0）：アブストラクト（転置索引から復元、取得元はOpenAlexの作品ページ）と年。
+- Semantic Scholar（arXiv IDか出版社のDOIで一括取得。識別子が無い論文はタイトルと年で完全一致、最大20本。[ADR 0018](../adr/0018-semantic-scholar-for-citations.md)）：アブストラクト（取得元はSemantic Scholarの論文ページ）、著者、年、会議・論文誌の正式名（略称が無いとき）、DOI、引用数（取得元・取得日つき）。年はOpenAlexの値を優先する。Semantic Scholarの年は最も早い版の年になるため。
+- 2026-10-12変更（ユーザー指示）：OpenAlexのタイトル検索が1日の無料枠を使い切り429が続いたため、Semantic Scholarに移した。
 - Codexが書いた値は上書きしない。補完に失敗しても検証へ進む（経過にエラーを出す）。原文が見つからない和訳は外す。変更案のmessageに補完した本数を付ける。
 
-- 会議・論文誌の略称は、事前に作った有名な会議・論文誌の対応表（`packages/domain/src/venues.ts`、約70件。OpenAlexの名前やarXivのjournal_refを正規化して照合）で固定情報にする。表に無い名前はそのまま残す。arXivだけの論文は、タイトルと年でOpenAlexの出版版（リポジトリ以外を優先）を探し、会議と引用数を取る。
+- 会議・論文誌の略称は、事前に作った有名な会議・論文誌の対応表（`packages/domain/src/venues.ts`、約70件。Semantic Scholar・OpenAlexの名前やarXivのjournal_refを正規化して照合）で固定情報にする。表に無い名前はそのまま残す。arXivだけの論文は、Semantic ScholarがarXiv版と出版版を1件にまとめているので、arXiv IDで出版版の会議と引用数を取る。
 - コード公開の有無・URL・確認日も固定情報にする（ユーザー指示）。arXivのコメント・アブストラクトのGitHub/GitLabのURLと、Hugging Faceの論文API（`githubRepo`）から取る。見つからなければ未確認のまま（非公開と断定しない）。
 
 実データ（run 43a058a6の論文15本、アブストラクト・著者・会議・引用数・コードを消して補完）：4.8秒で、アブストラクトと著者14本、略称つきの会議（AAAI・IROS・IEEE RA-L・SoCSなど）、arXiv版しか見つけていなかったEECBS・LaCAMの出版版（AAAI）、引用数、コードのURL 2本。検証も通過。
@@ -26,7 +28,7 @@ Codexは論文ごとにタイトルと識別子（arXiv ID・DOI・URLのどれ�
 
 | 区分 | 項目 | 取り方 |
 | --- | --- | --- |
-| 固定情報 | タイトル、著者、年、会議・論文誌（略称は対応表）、出版種別、DOI・arXiv ID・URL・OpenAlex ID、アブストラクト原文と取得元、引用数（時系列）、コード公開の有無・URL・確認日、図・アルゴリズム・数式 | arXiv・OpenAlex・Hugging Face・arXiv HTML版。いつでも取り直せる |
+| 固定情報 | タイトル、著者、年、会議・論文誌（略称は対応表）、出版種別、DOI・arXiv ID・URL・OpenAlex ID、アブストラクト原文と取得元、引用数（時系列）、コード公開の有無・URL・確認日、図・アルゴリズム・数式 | arXiv・Semantic Scholar・OpenAlex・Hugging Face・arXiv HTML版。いつでも取り直せる |
 | LLMの要点 | 一言概要、アブストラクトの和訳、要点（貢献・新規性・キモ・検証・議論・重要なFig・アルゴリズム・数式・原文の出典） | Codex。run・Promptの版・モデルつきで版を重ねる |
 | 調査ごと | 主張と根拠、提案する手法・扱う課題、ナレッジ・チュートリアルからの引用、手で切り出した代表Fig | 調査の版（Commit）に残す |
 

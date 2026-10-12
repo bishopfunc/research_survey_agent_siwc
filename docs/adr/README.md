@@ -21,3 +21,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0017](0017-evidence-as-common-source.md) | 事実はすべて出典（Evidence）を参照し、出典は出典元を持つ | Accepted |
 | [0016](0016-resource-entity.md) | サーベイ・ブログなどの情報源は Resource 型として持つ | Accepted |
 | [0015](0015-core-relations.md) | 関係は親子・系統・論文・主張と根拠に絞り、古い型は読めるが書かない | Accepted |
+| [0018](0018-semantic-scholar-for-citations.md) | 引用数と書誌の補完はSemantic Scholarを主にし、OpenAlexはDOIの単体照会だけに残す | Accepted |
