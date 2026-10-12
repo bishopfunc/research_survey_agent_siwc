@@ -36,6 +36,9 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P29 | Done | 精読の系統ごとのラウンドロビン、論文ごとの課題の候補（出典つき）と統合での3階層以上の木、網羅の批評の段階は未着手（[0027](design/0027-issue-extraction-and-deep-read-allocation.md)） | P28 |
 | P30 | Doing | 新規調査を8つの手順に（2を事実と出典に、4の発散と7のスキーマ点検を別Agent、8で補完、検索のメモリ、経過に手順の並び）。残り：実Codexでの所要時間と抜け漏れの改善、画面の手順の並びの確認（[0028](design/0028-eight-step-survey.md)） |
 | P31 | Doing | 新規調査の8つの手順を4つの波で並行に（1 → 2×Nと4→5 → 3+6とチュートリアル → サーバーの点検、補完は抜けがあり8分以内のときだけ）。残り：実Codexで10分以内か確かめる（[0029](design/0029-four-wave-survey.md)） | P30 |
+| P35 | Done | スマホの下部ナビ、全画面の詳細・チャット・コレクション、タッチで論文コンテキスト追加、表示領域に合わせた入力欄（[0033](design/0033-mobile-research-ui.md)）。実機キーボードは未確認 | P34 |
+| P34 | Done | 独立パネル、Shift＋クリックの論文コンテキスト、固定候補、実行中の依頼キューと削除、図解の取得改善（[0035](design/0035-chat-context-queue-and-figures.md)）。引用グラフは未実装 | P33 |
+| P33 | Done | 調査期限・書き出し時間・強制終了期限、検証済みPatchの途中保存、時間切れ表示（[0034](design/0034-research-budget-and-checkpoints.md)）。実調査の所要時間・頻度は未確認 | P31 |
 | P32 | Done | Promptの統合とスリム化（共通ルール32→21、[id]で参照、使われない指示の削除、基準のチュートリアルは書く指示だけに）（[0030](design/0030-prompt-consolidation.md)） | P31 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |

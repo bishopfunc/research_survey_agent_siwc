@@ -19,7 +19,7 @@ function citeLabel(entity: Entity | undefined, id: string) {
 function Inline({ text, find, onSelect }: { text: string; find: (id: string) => Entity | undefined; onSelect: (id: string) => void }) {
   return <>{text.split(/(\[@[^\]\s]+\])/).map((part, i) => {
     const id = part.match(/^\[@([^\]\s]+)\]$/)?.[1];
-    return id ? <button key={i} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button> : <MathText key={i} text={part}/>;
+    return id ? <button key={i} className="cite" data-entity-id={id} onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button> : <MathText key={i} text={part}/>;
   })}</>;
 }
 /** Paragraphs separated by blank lines; "- " lines form a list; a $$…$$ paragraph is a display equation. */
@@ -68,7 +68,7 @@ export function TutorialView({ snapshot, preview, onSelect }: { snapshot: Survey
       <Body body={section.body} find={find} onSelect={onSelect}/>
       {section.media.map((m, j) => { const paper = find(m.paper); return <Media key={`${m.paper}-${m.label}-${j}`} paper={paper?.type === 'Paper' ? paper : undefined} label={m.label} captionJa={m.caption_ja} preview={preview} onSelect={onSelect}/>; })}
       {section.links.length > 0 && <ul className="tutorial-links">{section.links.map((l, j) => <li key={j}><a href={l.url} target="_blank" rel="noreferrer">{l.title} ↗</a></li>)}</ul>}
-      {extra.length > 0 && <p className="tutorial-refs">{extra.map(id => <button key={id} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button>)}</p>}
+      {extra.length > 0 && <p className="tutorial-refs">{extra.map(id => <button key={id} className="cite" data-entity-id={id} onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button>)}</p>}
     </>;
   };
   return <article className="tutorial">

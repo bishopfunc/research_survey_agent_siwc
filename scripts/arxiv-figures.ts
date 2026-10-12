@@ -11,7 +11,7 @@ export const ARXIV_MIN_INTERVAL_MS = 15_000;
 /** anchor: the element ID in the page, so a source link can point at the item (source_url#anchor). */
 export interface ArxivFigure { number: number | null; label: string; caption: string; images: string[]; anchor: string | null }
 /** Bumped when extraction changes, so results saved by an older parser are fetched again. */
-export const FIGURE_PARSER_VERSION = 6;
+export const FIGURE_PARSER_VERSION = 7;
 /** A table float: label, caption and cells (rowspan/colspan kept), with math as $TeX$. */
 export interface ArxivTable { number: number | null; label: string; caption: string; rows: { text: string; colspan: number; rowspan: number; head: boolean }[][]; anchor: string | null }
 /** An algorithm float: its label, title and listing lines, with math kept as $TeX$. */
@@ -24,16 +24,7 @@ export interface ArxivFigures { parser: number; arxiv_id: string; source_url: st
 export type PageFetcher = (url: string) => Promise<{ ok: boolean; status: number; url: string; headers: { get(name: string): string | null }; text(): Promise<string> }>;
 
 const ID = /^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?$/i;
-/** The arXiv identifier from Paper.arxiv_id or an arxiv.org URL, or null. */
-export function parseArxivId(...values: (string | null | undefined)[]): string | null {
-  for (const value of values) {
-    const text = value?.trim(); if (!text) continue;
-    const fromUrl = text.match(/^https?:\/\/(?:www\.)?(?:arxiv\.org|ar5iv(?:\.labs\.arxiv)?\.org)\/(?:abs|pdf|html)\/([^?#]+?)(?:\.pdf)?\/?(?:[?#].*)?$/i)?.[1];
-    const id = (fromUrl ?? text).replace(/^arxiv:/i, '');
-    if (ID.test(id)) return id;
-  }
-  return null;
-}
+export { parseArxivId } from '../packages/domain/src/arxiv-id';
 const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 function decode(text: string) {
   return text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (m, code: string) => code[0] === '#' ? String.fromCodePoint(code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : Number(code.slice(1))) : entities[code.toLowerCase()] ?? m);
@@ -225,10 +216,25 @@ export async function fetchArxivFigures(id: string, fetcher: PageFetcher, retrie
     const html = await response.text();
     if (html.length > MAX_HTML_CHARS) throw Error('ページが大きすぎます');
     const result = { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href), algorithms: extractAlgorithms(html), equations: extractEquations(html), tables: extractTables(html), sections: extractSections(html) };
-    if (result.figures.length || result.algorithms.length || result.equations.length || result.tables.length || result.sections.length) return result;
-    empty ??= result;
+    if (hasVisuals(result)) return { ...result, sections: result.sections.length ? result.sections : empty?.sections ?? [] };
+    if (!empty || result.sections.length > empty.sections.length) empty = result;
   }
   return empty ?? { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [], algorithms: [], equations: [], tables: [], sections: [] };
 }
 /** File name for the cache; old-style IDs contain a slash. */
 export const cacheName = (id: string) => `${id.replace('/', '_')}.json`;
+
+/** A sections-only HTML page is not a successful figure extraction. */
+export function hasVisuals(saved: { figures?: unknown[]; algorithms?: unknown[]; equations?: unknown[]; tables?: unknown[] }) {
+  return [saved.figures, saved.algorithms, saved.equations, saved.tables].some(list => Array.isArray(list) && list.length > 0);
+}
+export function staleVisualCache(saved: { figures?: unknown[]; algorithms?: unknown[]; equations?: unknown[]; tables?: unknown[]; retrieved_at?: string }, now = Date.now()) {
+  const retrieved = Date.parse(saved.retrieved_at ?? '');
+  return !hasVisuals(saved) && (!Number.isFinite(retrieved) || now - retrieved > 86_400_000);
+}
+/** Parser 7 changes fallback, not the extracted shape. Keep successful v6 visuals to avoid a needless cold cache. */
+export function usableVisualCache(saved: unknown, now = Date.now()): saved is ArxivFigures {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return false;
+  const data = saved as Partial<ArxivFigures>;
+  return (data.parser === FIGURE_PARSER_VERSION || (data.parser === 6 && hasVisuals(data))) && !staleVisualCache(data, now);
+}

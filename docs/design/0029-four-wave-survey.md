@@ -32,7 +32,7 @@
 
 - `StagedSteps.prompt` に `tutorial(snapshot)`、`StagedSteps` に `now()`（経過の判定）と `mark(stage)`（サーバーが自分で行う手順を経過に出す）を足した。`reintegrate`・`check` のPromptを外した。
 - 段階のID：`tutorial` を足し（手順6として表示、経過は「6/8 チュートリアル」）、`reintegrate` を外した。`check` は経過と checkpoint の名前として残る。
-- 上限時間（秒）：全体像330、深掘り270、統合240、発散150、深掘り（5）150、チュートリアル240、補完120。補完の開始期限 `FILL_DEADLINE_SECONDS` は480。
+- 上限時間（秒）：全体像480（[0034](0034-research-budget-and-checkpoints.md)で調査300＋書き出し180へ延長）、深掘り270、統合240、発散150、深掘り（5）150、チュートリアル240、補完120。補完の開始期限 `FILL_DEADLINE_SECONDS` は480。
 - 一括の新規調査（段階実行でない実行）の指示は変えない（7の指示はAgent自身の点検として残る）。
 - 調査のDSL（snapshot・patchのスキーマ）は変えない。Promptの版は `survey-staged@2026-10-12T20:49+09:00`。
 

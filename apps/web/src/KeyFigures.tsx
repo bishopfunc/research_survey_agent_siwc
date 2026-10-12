@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { parseArxivId } from '../../../packages/domain/src/arxiv-id';
 import type { Entity } from '../../../packages/domain/src/index';
 import { MathText, Tex } from './Tex';
 import { ALGORITHM_KEYWORD, algorithmLines } from './algorithm-layout';
+import { cardFigure, figureKey, labelKey } from './figure-selection';
+export { figureKey, labelKey } from './figure-selection';
 import { keySections, sourceHref, type ArxivSection } from './arxiv-parts';
 
 type Paper = Extract<Entity, { type: 'Paper' }>;
@@ -10,13 +13,6 @@ export type ArxivAlgorithm = { number: number | null; label: string; caption: st
 export type ArxivEquation = { number: number | null; label: string | null; tex: string; anchor?: string | null };
 export type ArxivTable = { number: number | null; label: string; caption: string; rows: { text: string; colspan: number; rowspan: number; head: boolean }[][]; anchor?: string | null };
 export type ArxivFigures = { source_url: string; figures: ArxivFigure[]; algorithms?: ArxivAlgorithm[]; equations?: ArxivEquation[]; tables?: ArxivTable[]; sections?: ArxivSection[] };
-/** "Figure 3" / "Fig. 3" / "Table 2" / "Algorithm 1" → "figure:3", "table:2", "algorithm:1". */
-export function labelKey(text: string): string | null {
-  const m = text.match(/^\s*(fig(?:ure)?\.?|table|tab\.|algorithm|alg\.|図|表)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)/i);
-  if (!m) return null;
-  const kind = /^(fig|図)/i.test(m[1]) ? 'figure' : /^(tab|表)/i.test(m[1]) ? 'table' : 'algorithm';
-  return `${kind}:${m[2].toLowerCase()}`;
-}
 /** The Japanese caption Codex wrote for a label (reading.captions_ja), without the label itself. */
 export function japaneseCaption(paper: Paper, label: string): string | null {
   const key = labelKey(label);
@@ -29,8 +25,7 @@ export function Table({ table }: { table: ArxivTable }) {
 
 /** The arXiv identifier from the paper's field or its arxiv.org link (the server checks it again). */
 export function arxivIdOf(paper: Paper): string | null {
-  const fromUrl = paper.url?.match(/^https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf|html)\/([^?#]+?)(?:\.pdf)?\/?$/i)?.[1];
-  return paper.arxiv_id?.replace(/^arxiv:/i, '') || fromUrl || null;
+  return parseArxivId(paper.arxiv_id, paper.url, paper.doi);
 }
 /** "Fig. 2.1", "Figure C.1", "図3" → "2.1", "c.1", "3"; matched against the label of each arXiv figure. */
 /** "Algorithm 2" → 2, "Eq. (3)" / "式(3)" / "Equation 3" → 3. */
@@ -46,10 +41,11 @@ export function Algorithm({ algorithm, ja }: { algorithm: ArxivAlgorithm; ja?: s
 export function Equation({ equation }: { equation: ArxivEquation }) {
   return <div className="equation"><Tex tex={equation.tex} display/>{equation.label && <span className="equation-label">{equation.label}</span>}</div>;
 }
-export const figureKey = (text: string) => text.match(/(?:fig(?:ure)?\.?|図)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)/i)?.[1].toLowerCase().replace(/^([a-z])(\d)/, '$1.$2') ?? null;
+
 
 export function Images({ figure }: { figure: ArxivFigure }) {
-  return <div className={figure.images.length > 1 ? 'figure-images many' : 'figure-images'}>{figure.images.map(src => <a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${figure.label} ${figure.caption}`} loading="lazy" referrerPolicy="no-referrer"/></a>)}</div>;
+  const [failed, setFailed] = useState<string[]>([]);
+  return <div className={figure.images.length > 1 ? 'figure-images many' : 'figure-images'}>{figure.images.map(src => <a key={src} href={src} target="_blank" rel="noreferrer">{failed.includes(src) ? <span className="muted-label">画像未取得 ↗</span> : <img onError={() => setFailed(current => [...current, src])} src={src} alt={`${figure.label} ${figure.caption}`} loading="lazy" referrerPolicy="no-referrer"/>}</a>)}</div>;
 }
 
 /** The paper's arXiv figures, algorithms, equations and sections: the saved result, or one fetch when the paper is opened.
@@ -80,7 +76,8 @@ export function useArxivData(id: string | null, preview: boolean) {
     // Opening a paper reads the saved result, or fetches its arXiv HTML once; the server spaces requests and keeps the result.
     // The review preview only reads saved results and never reaches arXiv.
     const fetchOnce = () => { if (signal.active && !preview) void load(false, signal); };
-    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (!signal.active) return; if (value) setData(value); else fetchOnce(); }).catch(fetchOnce);
+    setState('loading');
+    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (!signal.active) return; if (value) { setData(value); setState('idle'); } else if (preview) setState('idle'); else fetchOnce(); }).catch(fetchOnce);
     return () => { signal.active = false; };
   }, [id, preview]);
   return { data, state, load };
@@ -103,7 +100,7 @@ export function Diagrams({ paper, arxiv, preview, extra }: { paper: Paper; arxiv
   for (const t of data?.tables ?? []) { const key = labelKey(t.label); if (key) tablesBy.set(key, [...(tablesBy.get(key) ?? []), t]); }
   const named = notes.map(note => { const key = labelKey(note); const figures = key ? figuresBy.get(key) : undefined, tables = key ? tablesBy.get(key) : undefined; return { note, figure: figures?.length === 1 ? figures[0] : undefined, table: tables?.length === 1 ? tables[0] : undefined }; });
   const used = new Set<unknown>(named.flatMap(n => [n.figure, n.table].filter(Boolean)));
-  const algorithms = data?.algorithms ?? [], equations = (data?.equations ?? []).filter(e => e.label);
+  const algorithms = data?.algorithms ?? [], equations = data?.equations ?? [];
   const unique = <T extends { number: number | null }>(list: T[], n: number) => { const found = list.filter(x => x.number === n); return found.length === 1 ? found[0] : undefined; };
   const namedFormulas = formulaNotes.map(note => ({ note, algorithm: unique(algorithms, algorithmNumber(note)), equation: unique(equations, equationNumber(note)) }));
   for (const n of namedFormulas) { if (n.algorithm) used.add(n.algorithm); if (n.equation) used.add(n.equation); }
@@ -111,18 +108,18 @@ export function Diagrams({ paper, arxiv, preview, extra }: { paper: Paper; arxiv
   const otherAlgorithms = algorithms.filter(a => !used.has(a)), otherEquations = equations.filter(e => !used.has(e));
   const caption = (label: string, original: string) => { const ja = japaneseCaption(paper, label); return <>{ja ? <span className="caption-ja">{label}: {ja}</span> : null}<small>{label}: {original}</small></>; };
   const source = (anchor: string | null | undefined) => data ? <SourceLink data={data} anchor={anchor}/> : null;
-  const anyNamed = !!(notes.length || formulaNotes.length);
-  if (!anyNamed && !id) return extra ? <>{extra}</> : <p className="muted-label">図解なし</p>;
+  const anyNamed = named.some(n => n.figure || n.table) || namedFormulas.some(n => n.algorithm || n.equation);
+  if (!anyNamed && !id) return extra ? <>{extra}</> : <p className="muted-label">図解未取得{paper.url && <> · <a href={paper.url} target="_blank" rel="noreferrer">原文 ↗</a></>}</p>;
   return <div className="diagrams">
     {named.map(({ note, figure, table }, i) => <figure key={`f${i}`} className="key-figure">{figure && <Images figure={figure}/>}{table && <Table table={table}/>}<figcaption><span>{note}</span>{figure && caption(figure.label, figure.caption)}{table && caption(table.label, table.caption)}{(figure || table) && source((figure ?? table)!.anchor)}</figcaption></figure>)}
     {namedFormulas.map(({ note, algorithm, equation }, i) => <div key={`a${i}`} className="key-formula">{algorithm && <Algorithm algorithm={algorithm} ja={japaneseCaption(paper, algorithm.label)}/>}{equation && <Equation equation={equation}/>}<p>{note}</p>{(algorithm || equation) && source((algorithm ?? equation)!.anchor)}</div>)}
     {data && rest.length > 0 && <details className="more-figures" open={!anyNamed}><summary>{anyNamed ? 'ほかの図' : '図'}</summary>{rest.map((figure, i) => <figure key={i} className="key-figure"><Images figure={figure}/><figcaption>{caption(figure.label, figure.caption)}{source(figure.anchor)}</figcaption></figure>)}</details>}
-    {data && restTables.length > 0 && <details className="more-figures"><summary>{anyNamed ? 'ほかの表' : '表'}</summary>{restTables.map((table, i) => <figure key={i} className="key-figure"><Table table={table}/><figcaption>{caption(table.label, table.caption)}{source(table.anchor)}</figcaption></figure>)}</details>}
+    {data && restTables.length > 0 && <details className="more-figures" open={!anyNamed}><summary>{anyNamed ? 'ほかの表' : '表'}</summary>{restTables.map((table, i) => <figure key={i} className="key-figure"><Table table={table}/><figcaption>{caption(table.label, table.caption)}{source(table.anchor)}</figcaption></figure>)}</details>}
     {data && otherAlgorithms.length > 0 && <details className="more-figures" open={!anyNamed}><summary>{anyNamed ? 'ほかのアルゴリズム' : 'アルゴリズム'}</summary>{otherAlgorithms.map((a, i) => <div key={i} className="key-formula"><Algorithm algorithm={a} ja={japaneseCaption(paper, a.label)}/>{source(a.anchor)}</div>)}</details>}
-    {data && otherEquations.length > 0 && <details className="more-figures"><summary>{anyNamed ? 'ほかの数式' : '数式'}</summary>{otherEquations.map((e, i) => <div key={i} className="key-formula"><Equation equation={e}/>{source(e.anchor)}</div>)}</details>}
-    {data && !data.figures.length && !data.tables?.length && !algorithms.length && !equations.length && <p className="muted-label">arXivの図解なし</p>}
+    {data && otherEquations.length > 0 && <details className="more-figures" open={!anyNamed}><summary>{anyNamed ? 'ほかの数式' : '数式'}</summary>{otherEquations.map((e, i) => <div key={i} className="key-formula"><Equation equation={e}/>{source(e.anchor)}</div>)}</details>}
+    {data && !data.figures.length && !data.tables?.length && !algorithms.length && !equations.length && <p className="muted-label">図解未取得</p>}
     {!data && id && !preview && state === 'loading' && <p className="muted-label">arXivから取得中…</p>}
-    {!data && state === 'error' && <p className="muted-label">arXivから取得できず</p>}
+    {!data && state === 'error' && <div className="diagram-retry"><span className="muted-label">取得失敗</span><button onClick={() => void arxiv.load(true)} disabled={preview}>再取得</button></div>}
     {extra}
   </div>;
 }
@@ -147,15 +144,18 @@ export function CardFigure({ paper }: { paper: Paper }) {
   const id = arxivIdOf(paper), first = paper.reading?.key_figures?.[0];
   const [figure, setFigure] = useState<ArxivFigure | null>(null);
   useEffect(() => {
-    setFigure(null);
-    const key = first ? figureKey(first) : null;
-    if (!id || !key) return;
-    let active = true;
-    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then((data: ArxivFigures | null) => {
-      const found = (data?.figures ?? []).filter(f => figureKey(f.label) === key);
-      if (active && found.length === 1) setFigure(found[0]);
-    }).catch(() => { /* not fetched yet */ });
-    return () => { active = false; };
+    setFigure(null); if (!id) return;
+    let active = true, attempts = 0; let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`);
+        const data: ArxivFigures | null = response.ok ? await response.json() : null;
+        if (!active) return;
+        if (data) setFigure(cardFigure(data.figures ?? [], first));
+        else if (++attempts < 60) timer = setTimeout(poll, 8_000);
+      } catch { /* Cards never initiate an external fetch; retry a later cache read. */ }
+    };
+    void poll(); return () => { active = false; clearTimeout(timer); };
   }, [id, first]);
   return figure ? <figure className="paper-figure compact"><img src={figure.images[0]} alt={`${figure.label} ${figure.caption}`} loading="lazy" referrerPolicy="no-referrer"/><figcaption>{figure.label}</figcaption></figure> : null;
 }

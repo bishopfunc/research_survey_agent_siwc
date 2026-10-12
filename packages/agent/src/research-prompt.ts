@@ -72,10 +72,10 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as eight steps in four waves (designs 0028, 0029): 1 → {2 ×N, 4→5} → {3+6, tutorial} → 7 (server) → 8
  * only for gaps. Each step is its own Codex process; the server merges the results. The tutorial agent carries the sample
- * tutorial's outline, so a change to the sample changes this prompt too. Limits fit about ten minutes. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-12T20:53+09:00';
+ * tutorial's outline, so a change to the sample changes this prompt too. Each process reserves time for writing; total duration is not guaranteed. */
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-12T23:24+09:00';
 /** Limits per step; a worker over its limit is dropped, the others continue. */
-export const STAGE_TIMEOUT_SECONDS = { outline: 330, deepen: 270, integrate: 240, diverge: 150, extend: 150, fill: 120, tutorial: 240 } as const;
+export const STAGE_TIMEOUT_SECONDS = { outline: 480, deepen: 270, integrate: 240, diverge: 150, extend: 150, fill: 120, tutorial: 240 } as const;
 /** Wave 4 (the fill) starts only if the run is still within this time, so the whole run stays near ten minutes. */
 export const FILL_DEADLINE_SECONDS = 480;
 /** Step 4 adds at most this many papers; step 5 reads them, EXTEND_PER_WORKER per worker. */

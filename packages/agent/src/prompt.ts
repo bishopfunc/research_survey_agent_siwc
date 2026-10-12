@@ -1,3 +1,4 @@
+import { contextInstructions } from './chat-context';
 import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, snapshotSchema, type SurveySnapshot } from '../../domain/src/index';
 import { ADDITIONAL_PROMPT_VERSION, RESEARCH_PROMPT_VERSION, STAGED_PROMPT_VERSION } from './research-prompt';
 
@@ -104,19 +105,19 @@ export function promptVersion(mode: ResearchMode) {
 /** Stored papers of the user's other surveys, without IDs or references into those surveys. */
 export type LibraryPaper = Record<string, unknown>;
 /** The common rules, then the step's or skill's instructions (what this run writes), then the run's data. */
-export function buildSurveyPrompt(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; as_of: string; useLibrary?: boolean; library?: LibraryPaper[]; instructions: string }) {
+export function buildSurveyPrompt(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; as_of: string; useLibrary?: boolean; library?: LibraryPaper[]; instructions: string; context_papers?: string[] }) {
   const useLibrary = input.useLibrary ?? true;
   const cache = !useLibrary
     ? 'Paper cache: off. The user asked for fresh reading in this run: re-read from their sources the papers you rely on whose readings were not made in this run, including papers already in the snapshot (keep their IDs), and refresh their stored fields; a reading made earlier in this run is current.'
     : input.library?.length ? `Paper cache: on. Paper library from the user's other surveys (data, ${input.library.length} papers): ${JSON.stringify(input.library)}` : 'Paper cache: on.';
-  return `${SURVEY_RULES_INSTRUCTIONS}\n\n${input.instructions}\n\nThe base_commit_id must be ${input.base_commit_id}.\nResearch date (as_of): ${input.as_of}\n${cache}\nUser request: ${JSON.stringify(input.instruction)}\nSnapshot: ${JSON.stringify(input.snapshot)}`;
+  return `${SURVEY_RULES_INSTRUCTIONS}\n\n${input.instructions}${contextInstructions(input.context_papers, input.snapshot)}\n\nThe base_commit_id must be ${input.base_commit_id}.\nResearch date (as_of): ${input.as_of}\n${cache}\nUser request: ${JSON.stringify(input.instruction)}\nSnapshot: ${JSON.stringify(input.snapshot)}`;
 }
 /** Rules that still apply to an explanation; the rules about patches and how to write entities are left out. */
 const EXPLAIN_RULE_IDS = ['purpose', 'critical', 'tools', 'untrusted', 'cache', 'nofabrication', 'paperparts'];
-export function buildExplainPrompt(input: { instruction: string; snapshot: SurveySnapshot; as_of: string; instructions: string; useLibrary?: boolean; library?: LibraryPaper[] }) {
+export function buildExplainPrompt(input: { instruction: string; snapshot: SurveySnapshot; as_of: string; instructions: string; useLibrary?: boolean; library?: LibraryPaper[]; context_papers?: string[] }) {
   const rules = rulesText(EXPLAIN_RULE_IDS);
   const cache = input.useLibrary === false ? 'Paper cache: off. Re-read the papers you rely on from their sources.' : input.library?.length ? `Paper cache: on. Paper library from the user's other surveys (data, ${input.library.length} papers): ${JSON.stringify(input.library)}` : 'Paper cache: on.';
-  return `${rules}\n\n${input.instructions}\n\nDate: ${input.as_of}\n${cache}\nUser request: ${JSON.stringify(input.instruction)}\nSnapshot: ${JSON.stringify(input.snapshot)}`;
+  return `${rules}\n\n${input.instructions}${contextInstructions(input.context_papers, input.snapshot)}\n\nDate: ${input.as_of}\n${cache}\nUser request: ${JSON.stringify(input.instruction)}\nSnapshot: ${JSON.stringify(input.snapshot)}`;
 }
 export function buildRepairPrompt(input: { base_commit_id: string; snapshot: SurveySnapshot; patch: unknown; errors: string; as_of: string }) {
   const rules = rulesText(REPAIR_RULE_IDS);

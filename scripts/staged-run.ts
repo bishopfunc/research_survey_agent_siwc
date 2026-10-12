@@ -26,7 +26,7 @@ export interface StageResult { ok: boolean; output?: string; error?: string; sea
 export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
 export interface StagedSteps {
   /** Runs one Codex stage; the deepen stages are started together. */
-  run(stage: StageId, prompt: string): Promise<StageResult>;
+  run(stage: StageId, prompt: string, snapshot?: SurveySnapshot): Promise<StageResult>;
   prompt: {
     outline(): string;
     deepen(snapshot: SurveySnapshot, worker: number, workers: number, papers: string[], issues: string[]): string;
@@ -155,7 +155,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // Step 1: the map of the field.
   steps.progress(`1/${total} Map：分野の全体像を調べています`);
   let outlinePatch: SurveyPatch;
-  try { outlinePatch = await parse('outline', await steps.run('outline', steps.prompt.outline())); }
+  try { outlinePatch = await parse('outline', await steps.run('outline', steps.prompt.outline(), base)); }
   catch (e) { return steps.active() ? { status: 'failed', message: `Map（全体像）の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
   if (!steps.active()) return { status: 'stopped' };
   let snapshot: SurveySnapshot;
@@ -174,13 +174,13 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const runWorkers = (kind: 'deepen' | 'extend', from: SurveySnapshot, list: { papers: string[]; issues: string[] }[]) => Promise.all(list.map(async (g, i) => {
     const stage: StageId = `${kind}-${i + 1}`;
     const prompt = (kind === 'deepen' ? steps.prompt.deepen : steps.prompt.extend)(from, i + 1, list.length, g.papers, g.issues);
-    const first = await steps.run(stage, prompt);
-    const r = first.ok || !steps.active() || (first.elapsedMs ?? 0) > RETRY_IF_FAILED_WITHIN_MS ? first : await steps.run(stage, prompt);
+    const first = await steps.run(stage, prompt, from);
+    const r = first.ok || !steps.active() || (first.elapsedMs ?? 0) > RETRY_IF_FAILED_WITHIN_MS ? first : await steps.run(stage, prompt, from);
     return { r, g, i, kind };
   }));
   const divergeBranch = async () => {
     let patch: SurveyPatch | null = null, extendResults: Awaited<ReturnType<typeof runWorkers>> = [];
-    try { patch = restrictToWorker(await parse('diverge', await steps.run('diverge', steps.prompt.diverge(outline, memory))), outline, []); }
+    try { patch = restrictToWorker(await parse('diverge', await steps.run('diverge', steps.prompt.diverge(outline, memory), outline)), outline, []); }
     catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); return { patch, extendResults }; }
     if (!steps.active()) return { patch, extendResults };
     let diverged: SurveySnapshot;
@@ -210,8 +210,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const divergeIssues = new Set((branch.patch?.operations ?? []).flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []));
   const before = snapshot, candidates = newIssues(outline).filter(id => !divergeIssues.has(id));
   const [integration, tutorial] = await Promise.all([
-    steps.run('integrate', steps.prompt.integrate(before, candidates)),
-    steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before)) : Promise.resolve(null),
+    steps.run('integrate', steps.prompt.integrate(before, candidates), before),
+    steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before), before) : Promise.resolve(null),
   ]);
   if (!steps.active()) return { status: 'stopped' };
   try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
@@ -239,7 +239,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   if (gaps.length && !late) {
     steps.progress(`8/${total} Fill gaps：抜け漏れを埋めています`);
     try {
-      const patch = await parse('fill', await steps.run('fill', steps.prompt.fill(snapshot, gaps, memory)));
+      const patch = await parse('fill', await steps.run('fill', steps.prompt.fill(snapshot, gaps, memory), snapshot));
       snapshot = apply(snapshot, withoutRemovals(patch), 'fill'); keep(patch);
     } catch (e) { if (!steps.active()) return { status: 'stopped' }; notes.push(`補完の段階を使えませんでした：${reason(e)}`); }
   } else if (gaps.length) notes.push(`時間の上限のため補完を省きました（抜け漏れ${gaps.length}件）`);
