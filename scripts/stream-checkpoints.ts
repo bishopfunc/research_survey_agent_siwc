@@ -55,6 +55,10 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       save(next, sequence);
       return 'saved';
     },
+    /** Whether the process sent any checkpoint (saved, held or unreadable). */
+    used(): boolean {
+      return !!all || unreadable;
+    },
     /** The validated checkpoints of a process that did not finish, if any were saved. */
     partial(): string | undefined {
       return accepted && JSON.stringify(accepted);

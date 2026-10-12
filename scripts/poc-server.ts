@@ -252,7 +252,26 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), skillById('explain').timeoutSeconds, { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
     research: skillId => { const skill = skillById(skillId); return executeResearch({
       snapshot: input.snapshot,
-      research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: skillInstructions(skill) }), skill.timeoutSeconds),
+      // Like a new-survey stage, the research sends checkpoints; a run that timed out keeps what they saved (design 0034).
+      // Without any checkpoint the final output goes to validation and repair as before.
+      research: async () => {
+        const chunks = streamCheckpoints(input.snapshot, input.base_commit_id, normalize, (patch, sequence) => {
+          writeFileSync(join(directory, `checkpoint-research-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
+          addTrace(run, { kind: 'step', text: `research：途中保存 ${sequence}` }); save(run);
+        }, () => run.status === 'running');
+        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${CHECKPOINT_INSTRUCTIONS}` }), skill.timeoutSeconds, { checkpoint: line => {
+          const accepted = chunks.accept(line);
+          if (accepted === 'rejected' || accepted === 'held') { addTrace(run, { kind: accepted === 'rejected' ? 'error' : 'step', text: `research：途中保存の変更案を${accepted === 'rejected' ? '読めませんでした' : '後の出力と合わせて検証します'}` }); save(run); }
+        } });
+        if (!chunks.used()) return attempt;
+        const file = join(directory, outputs.research);
+        let error = attemptError(attempt);
+        if (!error) try { writeFileSync(file, chunks.finish(readFileSync(file, 'utf8')), { mode: 0o600 }); return attempt; } catch (e) { error = e instanceof Error ? e.message.split('\n')[0] : 'Codexの出力を検証できませんでした'; }
+        const saved = run.status === 'running' ? chunks.partial() : undefined;
+        if (!saved) return attempt;
+        writeFileSync(file, saved, { mode: 0o600 }); addTrace(run, { kind: 'step', text: 'research：途中保存までの結果を使います' }); save(run);
+        return { ...attempt, partial: error };
+      },
       // After a cancel runCodexStep starts no process, so the run records no repair version or step either.
       repair: (patch, errors) => { if (run.status === 'running') { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); } return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), skill.repairTimeoutSeconds); },
       output: step => readFileSync(join(directory, outputs[step]), 'utf8'),

@@ -7,7 +7,8 @@ export interface CodexAttempt { code: number | null; state: CodexEventState; spa
 export interface ResearchSteps {
   /** The base the patch applies to: an addition of an ID already in it collided, and a repair's replace of it stays a replace. */
   snapshot: SurveySnapshot;
-  research(): Promise<CodexAttempt>;
+  /** `partial` is why the research process did not finish; output('research') then holds its validated checkpoints (design 0034). */
+  research(): Promise<CodexAttempt & { partial?: string }>;
   repair(patch: unknown, errors: string): Promise<CodexAttempt>;
   /** Raw final message written by Codex for the given step. May throw when the file is missing. */
   output(step: 'research' | 'repair'): string;
@@ -78,8 +79,9 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   const first = await steps.research();
   if (!steps.active()) return { status: 'stopped' };
   const searches = first.state.searches;
-  if (!completed(first)) return { status: 'failed', message: failure(first), searches };
+  if (!completed(first) && !first.partial) return { status: 'failed', message: failure(first), searches };
   const result = await check(steps, 'research');
+  if (first.partial && result.patch && typeof result.patch === 'object') { const p = result.patch as SurveyPatch; result.patch = { ...p, message: [p.message, `途中保存までの結果を使いました（${first.partial}）`].filter(Boolean).join('\n') }; }
   // A cancel during prepare (enrichment) must not start the repair process.
   if (!steps.active()) return { status: 'stopped' };
   if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches, ...followUps(result.patch) };

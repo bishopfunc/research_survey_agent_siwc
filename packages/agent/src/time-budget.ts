@@ -1,5 +1,5 @@
 /** Shared by the runner and Lab. A soft research deadline reserves time for serialization. */
-export const BUDGET_PROMPT_VERSION = 'survey-budget@2026-10-12T23:24+09:00';
+export const BUDGET_PROMPT_VERSION = 'survey-budget@2026-10-13T05:13+09:00';
 export const STOP_GRACE_MS = 5_000;
 export function timeBudget(totalSeconds: number, writeSeconds = Math.min(180, Math.max(30, Math.floor(totalSeconds * 0.4)))) {
   const writing = Math.min(writeSeconds, Math.floor(totalSeconds / 2));

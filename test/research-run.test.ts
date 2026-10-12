@@ -126,3 +126,16 @@ test('a full repair that drops or renames the operations the validator named sta
   }
 });
 
+test('a research that timed out after its checkpoints succeeds with what they saved and says so; without them it fails', async () => {
+  const timedOut = { code: null, state: initialCodexState(), timedOut: true };
+  const saved = steps({ outputs: { research: patch('saved') }, research: async () => ({ ...timedOut, partial: '時間切れ' }) });
+  const outcome = await executeResearch(saved.s);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status === 'succeeded') assert.equal(outcome.patch.message, 'saved\n途中保存までの結果を使いました（時間切れ）');
+  const none = await executeResearch(steps({ outputs: { research: patch('stale') }, research: async () => timedOut }).s);
+  assert.ok(none.status === 'failed' && /時間切れ/.test(none.message));
+  // A partial result that does not validate still gets the one repair.
+  const repaired = steps({ outputs: { research: patch('bad'), repair: patch('fixed') }, invalid: ['bad'], research: async () => ({ ...timedOut, partial: '時間切れ' }) });
+  assert.equal((await executeResearch(repaired.s)).status, 'succeeded');
+  assert.ok(repaired.calls.some(c => c.startsWith('repair:')));
+});
