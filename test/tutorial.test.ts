@@ -17,6 +17,7 @@ test('each requirement fails on its own when the tutorial misses it', () => {
     ['progression', t => { const m = t.sections.filter(s => s.role === 'methods'), z = m.length - 1; [m[0].body, m[z].body] = [m[z].body, m[0].body]; [m[0].refs, m[z].refs] = [m[z].refs, m[0].refs]; [m[0].media, m[z].media] = [m[z].media, m[0].media]; }],
     ['limitations', t => { const m = t.sections.filter(s => s.role === 'methods'); m[1].body = '有界準最適の探索を紹介する [@paper-ecbs]。'; }],
     ['media', t => { for (const s of t.sections) if (s.role === 'methods') { s.media = []; s.body = s.body.replace(/\$\$[\s\S]*?\$\$/g, ''); } }],
+    ['captions', t => { for (const s of t.sections) s.media = s.media.map(({ caption_ja, ...m }) => m); }],
     ['figures', t => { for (const s of t.sections) s.media = s.media.filter(m => !/fig/i.test(m.label)); }],
     ['variants', t => { for (const s of t.sections) if (s.role === 'variants') { s.body = '派生問題はたくさんある。'; s.refs = []; } }],
     ['hands_on', t => { for (const s of t.sections) if (s.role === 'hands_on') s.links = []; }],

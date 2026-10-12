@@ -10,6 +10,7 @@ PoCの正本は [snapshot.schema.json](../packages/domain/schema/snapshot.schema
 | Domain | 分野とdescription。テーマはMAPFに限定しない |
 | Concept | 分野をまたぐ共通概念。手法の系統（考え方を共有する手法の分類）にも使い、Method→Conceptのinstance_ofでつなぐ |
 | Issue | kindがfundamental/subproblem/method_dependent、descriptionが問い・課題（何が難しく、なぜ重要か）。任意の`english_terms`は論文で使われる英語表現（最大5、重複不可） |
+| Concept | 共通概念・手法の系統。任意の`english_terms`は文献で定着した英語の専門用語（先頭が正式な用語、最大5。2026-10-12追加） |
 | Method | 手法名とdescription。課題とはaddressesで接続。任意の`english_terms`は論文で使われる英語の名前と表現（正式名と略称、よく使われる言い回し、最大5、重複なし。2026-10-12追加） |
 | Paper | title、year、venue（学会・論文誌の略称）、venue_type、one_line_summary（「どんなもの？」の答え）、authors、doi/arxiv_id/url、proposes/addresses/claims/evidence参照。任意の`abstract_ja`（和訳）と`reading`（論文の要点） |
 | Claim | statement、status、scope、as_of、evidence。aboutで対象Issue/Methodへ接続。課題の達成度（数値・条件・時点・論文の結果の原文）と批判的評価（disputed）もClaimで表す |

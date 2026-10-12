@@ -34,15 +34,17 @@ function Body({ body, find, onSelect }: { body: string; find: (id: string) => En
   })}</>;
 }
 /** A figure, algorithm or equation of a cited paper, looked up in its arXiv HTML version by label. */
-function Media({ paper, label, preview, onSelect }: { paper: Paper | undefined; label: string; preview: boolean; onSelect: (id: string) => void }) {
+function Media({ paper, label, captionJa, preview, onSelect }: { paper: Paper | undefined; label: string; captionJa?: string; preview: boolean; onSelect: (id: string) => void }) {
+  // The tutorial's own Japanese caption first, then the paper's translated caption; the English original only as a last resort.
+  const ja = (key: string) => captionJa ?? (paper ? japaneseCaption(paper, key) : null);
   const { data, state } = useArxivData(paper ? arxivIdOf(paper) : null, preview);
   const figure = (() => { const key = figureKey(label); const found = key ? (data?.figures ?? []).filter(f => figureKey(f.label) === key) : []; return found.length === 1 ? found[0] : undefined; })();
   const algorithm = /algorithm/i.test(label) ? (data?.algorithms ?? []).filter(a => a.number === algorithmNumber(label)) : [];
   const equation = /eq|式/i.test(label) ? (data?.equations ?? []).filter(e => e.number === equationNumber(label)) : [];
   const source = paper ? <button className="cite" onClick={() => onSelect(paper.id)}>{citeLabel(paper, paper.id)}</button> : null;
   return <figure className="tutorial-media">
-    {figure && <Images figure={figure}/>}{algorithm.length === 1 && <Algorithm algorithm={algorithm[0]} ja={paper ? japaneseCaption(paper, algorithm[0].label) : null}/>}{equation.length === 1 && <Equation equation={equation[0]}/>}
-    <figcaption>{label}{figure && `: ${(paper && japaneseCaption(paper, figure.label)) ?? figure.caption}`}{source && <> · {source}</>}{!data && state === 'loading' && <span className="muted-label"> arXivから取得中…</span>}</figcaption>
+    {figure && <Images figure={figure}/>}{algorithm.length === 1 && <Algorithm algorithm={algorithm[0]} ja={ja(algorithm[0].label)}/>}{equation.length === 1 && <Equation equation={equation[0]}/>}
+    <figcaption>{algorithm.length === 1 ? null : <>{label}{figure ? `: ${ja(figure.label) ?? figure.caption}` : captionJa && `: ${captionJa}`}</>}{source && <>{algorithm.length === 1 ? '' : ' · '}{source}</>}{!data && state === 'loading' && <span className="muted-label"> arXivから取得中…</span>}</figcaption>
   </figure>;
 }
 
@@ -60,7 +62,7 @@ export function TutorialView({ snapshot, preview, onSelect }: { snapshot: Survey
       return <section key={i} id={anchor(i)} className="tutorial-section">
         <h3>{section.heading}</h3>
         <Body body={section.body} find={find} onSelect={onSelect}/>
-        {section.media.map((m, j) => { const paper = find(m.paper); return <Media key={`${m.paper}-${m.label}-${j}`} paper={paper?.type === 'Paper' ? paper : undefined} label={m.label} preview={preview} onSelect={onSelect}/>; })}
+        {section.media.map((m, j) => { const paper = find(m.paper); return <Media key={`${m.paper}-${m.label}-${j}`} paper={paper?.type === 'Paper' ? paper : undefined} label={m.label} captionJa={m.caption_ja} preview={preview} onSelect={onSelect}/>; })}
         {section.links.length > 0 && <ul className="tutorial-links">{section.links.map((l, j) => <li key={j}><a href={l.url} target="_blank" rel="noreferrer">{l.title} ↗</a></li>)}</ul>}
         {extra.length > 0 && <p className="tutorial-refs">{extra.map(id => <button key={id} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button>)}</p>}
       </section>;

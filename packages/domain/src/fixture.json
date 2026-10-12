@@ -85,7 +85,12 @@
       "label": "衝突を分岐して解く探索",
       "provenance": "fixture",
       "type": "Concept",
-      "description": "衝突を見つけるたびに、どちらかのエージェントに制約を課す子に探索を分岐し、各エージェントは制約の下で単独に経路を探す2段階の探索。最適解を求めるもの（CBS・ICBS）と、解の質の上限を保って速くする有界準最適のもの（ECBS・EECBS）がある。"
+      "description": "衝突を見つけるたびに、どちらかのエージェントに制約を課す子に探索を分岐し、各エージェントは制約の下で単独に経路を探す2段階の探索。最適解を求めるもの（CBS・ICBS）と、解の質の上限を保って速くする有界準最適のもの（ECBS・EECBS）がある。",
+      "english_terms": [
+        "conflict-based search",
+        "CBS-based solvers",
+        "optimal and bounded-suboptimal MAPF"
+      ]
     },
     {
       "id": "paper-cbs",
@@ -536,7 +541,8 @@
           "media": [
             {
               "paper": "paper-mapf-benchmark",
-              "label": "Figure 1"
+              "label": "Figure 1",
+              "caption_ja": "よくある衝突の種類の説明。左から順に、辺衝突、頂点衝突、追従衝突、循環衝突、入れ替え衝突。"
             }
           ],
           "links": []
@@ -589,7 +595,8 @@
           "media": [
             {
               "paper": "paper-eecbs",
-              "label": "Figure 2"
+              "label": "Figure 2",
+              "caption_ja": "性能。左の図は、200問でのアルゴリズムの平均実行時間を示す。解けなかった問題は1分として平均に含める。右の図は、準最適係数1.02・1.10・1.20でのアルゴリズムの成功率（制限時間内に解けた問題の割合）を示す。BP・PC・SR・WDGは、それぞれ衝突の迂回、衝突の優先順位づけ、対称性の推論、WDGヒューリスティックの利用の略である。"
             }
           ],
           "links": []
@@ -602,11 +609,13 @@
           "media": [
             {
               "paper": "paper-primal",
-              "label": "Figure 2"
+              "label": "Figure 2",
+              "caption_ja": "各エージェント（ここでは水色のエージェント）の観測空間。エージェントは色付きの正方形、その目標は同じ色の星、障害物は灰色の正方形で表す。各エージェントは自分の位置を中心とする限られた視野（FOV）だけを観測でき、その情報は次のチャネルに分かれる：障害物の位置、近くのエージェントの位置、近くのエージェントの目標の位置（視野の外にあれば視野の境界に投影する）、視野内にあれば自分の目標の位置。障害物のチャネルの最下行が障害物で埋まっているのは、その位置が世界の境界の外にあるためである。各エージェントは、目標を指す正規化したベクトル（目標は視野の外にあることが多い）とその大きさ（目標までの距離）も受け取り、進む大まかな方向を学ぶ自然な手がかりにする。"
             },
             {
               "paper": "paper-gnn",
-              "label": "Figure 1"
+              "label": "Figure 1",
+              "caption_ja": "提案する枠組みの説明。(i) 入力テンソルは2値の地図表現にもとづく（第1チャネル：環境の部分観測、第2チャネル：目標の位置 p_goal^i、または視野の境界への投影、第3チャネル：中心に自分（エージェント）と、視野内のほかのエージェント）。(ii) 分散の枠組みは、入力テンソルから観測を取り出すCNN、近くのエージェント間で情報を交換するGNN、行動を予測するMLPからなる。(iii) 学習は、離散の行動空間での交差エントロピー損失で行う。"
             }
           ],
           "links": []
@@ -619,7 +628,8 @@
           "media": [
             {
               "paper": "paper-pibt",
-              "label": "Algorithm 1"
+              "label": "Algorithm 1",
+              "caption_ja": "PIBT"
             }
           ],
           "links": []
@@ -632,11 +642,13 @@
           "media": [
             {
               "paper": "paper-lacam",
-              "label": "Figure 1"
+              "label": "Figure 1",
+              "caption_ja": "LaCAMの動作例。オレンジの矢印は探索の進む順序を表す。選ばれた下位のノードを黒、探索した下位のノードを灰色で塗る。制約は青い矢印で示す。"
             },
             {
               "paper": "paper-lacam-star",
-              "label": "Figure 1"
+              "label": "Figure 1",
+              "caption_ja": "MAPFベンチマークでの性能。上：Stern et al. (2019) から取った33個の4近傍格子地図上の13,900問のうち、解けた問題の数。エージェント数は最大1,000まで変わる。「-f」「-m」「-l」は、それぞれflowtime、makespan、sum-of-lossを最小にしようとするアルゴリズムを表す。LaCAM*の値は初期解のものである。下：代表的な、または最先端のMAPFアルゴリズム。「solution cmp.」は、解ける問題には必ず解を見つけるが、解けない問題を解けないと判定することはないアルゴリズムを表す。「bnd. sub-opt.」は有界準最適のアルゴリズムを表す。その準最適性は5に設定した。"
             }
           ],
           "links": []
@@ -712,14 +724,23 @@
       "label": "優先度で決める準最適解法",
       "provenance": "fixture",
       "type": "Concept",
-      "description": "各時刻に優先度の高いエージェントから1歩ずつ行き先を決める。最適性は保証しないが、数百台以上でもすぐに解を返す。この1歩の決め方を部品として、全員の位置の組を探索する方法（LaCAM・LaCAM*）もここに入る。"
+      "description": "各時刻に優先度の高いエージェントから1歩ずつ行き先を決める。最適性は保証しないが、数百台以上でもすぐに解を返す。この1歩の決め方を部品として、全員の位置の組を探索する方法（LaCAM・LaCAM*）もここに入る。",
+      "english_terms": [
+        "priority-based sub-optimal MAPF",
+        "rule-based MAPF solvers"
+      ]
     },
     {
       "id": "family-learned",
       "label": "学習ベース",
       "provenance": "fixture",
       "type": "Concept",
-      "description": "エキスパートのプランナを模倣したり強化学習で学んだりして、判断を学習したモデルに任せる。各エージェントが局所観測で動く分散方策と、探索の中の判断（衝突の選び方など）を学習で置き換える方法がある。"
+      "description": "エキスパートのプランナを模倣したり強化学習で学んだりして、判断を学習したモデルに任せる。各エージェントが局所観測で動く分散方策と、探索の中の判断（衝突の選び方など）を学習で置き換える方法がある。",
+      "english_terms": [
+        "learning-based MAPF",
+        "multi-agent reinforcement learning (MARL)",
+        "imitation learning"
+      ]
     },
     {
       "id": "decentralized",

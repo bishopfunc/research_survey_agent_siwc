@@ -74,6 +74,16 @@ export interface Concept {
   provenance: "fixture" | "user" | "codex";
   type: "Concept";
   description: string;
+  /**
+   * @maxItems 5
+   */
+  english_terms?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
 }
 export interface Issue {
   id: string;
@@ -242,6 +252,10 @@ export interface TutorialSection {
   media: {
     paper: string;
     label: string;
+    /**
+     * A faithful Japanese translation of the paper's caption for this label.
+     */
+    caption_ja?: string;
   }[];
   links: {
     url: string;

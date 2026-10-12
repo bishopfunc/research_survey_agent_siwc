@@ -40,6 +40,7 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
     check('progression', '解き方：素朴な方法から最新へ（最後の節が最新の研究）', methods.length > 0 && latest.every(Number.isFinite) && latest[latest.length - 1] >= Math.max(...latest) - 1 && latest[0] <= latest[latest.length - 1], latest.map(y => Number.isFinite(y) ? y : '年なし').join(' → ') || 'なし'),
     check('limitations', '解き方：2節目以降は前の方法の限界から始める', methods.length > 1 && methods.slice(1).every(s => hasLimitation(s.body)), `${methods.slice(1).filter(s => hasLimitation(s.body)).length}/${Math.max(0, methods.length - 1)}節`),
     check('media', '解き方：図・アルゴリズム・数式を2節以上で示す', methods.filter(shows).length >= 2, `${methods.filter(shows).length}節`),
+    check('captions', '図：チュートリアルの図・アルゴリズム・数式に日本語のキャプション（caption_ja）', sections.every(s => s.media.every(m => !!m.caption_ja?.trim())) && sections.some(s => s.media.length > 0), `${sections.flatMap(s => s.media).filter(m => m.caption_ja?.trim()).length}/${sections.flatMap(s => s.media).length}件`),
     check('figures', '図：arXivにある論文の図（画像）を、問題設定か解き方の2節以上で示す', sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length >= 2, `${sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length}節`),
     check('summary', 'まとめと選び方：場面ごとの推奨を出典つきで', cites(of('summary')) >= 2, `出典${cites(of('summary'))}`),
     check('variants', '派生問題：3つ以上を出典つきで', cites(of('variants')) >= 3, `出典${cites(of('variants'))}`),

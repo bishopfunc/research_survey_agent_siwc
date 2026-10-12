@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Entity } from '../../../packages/domain/src/index';
 import { MathText, Tex } from './Tex';
+import { ALGORITHM_KEYWORD, algorithmLines } from './algorithm-layout';
 
 type Paper = Extract<Entity, { type: 'Paper' }>;
 export type ArxivFigure = { number: number | null; label: string; caption: string; images: string[] };
@@ -34,8 +35,12 @@ export function arxivIdOf(paper: Paper): string | null {
 /** "Algorithm 2" → 2, "Eq. (3)" / "式(3)" / "Equation 3" → 3. */
 export const algorithmNumber = (text: string) => Number(text.match(/algorithm\s*(\d+)/i)?.[1] ?? NaN);
 export const equationNumber = (text: string) => Number(text.match(/(?:eq(?:uation)?\.?|式)\s*\(?(\d+)\)?/i)?.[1] ?? NaN);
+/** Text with inline math; pseudocode keywords outside math are bold. */
+function Pseudocode({ text }: { text: string }) {
+  return <>{text.split(/\$([^$]+)\$/).map((part, i) => i % 2 ? <Tex key={i} tex={part}/> : part.split(new RegExp(ALGORITHM_KEYWORD.source, 'g')).map((piece, j) => j % 2 ? <b key={`${i}-${j}`}>{piece}</b> : piece))}</>;
+}
 export function Algorithm({ algorithm, ja }: { algorithm: ArxivAlgorithm; ja?: string | null }) {
-  return <div className="algorithm"><div className="algorithm-title"><b>{algorithm.label}</b> {ja ?? algorithm.caption}</div><ol>{algorithm.lines.map((line, i) => <li key={i}><MathText text={line}/></li>)}</ol></div>;
+  return <div className="algorithm"><div className="algorithm-title"><b>{algorithm.label}</b> {ja ?? algorithm.caption}</div><ol>{algorithmLines(algorithm.lines).map((line, i) => <li key={i} style={{ paddingLeft: `${line.depth * 1.4}em` }}><Pseudocode text={line.text}/>{line.comment && <span className="algorithm-comment">▷ <MathText text={line.comment}/></span>}</li>)}</ol></div>;
 }
 export function Equation({ equation }: { equation: ArxivEquation }) {
   return <div className="equation"><Tex tex={equation.tex} display/>{equation.label && <span className="equation-label">{equation.label}</span>}</div>;

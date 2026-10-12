@@ -211,6 +211,15 @@
         },
         "description": {
           "type": "string"
+        },
+        "english_terms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "maxItems": 5
         }
       },
       "required": [
@@ -1153,6 +1162,12 @@
               "label": {
                 "type": "string",
                 "minLength": 1
+              },
+              "caption_ja": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "description": "A faithful Japanese translation of the paper's caption for this label."
               }
             },
             "required": [
