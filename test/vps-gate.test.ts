@@ -144,14 +144,19 @@ test('the plan tokens are kept encrypted and handed out on the token port, refre
   try { assert.equal((await again.token(0)).status, 200); } finally { again.close(); }
 });
 
-test('a rejected refresh asks for a new login; a network failure keeps the tokens; no key keeps nothing', async () => {
+test('a rejected refresh asks for a new login; a network failure, 429 or 5xx keeps the tokens; no key keeps nothing', async () => {
   let fail: Error = new TypeError('fetch failed');
   const g = await setup({ scopes: PLAN, expiresIn: 60, refresh: async () => { throw fail; } });
   try {
     await g.signIn();
     assert.deepEqual(await g.token(600), { status: 503, body: { error: 'REFRESH_FAILED' } });
     assert.ok(existsSync(g.tokenFile));
-    fail = Error('トークン取得に失敗しました (HTTP 400)。再ログインしてください。');
+    for (const status of [429, 500, 503]) {
+      fail = Object.assign(Error(`トークン取得に失敗しました (HTTP ${status})。再ログインしてください。`), { status });
+      assert.deepEqual(await g.token(600), { status: 503, body: { error: 'REFRESH_FAILED' } });
+      assert.ok(existsSync(g.tokenFile));
+    }
+    fail = Object.assign(Error('トークン取得に失敗しました (HTTP 400)。再ログインしてください。'), { status: 400 });
     assert.deepEqual(await g.token(600), { status: 409, body: { error: 'RELOGIN_REQUIRED' } });
     assert.equal(existsSync(g.tokenFile), false);
     assert.deepEqual(await g.token(0), { status: 409, body: { error: 'RELOGIN_REQUIRED' } });

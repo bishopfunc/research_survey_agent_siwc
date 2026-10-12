@@ -154,9 +154,9 @@ export function createGate(config: GateConfig, deps: GateDeps = { completeLogin,
       if (!usable) { json(res, 409, { error: 'RELOGIN_REQUIRED' }); return; }
       json(res, 200, { access_token: usable.access_token, expires_at: usable.expires_at });
     } catch (error) {
-      // A rejected refresh token or another account cannot be retried; a network failure can.
-      const message = error instanceof Error ? error.message : '';
-      if (/HTTP 40[01]|本人情報|再ログイン/.test(message)) { dropTokens(); json(res, 409, { error: 'RELOGIN_REQUIRED' }); }
+      // A rejected refresh token or another account cannot be retried; a network failure, 429 or 5xx can.
+      const { status, code } = (error ?? {}) as { status?: number; code?: string };
+      if (status === 400 || status === 401 || code === 'SUBJECT_MISMATCH' || code === 'NO_REFRESH_TOKEN') { dropTokens(); json(res, 409, { error: 'RELOGIN_REQUIRED' }); }
       else json(res, 503, { error: 'REFRESH_FAILED' });
     }
   }

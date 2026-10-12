@@ -1,31 +1,24 @@
-# Self-hosted VPS (design 0032). APP_IMAGE and PUBLIC_HOST come from .env, written by scripts/deploy-vps.sh.
+# Self-hosted VPS (design 0032). APP_IMAGE, PUBLIC_HOST and GATE_TOKEN_KEY come from .env, written by scripts/deploy-vps.sh.
 name: survey
 services:
   app:
     image: ${APP_IMAGE}
     restart: unless-stopped
     init: true
-    volumes:
-      - poc:/app/.poc
-      - codex-home:/home/node/.codex
-    # Only the login callback is published, and only on the VPS loopback: it is reached through the owner's SSH port forward.
-    ports:
-      - "127.0.0.1:1456:1456"
-  gate:
-    image: ${APP_IMAGE}
-    restart: unless-stopped
-    init: true
-    # Shares the app's network, so the PoC server stays on 127.0.0.1:8788 and the token port 127.0.0.1:8090 reaches only the app.
-    network_mode: service:app
-    command: ["node_modules/.bin/tsx", "scripts/vps-gate.ts"]
+    # The gate and the PoC server run together (deploy/vps/start.sh); Caddy reaches the gate on app:8080.
+    command: ["bash", "deploy/vps/start.sh"]
     environment:
       PUBLIC_ORIGIN: https://${PUBLIC_HOST}
       GATE_STATE: /app/.gate/gate.json
       # Encrypts the kept ChatGPT tokens; generated once on the VPS by scripts/deploy-vps.sh.
       GATE_TOKEN_KEY: ${GATE_TOKEN_KEY}
     volumes:
+      - poc:/app/.poc
       - gate:/app/.gate
-    depends_on: [app]
+      - codex-home:/home/node/.codex
+    # Only the login callback is published, and only on the VPS loopback: it is reached through the owner's SSH port forward.
+    ports:
+      - "127.0.0.1:1456:1456"
   caddy:
     image: caddy:2.10
     restart: unless-stopped
@@ -39,7 +32,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on: [gate]
+    depends_on: [app]
 volumes:
   poc:
   codex-home:

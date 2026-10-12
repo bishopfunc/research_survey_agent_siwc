@@ -1,4 +1,4 @@
-# HTTPS for the VPS host name (Let's Encrypt); everything goes to the gate, which shares the app's network.
+# HTTPS for the VPS host name (Let's Encrypt); everything goes to the gate on app:8080 (deploy/vps/start.sh).
 {$PUBLIC_HOST} {
 	encode zstd gzip
 	reverse_proxy app:8080

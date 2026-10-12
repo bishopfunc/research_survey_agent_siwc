@@ -41,12 +41,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = process.argv.slice(2);
   const real = process.env.REAL_CODEX ?? '/usr/local/bin/codex';
   const url = process.env.GATE_TOKEN_URL ?? 'http://127.0.0.1:8090/token';
+  const minValid = Number(process.env.CODEX_TOKEN_MIN_VALID ?? 1800);
   if (args[0] === 'login' && args[1] === 'status') {
-    const result = await gateToken(url, 0);
+    // Same validity as exec, so a run that could not start is refused before the server accepts it.
+    const result = await gateToken(url, minValid);
     if ('token' in result) { console.log('Logged in using ChatGPT (Sign in with ChatGPT on this site)'); process.exit(0); }
     console.error(`Not logged in (${result.error})`); process.exit(1);
   } else if (args[0] === 'exec') {
-    const result = await gateToken(url, Number(process.env.CODEX_TOKEN_MIN_VALID ?? 1800));
+    const result = await gateToken(url, minValid);
     if (!('token' in result)) { console.error(`ChatGPTのトークンを取得できません（${result.error}）。サイトでChatGPTにログインし直してください`); process.exit(1); }
     const env = { ...process.env, ACCESS_TOKEN: result.token, CODEX_HOME: process.env.SIWC_CODEX_HOME ?? `${process.env.HOME}/.codex-siwc` };
     run(real, siwcExecArgs(args, process.env.CODEX_CATALOG ?? `${process.env.HOME}/codex-catalog.json`), env);

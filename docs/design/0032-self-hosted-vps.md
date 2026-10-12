@@ -13,15 +13,14 @@
 
 ## 構成
 
-VPS（Ubuntu 24.04、2コア、メモリ1GBとswap 2GB）の `~/apps/survey` に、Docker Composeの3つのサービスを置く。
+VPS（Ubuntu 24.04、2コア、メモリ1GBとswap 2GB）の `~/apps/survey` に、Docker Composeの2つのサービスを置く。
 
 | サービス | 中身 |
 | --- | --- |
-| `caddy` | 80/443。`tk2-233-26242.vs.sakura.ne.jp` のHTTPS（Let's Encrypt）。すべて `gate` へ送る |
-| `app` | `scripts/poc-server.ts`（`127.0.0.1:8788`）とCodex CLI 0.162.1。PATHの先頭の `codex` は包み（`scripts/codex-siwc.ts`）。`.poc` はvolume |
-| `gate` | `scripts/vps-gate.ts`。`app` とネットワークを共有する。SIWCのログイン、セッション、`app` への転送、ChatGPTのトークンの保管（`127.0.0.1:8090`） |
+| `caddy` | 80/443。`tk2-233-26242.vs.sakura.ne.jp` のHTTPS（Let's Encrypt）。すべて `app:8080`（gate）へ送る |
+| `app` | `deploy/vps/start.sh` が2つのプロセスを動かす。gate（`scripts/vps-gate.ts`：SIWCのログイン、セッション、PoCへの転送、ChatGPTのトークンの保管 `127.0.0.1:8090`）と、PoCのサーバー（`scripts/poc-server.ts`、`127.0.0.1:8788`）。どちらかが止まったら両方を止め、Dockerがコンテナごと再起動する。PATHの先頭の `codex` は包み（`scripts/codex-siwc.ts`）で、本物はCodex CLI 0.162.1。`.poc` と `.gate` はvolume |
 
-公開するのは80/443だけ。ログインの戻り先の1456番は、VPSの `127.0.0.1` にだけ出す。トークンの口の8090番は、`app` と `gate` が共有するネットワークの `127.0.0.1` だけで待ち受ける（Caddyや外からは届かない）。
+公開するのは80/443だけ。ログインの戻り先の1456番は、VPSの `127.0.0.1` にだけ出す。トークンの口の8090番は、コンテナの中の `127.0.0.1` だけで待ち受ける（Caddyや外からは届かない）。トークンの鍵はgateだけが持ち、PoCのサーバーとCodexの環境変数には入れない。
 
 ## 入口（SIWC）
 
@@ -36,8 +35,8 @@ VPS（Ubuntu 24.04、2コア、メモリ1GBとswap 2GB）の `~/apps/survey` に
 入口のログインで、ChatGPTプランの利用の許可（`chatgpt.tokens.use.direct`）も受け取っている。Codexはそのトークンで動かし、Codexへの別のログインは要らない。
 
 - 保管：`gate` がaccess token・refresh token・期限・scopeを、AES-256-GCMで暗号化して `.gate/tokens.json` に置く。鍵 `GATE_TOKEN_KEY` はVPSの `~/apps/survey/.env`（0600）にあり、初回のデプロイで作る。許可が無いログインや鍵が無いときは保管しない。
-- 受け渡し：`GET http://127.0.0.1:8090/token?min_valid=<秒>`。残りがそれより短ければ更新してから返す（上限50分。access tokenは1時間）。refresh tokenは更新のたびに入れ替わるので、更新は同時に1つだけにし、結果を待つ。更新が400/401や別のアカウントで拒否されたらトークンを消し、再ログインを求める（409）。通信の失敗では消さない（503）。
-- 包み：`codex exec` は、`gate` から残り30分以上のトークンを受け取り、公式のapp-serverの例と同じprovider（`env_key="ACCESS_TOKEN"`、`requires_openai_auth=false`、`supports_websockets=false`）とモデル一覧の上書きを付けて、本物のCodexを起動する。`CODEX_HOME` はCodexのログイン情報の無い `~/.codex-siwc` にする。`codex login status` は、`gate` がトークンを持っていれば `Logged in using ChatGPT …` を返す（アプリの起動前の確認がそのまま通る）。ほかのコマンドは本物のCodexへ渡す。
+- 受け渡し：`GET http://127.0.0.1:8090/token?min_valid=<秒>`。残りがそれより短ければ更新してから返す（上限50分。access tokenは1時間）。refresh tokenは更新のたびに入れ替わるので、更新は同時に1つだけにし、結果を待つ。更新が400/401や別のアカウントで拒否されたらトークンを消し、再ログインを求める（409）。通信の失敗や429・5xxでは消さない（503）。更新に成功した後の本人確認で鍵の取得だけが失敗したときは、新しいトークンを保持する（古いrefresh tokenは既に使えない）。
+- 包み：`codex exec` は、`gate` から残り30分以上のトークンを受け取り、公式のapp-serverの例と同じprovider（`env_key="ACCESS_TOKEN"`、`requires_openai_auth=false`、`supports_websockets=false`）とモデル一覧の上書きを付けて、本物のCodexを起動する。`CODEX_HOME` はCodexのログイン情報の無い `~/.codex-siwc` にする。`codex login status` は、`gate` が残り30分以上のトークンを出せれば `Logged in using ChatGPT …` を返す（アプリの起動前の確認がそのまま通る）。ほかのコマンドは本物のCodexへ渡す。
 - モデル一覧の上書き：Codex 0.162は今のモデルを「Responses lite」として扱い、そのWeb検索は `/v1/alpha/search` を呼ぶ。この窓口はSIWCのトークンを401で拒否する。イメージを作るときに、同じ版の同梱の一覧（`codex-rs/models-manager/models.json`）を取得して `use_responses_lite=false` にし、`model_catalog_json` で渡す。Codexは要求にResponses APIのWeb検索の道具を付け、SIWCのトークンで使える（2026-10-12に手元で確認）。Codexを更新したら、一覧も同じ版で作り直される（`CODEX_VERSION`）。
 - Codexはshellを無効にして動かすので、sandbox（bubblewrap）は使われない見込み。最初の調査で確かめる。
 - 手元の `~/.codex/auth.json` やSIWCの資格情報はコピーしない。
@@ -67,3 +66,4 @@ VPS（Ubuntu 24.04、2コア、メモリ1GBとswap 2GB）の `~/apps/survey` に
 - メモリ1GBで、新規調査の並行実行（Codexを最大3本）が足りるか。
 - モデル一覧の上書きは公式の手順に無い回避策。lite方式をやめたことによる調査の質と時間の変化は、1問でしか確かめていない。
 - 実行中にaccess tokenが切れてもCodexは更新しない。各段階は30分より短い前提。
+- イメージを作るたびに、モデル一覧をGitHubから取得する（GitHubが落ちているとビルドが失敗する）。
