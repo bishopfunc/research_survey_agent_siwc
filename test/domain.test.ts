@@ -222,7 +222,11 @@ test('deleting a collection keeps shared history, drops unreachable commits and 
   assert.ok(!withoutLone.commits.some(c => c.id === lone.id));
   const withoutMain = deleteBranch(withoutLone, 'main');
   assert.ok(withoutMain.commits.some(c => c.id === root.id), 'the fork still reaches the shared root');
-  assert.throws(() => deleteBranch(withoutMain, 'fork'), /最後のコレクション/);
+  const none = deleteBranch(withoutMain, 'fork');
+  assert.ok(validateWorkspace(none));
+  assert.equal(none.branches.length, 1);
+  assert.equal(none.active_branch, none.branches[0].id);
+  assert.deepEqual(none.commits.map(c => [c.snapshot.title, c.snapshot.entities.length, c.parents.length]), [['新規調査', 0, 0]]);
   assert.throws(() => deleteBranch(withoutMain, 'missing'), /見つかりません/);
 });
 

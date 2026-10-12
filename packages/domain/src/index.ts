@@ -205,10 +205,15 @@ export function initialWorkspace(snapshot = fixture): Workspace {
   const c = snapshot === fixture ? sampleCommit() : makeCommit(snapshot, [], '初期サンプル', 'fixture');
   return { version: 1, commits: [c], branches: [{ id: 'main', name: 'main', head: c.id, forked_from: null }], active_branch: 'main' };
 }
-/** Removes a collection (branch). Commits still reachable from other branches stay untouched; unreachable ones are dropped. */
+/** Removes a collection (branch). Commits still reachable from other branches stay untouched; unreachable ones are dropped.
+ * The last collection can go too: an empty new survey takes its place, so the screen always has one to show. */
 export function deleteBranch(workspace: Workspace, branchId: string): Workspace {
   if (!workspace.branches.some(b => b.id === branchId)) throw Error('コレクションが見つかりません');
-  if (workspace.branches.length === 1) throw Error('最後のコレクションは削除できません');
+  if (workspace.branches.length === 1) {
+    const c = makeCommit(emptySurvey('新規調査'), [], '調査を新規作成');
+    const b = { id: crypto.randomUUID(), name: '新規調査-1', head: c.id, forked_from: null };
+    return { ...workspace, commits: [c], branches: [b], active_branch: b.id };
+  }
   const branches = workspace.branches.filter(b => b.id !== branchId);
   const byId = new Map(workspace.commits.map(c => [c.id, c]));
   const reachable = new Set<string>();
