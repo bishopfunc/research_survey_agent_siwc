@@ -25,6 +25,7 @@
 | [数十〜百本規模の調査](design/0019-survey-scale.md) | 論文の深さの2段、操作上限、調査の試験要件と採点スクリプト |
 | [書誌の補完と並行実行](design/0020-paper-enrichment-and-parallel-runs.md) | Codexの出力を減らす補完と、論文DBの区分 |
 | [論文DBと段階・並行の調査](design/0021-paper-db-and-staged-runs.md) | 固定情報・要点・引用数の表、3段階で並行に流す新規調査 |
+| [手法ツリーと課題ツリー](design/0022-timeline-trees.md) | 年を左から右、行ごとに系統。複数の系統は曲線。論文タブの代表論文 |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |
