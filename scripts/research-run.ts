@@ -29,6 +29,16 @@ const failure = (attempt: CodexAttempt) => attempt.spawnError
   ? 'Codex CLIを起動できません。インストールを確認してください'
   : `Codexの実行に失敗しました：${attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`}`;
 
+type Operation = SurveyPatch['operations'][number];
+const opKey = (op: Operation) => 'entity' in op ? `e:${op.entity.id}` : 'relation' in op ? `r:${op.relation.id}` : 'id' in op ? `${op.op === 'remove_entity' ? 'e' : 'r'}:${op.id}` : 'title';
+/** A repair that returned only the corrected operations: they replace the rejected patch's operations with the same target,
+ * new targets are appended, and everything else in the research result is kept. */
+export function mergeRepair(rejected: SurveyPatch, repaired: SurveyPatch): SurveyPatch {
+  const fixes = new Map(repaired.operations.map(op => [opKey(op), op]));
+  const merged = rejected.operations.map(op => fixes.get(opKey(op)) ?? op);
+  const known = new Set(rejected.operations.map(opKey));
+  return { ...rejected, message: repaired.message || rejected.message, follow_ups: repaired.follow_ups ?? rejected.follow_ups, operations: [...merged, ...repaired.operations.filter(op => !known.has(opKey(op)))] as SurveyPatch['operations'] };
+}
 function check(steps: ResearchSteps, step: 'research' | 'repair'): { patch?: unknown; error?: string; unchanged?: string } {
   let raw: string;
   try { raw = steps.output(step); } catch { return { error: 'Codexの出力が見つかりません' }; }
@@ -55,6 +65,12 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   if (!completed(second)) return { status: 'failed', message: `${result.error}\n修正の実行にも失敗しました：${failure(second)}`, searches };
   const repaired = check(steps, 'repair');
   if (repaired.unchanged !== undefined) return { status: 'failed', message: `修正で操作が空になりました：\n${result.error}`, searches };
-  if (repaired.error) return { status: 'failed', message: `修正後も検証に失敗しました：\n${repaired.error}`, searches };
-  return { status: 'succeeded', patch: repaired.patch as SurveyPatch, repaired: true, searches };
+  if (!repaired.error) return { status: 'succeeded', patch: repaired.patch as SurveyPatch, repaired: true, searches };
+  // Codex sometimes returns only the corrected operations of a large patch; merged back into the research result, they may validate.
+  const partial = repaired.patch as SurveyPatch | undefined, original = result.patch as SurveyPatch;
+  if (partial?.operations && original.operations && partial.operations.length < original.operations.length) {
+    const merged = mergeRepair(original, partial);
+    try { steps.validate(merged); return { status: 'succeeded', patch: merged, repaired: true, searches }; } catch { /* report the repair's own errors */ }
+  }
+  return { status: 'failed', message: `修正後も検証に失敗しました：\n${repaired.error}`, searches };
 }

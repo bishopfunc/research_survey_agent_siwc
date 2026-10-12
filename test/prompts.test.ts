@@ -149,9 +149,14 @@ test('a new survey ends with a newcomer tutorial modeled on a good field tutoria
 test('a new survey lists tens to a hundred papers and reads ten to twenty in depth, with time to write them', () => {
   assert.match(NEW_SURVEY_INSTRUCTIONS, /list the primary papers of the field broadly, about 30 to 100 of them/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /mark about 10 to 20 of them as the ones to read in depth/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Add every paper you listed, about 30–100 survey and primary Papers/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Add every paper you listed, at least 30 and up to about 100 survey and primary Papers/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /never add the same paper twice/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Fill reading \(with sources\) for the 10–20 papers you read in depth/);
   assert.ok(RESEARCH_MODES.new.timeoutSeconds >= 2700 && RESEARCH_MODES.new.repairTimeoutSeconds >= 1200);
+});
+test('the paper list does not stop below thirty, every tutorial method section cites a paper and no method is unclassified', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Do not stop below 30/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /every section cites at least one Paper, the naive baseline included/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
 });
 

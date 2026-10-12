@@ -67,4 +67,14 @@ test('follow-up requests survive a run that changed nothing', async () => {
   const none = steps({ outputs: { research: JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: '変更なし', operations: [], follow_ups: ['次に調べること'] }) } });
   assert.deepEqual(await executeResearch(none.s), { status: 'unchanged', message: '変更なし', searches: 4, follow_ups: ['次に調べること'] });
 });
+test('a repair that returns only the corrected operations is merged back into the research result', async () => {
+  const research = JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'big', operations: [{ op: 'set_title', title: 'bad' }, { op: 'add_entity', entity: { id: 'x', label: 'x' } }, { op: 'add_entity', entity: { id: 'y', label: 'y' } }] });
+  const repair = JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: 'fixed', operations: [{ op: 'set_title', title: 'good' }] });
+  const seen: number[] = [];
+  const run = steps({ outputs: { research, repair }, validate: p => { seen.push(p.operations.length); if (p.operations.length < 3 || p.operations.some(o => 'title' in o && o.title === 'bad')) throw Error('invalid'); } });
+  const outcome = await executeResearch(run.s);
+  assert.ok(outcome.status === 'succeeded' && outcome.repaired);
+  assert.deepEqual(outcome.status === 'succeeded' && outcome.patch.operations.map(o => 'title' in o ? o.title : 'entity' in o ? o.entity.id : ''), ['good', 'x', 'y']);
+  assert.deepEqual(seen, [3, 1, 3]);
+});
 
