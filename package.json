@@ -15,7 +15,7 @@
     "siwc:accounts": "node scripts/siwc.mjs accounts",
     "siwc:models": "node scripts/siwc.mjs models",
     "siwc:probe": "node scripts/siwc.mjs probe",
-    "dev:poc": "tsx scripts/poc-server.ts",
+    "dev:poc": "tsx --env-file-if-exists=.env scripts/poc-server.ts",
     "schema:types": "node scripts/generate-types.mjs",
     "typecheck": "tsc --noEmit",
     "build": "vite build --config apps/web/vite.config.ts",

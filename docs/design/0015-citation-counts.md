@@ -39,6 +39,7 @@
   - 要求はプロセス全体で直列にし、1.1秒の間隔を空ける。429と5xxは2・4・8秒待って3回まで再試行する。キーなしの429の通知は「Semantic Scholarが混み合っています（429）。少し待って再度お試しください。SEMANTIC_SCHOLAR_API_KEYで専用の枠になります」とする。
   - 任意の環境変数 `SEMANTIC_SCHOLAR_API_KEY` があれば `x-api-key` ヘッダーで送る（URL・ログ・Gitには出さない）。メールアドレスなど利用者の情報は送らない。
   - 既存の版にあるOpenAlexの引用数は書き換えない。取得元と取得日は値と一緒に表示する。
+  - キー（`OPENALEX_API_KEY`・`SEMANTIC_SCHOLAR_API_KEY`）は、リポジトリ直下のGit管理外の `.env`（権限0600）に置く。`npm run dev:poc` は `--env-file-if-exists=.env` で読む。キーはCodexの子プロセスの環境変数から外す。
 
 ## 契約とデータ
 

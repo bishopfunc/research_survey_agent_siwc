@@ -108,7 +108,7 @@ const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tok
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
 function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled' } = {}): Promise<CodexAttempt> {
   return new Promise(done => {
-    const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
+    const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY; delete env.SEMANTIC_SCHOLAR_API_KEY;
     // Run outside the repository and without project docs or user skills, so the developer AGENTS.md and skills never reach the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
     const webSearch = options.webSearch ?? (step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch);
@@ -281,7 +281,7 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === '/api/codex/status' && req.method === 'GET') {
-      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
+      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY; delete env.SEMANTIC_SCHOLAR_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });
       const installed = !status.error;
       const chatgpt = status.status === 0 && /ChatGPT/i.test(status.stdout + status.stderr);
@@ -297,7 +297,7 @@ const server = createServer(async (req, res) => {
       const useLibrary = input.use_library ?? true, library = useLibrary ? await libraryForRun(input.snapshot as SurveySnapshot, sanitizeLibrary(input.library)) : [];
       // One 調査 button for both cases: an empty survey gets the new-survey prompt, otherwise additional research.
       const mode: ResearchMode = (input.snapshot as SurveySnapshot).entities.length ? 'additional' : 'new';
-      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
+      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY; delete env.SEMANTIC_SCHOLAR_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });
       if (status.status !== 0 || !/ChatGPT/i.test(status.stdout + status.stderr)) { json(res, { error: 'CodexをChatGPTでログインしてから実行してください' }, 503); return; }
       json(res, startRun({ mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, title: null, useLibrary, library }), 202); return;
