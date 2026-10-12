@@ -110,7 +110,8 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
     // Codex creates only unverified Evidence without a content hash (codexPatchSchema).
     if (entity.type === 'Evidence') { entity.verification = 'unverified'; entity.content_hash = null; }
     // A page whose title Codex could not read comes back with title "" (a real outline checkpoint); its label names it.
-    if (entity.type === 'Resource' && !(typeof entity.title === 'string' && entity.title.trim()) && typeof entity.label === 'string' && entity.label.trim()) entity.title = entity.label.trim();
+    // A sparse replace that leaves title out keeps the stored title (streamCheckpoints), so only a sent or required title falls back.
+    if (entity.type === 'Resource' && (op.op !== 'replace_entity' || 'title' in entity) && !(typeof entity.title === 'string' && entity.title.trim()) && typeof entity.label === 'string' && entity.label.trim()) entity.title = entity.label.trim();
     const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
     if (reading && typeof reading === 'object') {
       for (const key of ['contributions', 'key_figures', 'key_formulas', 'key_sections', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }

@@ -20,7 +20,7 @@ import { busyRuns, requestFailure, requestIdentity, repeatedRequest } from './ru
 import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, budgetInstructions, timeBudget } from '../packages/agent/src/time-budget';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
-import { streamCheckpoints } from './stream-checkpoints';
+import { settleCheckpoints, streamCheckpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch, stageStep, stageTraceText } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
@@ -262,15 +262,11 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
         const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${CHECKPOINT_INSTRUCTIONS}` }), skill.timeoutSeconds, { checkpoint: line => {
           const accepted = chunks.accept(line);
           if (accepted === 'rejected' || accepted === 'held') { addTrace(run, { kind: accepted === 'rejected' ? 'error' : 'step', text: `research：途中保存の変更案を${accepted === 'rejected' ? '読めませんでした' : '後の出力と合わせて検証します'}` }); save(run); }
-        } });
-        if (!chunks.used()) return attempt;
+        }, failRunOnTimeout: false });
         const file = join(directory, outputs.research);
-        let error = attemptError(attempt);
-        if (!error) try { writeFileSync(file, chunks.finish(readFileSync(file, 'utf8')), { mode: 0o600 }); return attempt; } catch (e) { error = e instanceof Error ? e.message.split('\n')[0] : 'Codexの出力を検証できませんでした'; }
-        const saved = run.status === 'running' ? chunks.partial() : undefined;
-        if (!saved) return attempt;
-        writeFileSync(file, saved, { mode: 0o600 }); addTrace(run, { kind: 'step', text: 'research：途中保存までの結果を使います' }); save(run);
-        return { ...attempt, partial: error };
+        const settled = settleCheckpoints(chunks, attemptError(attempt), { read: () => readFileSync(file, 'utf8'), write: text => writeFileSync(file, text, { mode: 0o600 }), active: () => run.status === 'running' });
+        if (settled.partial) { addTrace(run, { kind: 'step', text: 'research：途中保存までの結果を使います' }); save(run); }
+        return { ...attempt, ...settled };
       },
       // After a cancel runCodexStep starts no process, so the run records no repair version or step either.
       repair: (patch, errors) => { if (run.status === 'running') { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); } return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), skill.repairTimeoutSeconds); },

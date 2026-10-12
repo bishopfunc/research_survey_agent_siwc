@@ -29,7 +29,7 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
   /** A free-text replace that names only the keys it changes keeps the other stored values (from an earlier checkpoint or the
    * stage's snapshot), as [keepstored] asks; the strict final output always sends every key. */
   const stored = (id: string) => [...(all?.operations ?? [])].reverse().flatMap(op => 'entity' in op && op.entity.id === id ? [op.entity] : [])[0] ?? snapshot.entities.find(e => e.id === id);
-  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => op?.op === 'replace_entity' && op.entity && stored(op.entity.id) ? { ...op, entity: { ...stored(op.entity.id), ...op.entity } } : op) }) as SurveyPatch;
+  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => op?.op === 'replace_entity' && op.entity && stored(op.entity.id)?.type === op.entity.type ? { ...op, entity: { ...stored(op.entity.id), ...op.entity } } : op) }) as SurveyPatch;
   return {
     accept(line: string): 'ignored' | 'saved' | 'held' | 'rejected' {
       if (!active()) return 'ignored';
@@ -63,6 +63,14 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
     partial(): string | undefined {
       return accepted && JSON.stringify(accepted);
     },
+    /** Every checkpoint with the final remainder, not yet validated: a follow-up's validation and repair see the whole result. */
+    combined(raw: string): string {
+      if (unreadable) throw Error('途中保存に読めない変更案があったため、最終出力を使いませんでした');
+      const patch = normalize(JSON.parse(raw)) as SurveyPatch;
+      if (!remainderShape(patch)) throw Error('最終出力がPatchの型に一致しません');
+      if (patch.base_commit_id !== baseId) throw Error('base_commit_idが一致しません');
+      return JSON.stringify(merge(all, patch));
+    },
     /** Every checkpoint with the final remainder, validated together; an empty remainder with no checkpoint changed nothing
      * and is returned as it is, with its message and follow_ups. */
     finish(raw: string): string {
@@ -79,4 +87,16 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       return JSON.stringify(merged);
     },
   };
+}
+
+export type Checkpoints = ReturnType<typeof streamCheckpoints>;
+/** Follow-up research with checkpoints (design 0034). A process that finished hands every checkpoint with its final remainder to
+ * validation and repair; one that failed (a timeout) or sent an unreadable checkpoint keeps the saved checkpoints, and fails
+ * when none were saved, instead of passing off the bare remainder as the whole result. */
+export function settleCheckpoints(chunks: Checkpoints, error: string | undefined, io: { read(): string; write(text: string): void; active(): boolean }): { partial?: string; failed?: string } {
+  if (!chunks.used()) return {};
+  if (!error) try { io.write(chunks.combined(io.read())); return {}; } catch (e) { error = (e instanceof Error ? e.message : '').split('\n')[0] || 'Codexの出力を読めませんでした'; }
+  const saved = io.active() ? chunks.partial() : undefined;
+  if (saved) { io.write(saved); return { partial: error }; }
+  return { failed: error };
 }

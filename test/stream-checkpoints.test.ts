@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptySurvey, applyPatch, fixture, snapshotSchema, type SurveyPatch } from '../packages/domain/src/index';
 import { stripCodexNulls } from '../packages/domain/src/codex-schema';
-import { streamCheckpoints } from '../scripts/stream-checkpoints';
+import { settleCheckpoints, streamCheckpoints } from '../scripts/stream-checkpoints';
 const patch = (operations: unknown[], message = 'chunk') => ({ schema_version: '0.1.0', base_commit_id: 'b', message, operations });
 const domain = { id: 'd', type: 'Domain', label: 'D', provenance: 'codex', description: 'D' };
 const event = (p: unknown) => JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: `SURVEY_CHECKPOINT\n${JSON.stringify(p)}` } });
@@ -168,4 +168,39 @@ test('a checkpoint that re-adds an ID of the base is held, and a later replace o
   const result = JSON.parse(chunks.finish(JSON.stringify(patch([{ op: 'replace_entity', entity: { ...domain, label: 'Corrected' } }]))));
   assert.deepEqual(result.operations.map((o: { op: string }) => o.op), ['replace_entity', 'add_entity']);
   assert.equal(applyPatch(base, result, 'b').entities.find(e => e.id === 'd')?.label, 'Corrected');
+});
+
+test('a follow-up hands every checkpoint with its final remainder to validation and repair; a timeout keeps the saved ones; nothing saved fails', () => {
+  const io = (raw: string) => { const box = { text: raw }; return { box, io: { read: () => box.text, write: (t: string) => { box.text = t; }, active: () => true } }; };
+  const issue = { id: 'i', type: 'Issue', kind: 'fundamental', label: 'I', description: 'I', provenance: 'codex' };
+  // Finished: a held checkpoint (forward reference) and a remainder that is not valid alone reach the repair together.
+  const held = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  assert.equal(held.accept(event(patch([{ op: 'add_relation', relation: { id: 'r', type: 'part_of', from: 'i', to: 'd' } }]))), 'held');
+  const finished = io(JSON.stringify(patch([{ op: 'add_entity', entity: issue }], 'final')));
+  assert.deepEqual(settleCheckpoints(held, undefined, finished.io), {});
+  assert.deepEqual(JSON.parse(finished.box.text).operations.map((o: { op: string }) => o.op), ['add_relation', 'add_entity']);
+  // Timed out after a saved checkpoint: the saved one is the result, with the reason.
+  const saved = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  saved.accept(event(patch([{ op: 'add_entity', entity: domain }])));
+  const late = io('');
+  assert.deepEqual(settleCheckpoints(saved, '時間切れ', late.io), { partial: '時間切れ' });
+  assert.equal(JSON.parse(late.box.text).operations.length, 1);
+  // An unreadable checkpoint and nothing saved: the bare remainder is not passed off as the whole result.
+  const broken = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  broken.accept(text(`SURVEY_CHECKPOINT ${JSON.stringify(patch([{ op: 'add_entity', entity: domain }])).slice(0, 60)}`));
+  assert.match(settleCheckpoints(broken, undefined, io(JSON.stringify(patch([{ op: 'add_entity', entity: issue }]))).io).failed!, /読めない/);
+  // No checkpoint at all: unchanged behaviour.
+  assert.deepEqual(settleCheckpoints(streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {}), '時間切れ', io('x').io), {});
+});
+test('a replace that changes the entity type takes nothing from the stored entity; a sparse Resource replace keeps its stored title', () => {
+  const issue = { id: 'i', type: 'Issue', kind: 'fundamental', label: 'I', description: 'I', provenance: 'codex' };
+  const retyped = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  retyped.accept(event(patch([{ op: 'add_entity', entity: issue }])));
+  assert.equal(retyped.accept(event(patch([{ op: 'replace_entity', entity: { id: 'i', type: 'Domain', label: 'I', provenance: 'codex', description: 'now a domain' } }]))), 'saved');
+  const resource = fixture.entities.find(e => e.type === 'Resource')!;
+  if (resource.type !== 'Resource') throw Error('fixture changed');
+  const chunks = streamCheckpoints(fixture, 'b', p => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>), () => {});
+  assert.equal(chunks.accept(event(patch([{ op: 'replace_entity', entity: { id: resource.id, type: 'Resource', provenance: 'codex', label: '短い名前', summary: '要約を直した' } }]))), 'saved');
+  const out = applyPatch(fixture, JSON.parse(chunks.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === resource.id);
+  assert.ok(out?.type === 'Resource' && out.title === resource.title && out.label === '短い名前');
 });
