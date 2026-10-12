@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { fixture, emptySurvey } from '../packages/domain/src/index';
 import { contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { buildExplainPrompt, buildSurveyPrompt } from '../packages/agent/src/prompt';
-import { addContext, canCiteAfterSave, canDispatchQueue, enqueue, keepPolling, loadQueues, nextRunStates, pollDelay, provisionalName, removeQueued, loadContexts, retryRequest, runGone } from '../apps/web/src/chat-state';
+import { addContext, canCiteAfterSave, canDispatchQueue, citeDone, citeLater, enqueue, keepPolling, loadQueues, nextRunStates, pollDelay, provisionalName, removeQueued, loadContexts, retryRequest, runGone } from '../apps/web/src/chat-state';
 const paper = fixture.entities.find(e => e.type === 'Paper')!;
 test('context selects only snapshot Papers; duplicates collapse and old requests remain valid', () => {
   assert.deepEqual(validateContextPapers(undefined, fixture), []);
@@ -44,6 +44,13 @@ test('the citation update waits while 元に戻す can bring back the discarded 
   // 元に戻す restores the run (pending); closing the toast or any save drops the offer, and the update runs.
   assert.equal(canCiteAfterSave({ ...discarded, pending: true, restorable: false }), false);
   assert.equal(canCiteAfterSave({ ...discarded, restorable: false }), true);
+});
+test('each collection keeps its own waiting citation update; a save in another collection does not drop it', () => {
+  // X saved A while B was queued, so X waits; then Y saves its proposal and its update runs.
+  const waiting = citeLater(citeLater({}, 'x'), 'y');
+  assert.deepEqual(waiting, { x: true, y: true });
+  assert.deepEqual(citeDone(waiting, 'y'), { x: true }, 'X still updates once B is saved or discarded');
+  assert.equal(citeLater(waiting, 'x'), waiting); assert.equal(citeDone(waiting, 'z'), waiting);
 });
 test('a failed poll forgets the run only on 404; other failures back off and keep it', () => {
   const failure = (status?: number) => Object.assign(Error('x'), status ? { status } : {});

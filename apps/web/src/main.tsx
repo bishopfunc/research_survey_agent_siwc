@@ -22,7 +22,7 @@ import { CardFigure, Diagrams, KeySections, arxivIdOf, useArxivData } from './Ke
 import { overviewOf, overviewSources } from '../../../packages/domain/src/overview';
 import { TutorialView } from './TutorialView';
 import { validateContextPapers } from '../../../packages/agent/src/chat-context';
-import { addContext, canCiteAfterSave, canDispatchQueue, enqueue, loadContexts, loadQueues, keepPolling, nextRunStates, pollDelay, provisionalName, removeQueued, requestTitle, retryRequest, runGone, NEW_SURVEY_TITLE, QUICK_REQUESTS, QUEUE_KEY, CONTEXT_KEY, type ChatQueues, type QueuedRequest } from './chat-state';
+import { addContext, canCiteAfterSave, canDispatchQueue, citeDone, citeLater, enqueue, loadContexts, loadQueues, keepPolling, nextRunStates, pollDelay, provisionalName, removeQueued, requestTitle, retryRequest, runGone, NEW_SURVEY_TITLE, QUICK_REQUESTS, QUEUE_KEY, CONTEXT_KEY, type ChatQueues, type CiteRequests, type QueuedRequest } from './chat-state';
 import { buildLibrary } from '../../../packages/agent/src/library';
 
 function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'send' | 'pen' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh' | 'book' | 'back'; className?: string }) {
@@ -285,8 +285,8 @@ function App() {
   // Paper cache: reuse stored papers (this survey's and the other collections') instead of re-reading them. Per-viewer preference.
   const [paperCache, setPaperCache] = useState(() => { try { return localStorage.getItem(CACHE_KEY) !== '0'; } catch { return true; } });
   function togglePaperCache() { setPaperCache(on => { try { localStorage.setItem(CACHE_KEY, on ? '0' : '1'); } catch { /* per-viewer preference only */ } return !on; }); }
-  // The collection whose Codex proposal was saved, so its new papers get their citation counts once no run or queued request is based on its head.
-  const [citeAfterSave, setCiteAfterSave] = useState<string | null>(null);
+  // The collections whose Codex proposal was saved, so their new papers get citation counts once no run or queued request is based on their head.
+  const [citeAfterSave, setCiteAfterSave] = useState<CiteRequests>({});
   const branch = workspace.branches.find(b => b.id === workspace.active_branch)!;
   const head = workspace.commits.find(c => c.id === branch.head)!;
   const commit = workspace.commits.find(c => c.id === viewId) ?? head;
@@ -452,7 +452,7 @@ function App() {
     if (!title && !head.snapshot.entities.length && next.title === NEW_SURVEY_TITLE && run.instruction?.trim()) { title = requestTitle(run.instruction); next.title = title; }
     newCommit(next, run.patch.message, 'codex', run.patch, title);
     setRun(null); dropBranchRun(branch.id, run.id);
-    if (next.entities.some(e => e.type === 'Paper' && e.citation_count === null)) setCiteAfterSave(branch.id);
+    if (next.entities.some(e => e.type === 'Paper' && e.citation_count === null)) setCiteAfterSave(current => citeLater(current, branch.id));
     // Sending already cleared the submitted draft; preserve anything typed during research or review.
   }
   /** この論文を更新 / すべての論文を更新 (design 0026): fills the papers' empty fields that public sources give mechanically
@@ -483,7 +483,7 @@ function App() {
     } catch (e) { setNotice(e instanceof Error ? e.message : '論文を更新できませんでした'); }
     finally { setUpdating(false); }
   }
-  useEffect(() => { if (canCiteAfterSave({ requested: citeAfterSave === branch.id, updating, historical, pending: !!runId, restorable: !!undo && discarded.current?.restore === undo && discarded.current.branch === branch.id, queued: queues[branch.id]?.length ?? 0 })) { setCiteAfterSave(null); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id, branch.id, historical, runId, queues, undo]);
+  useEffect(() => { if (canCiteAfterSave({ requested: !!citeAfterSave[branch.id], updating, historical, pending: !!runId, restorable: !!undo && discarded.current?.restore === undo && discarded.current.branch === branch.id, queued: queues[branch.id]?.length ?? 0 })) { setCiteAfterSave(current => citeDone(current, branch.id)); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id, branch.id, historical, runId, queues, undo]);
   function closeRun() {
     if (!run) return;
     const previous = run, owner = branch.id;

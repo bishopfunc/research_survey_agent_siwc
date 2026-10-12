@@ -34,6 +34,13 @@ export function canDispatchQueue(input: { ready: boolean; historical: boolean; s
 export function canCiteAfterSave(input: { requested: boolean; updating: boolean; historical: boolean; pending: boolean; restorable: boolean; queued: number }) {
   return input.requested && !input.updating && !input.historical && !input.pending && !input.restorable && input.queued === 0;
 }
+/** The collections whose saved proposal left papers without citation counts; each waits for its own update, so another collection's save keeps it. */
+export type CiteRequests = Record<string, true>;
+export const citeLater = (requests: CiteRequests, branch: string): CiteRequests => requests[branch] ? requests : { ...requests, [branch]: true };
+export function citeDone(requests: CiteRequests, branch: string): CiteRequests {
+  if (!requests[branch]) return requests;
+  const next = { ...requests }; delete next[branch]; return next;
+}
 /** A run is forgotten only when the server no longer has it; other failed polls (network, sleep, gate) keep it and retry. */
 export const runGone = (error: unknown) => !!error && typeof error === 'object' && (error as { status?: unknown }).status === 404;
 /** The next poll of a run: 1.6 s while it answers, doubling per failed poll up to 30 s. */
