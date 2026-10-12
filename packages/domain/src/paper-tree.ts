@@ -7,12 +7,12 @@ export interface MethodPaperTree extends PaperTree { methods: Map<string, Method
 
 /** A paper tree: years left to right, one row per issue or method, one item per paper and nothing else.
  * rowsOf gives the rows of a paper, the first being where it is placed; the layout links it to the others.
- * An arrow joins two papers when a method one proposes derives from a method the other is the representative paper of. */
+ * An arrow joins two papers when a method one proposes derives from a method the other first proposed (its origin). */
 export function buildPaperTree(snapshot: SurveySnapshot, rowOrder: string[], rowsOf: (paper: Paper) => string[]): PaperTree {
   const evolution = buildEvolution(snapshot);
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
   const links = papers.flatMap(paper => evolution.nodes.filter(n => n.papers.some(p => p.id === paper.id)).flatMap(n => n.parents.flatMap(parent => {
-    const base = evolution.nodes.find(m => m.method.id === parent.id)?.representative;
+    const base = evolution.nodes.find(m => m.method.id === parent.id)?.origin;
     return base && base.id !== paper.id ? [{ from: base.id, to: paper.id }] : [];
   })));
   const unique = [...new Map(links.map(l => [`${l.from}>${l.to}`, l])).values()];

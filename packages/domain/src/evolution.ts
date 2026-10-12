@@ -1,11 +1,13 @@
 import type { Concept, Method, Paper, Relation, SurveySnapshot } from './snapshot.types';
 import { generations, layoutTimeline, type TimelineLayout } from './timeline';
 
-export interface EvolutionNode { method: Method; papers: Paper[]; representative: Paper | null; year: number | null; parents: { id: string; type: Relation['type'] }[] }
+/** origin: the earliest registered edition among the papers proposing the method (its first proposal); the method's year. */
+export interface EvolutionNode { method: Method; papers: Paper[]; origin: Paper | null; year: number | null; parents: { id: string; type: Relation['type'] }[] }
 export interface Evolution { nodes: EvolutionNode[]; years: (number | null)[]; warnings: string[] }
 export interface MethodFamily { family: Concept | null; nodes: EvolutionNode[] }
 export interface MethodTree { layout: TimelineLayout; nodes: Map<string, EvolutionNode>; families: Map<string, Concept>; warnings: string[] }
-export const byPublication = (a: Paper, b: Paper) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.id.localeCompare(b.id);
+/** Publication order; ties by ID compared as plain strings (not localeCompare, which differs between browsers and Node). */
+export const byPublication = (a: Paper, b: Paper) => (a.year ?? Infinity) - (b.year ?? Infinity) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution {
   const methods = snapshot.entities.filter((e): e is Method => e.type === 'Method');
@@ -13,7 +15,7 @@ export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution
   const ids = new Set(methods.map(m => m.id));
   const nodes: EvolutionNode[] = methods.map(method => {
     const linked = papers.filter(p => p.proposes.includes(method.id) || snapshot.relations.some(r => r.type === 'proposes' && r.from === p.id && r.to === method.id)).sort(byPublication);
-    return { method, papers: linked, representative: linked[0] ?? null, year: linked[0]?.year ?? null,
+    return { method, papers: linked, origin: linked[0] ?? null, year: linked[0]?.year ?? null,
       parents: snapshot.relations.filter(r => ['extends', 'builds_on', 'specializes'].includes(r.type) && r.from === method.id && ids.has(r.to)).map(r => ({ id: r.to, type: r.type })) };
   }).sort((a,b) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.method.id.localeCompare(b.method.id));
   const map = new Map(nodes.map(n => [n.method.id, n]));

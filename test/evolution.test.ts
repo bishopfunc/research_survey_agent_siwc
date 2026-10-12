@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { buildEvolution, buildFamilies, buildMethodTree } from '../packages/domain/src/evolution';
 import { fixture, validateSnapshot } from '../packages/domain/src/index';
 
-test('representative papers are earliest registered editions; years and branches are preserved', () => {
+test('the origin of a method is its earliest registered edition; years and branches are preserved', () => {
   const e = buildEvolution(fixture);
   assert.deepEqual(e.years, [2012,2014,2015,2019,2020,2021,2023]);
-  assert.equal(e.nodes.find(n => n.method.id === 'pibt')?.representative?.id,'paper-pibt-2019','the IJCAI edition, not the later journal one');
-  assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.representative?.id,'paper-cbs-2012');
+  assert.equal(e.nodes.find(n => n.method.id === 'pibt')?.origin?.id,'paper-pibt-2019','the IJCAI edition, not the later journal one');
+  assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.origin?.id,'paper-cbs-2012');
   assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.papers.length,2);
   assert.equal(e.nodes.find(n => n.method.id === 'eecbs')?.parents[0].id,'ecbs');
 });
@@ -16,9 +16,9 @@ test('unknown years sort last and missing papers never get fabricated dates', ()
   next.entities.push({id:'unknown',type:'Method',label:'Unknown',description:'',provenance:'user'});
   const e = buildEvolution(next);
   assert.equal(e.years.at(-1),null);
-  assert.equal(e.nodes.find(n => n.method.id === 'unknown')?.representative,null);
+  assert.equal(e.nodes.find(n => n.method.id === 'unknown')?.origin,null);
 });
-test('methods of the same generation in a family stack in lanes, and representative ties use stable IDs', () => {
+test('methods of the same generation in a family stack in lanes, and origin ties use stable IDs', () => {
   const next = structuredClone(fixture);
   next.entities.push({id:'same-year',type:'Method',label:'Same year',description:'',provenance:'user'});
   next.entities.filter(e => e.type === 'Paper').find(e => e.id === 'paper-ecbs')!.proposes.push('same-year');
@@ -29,7 +29,7 @@ test('methods of the same generation in a family stack in lanes, and representat
   const at = (id: string) => buildMethodTree(next).layout.nodes.find(n => n.id === id)!;
   assert.deepEqual([at('ecbs').column, at('ecbs').row], [at('same-year').column, at('same-year').row]);
   assert.notEqual(at('ecbs').lane, at('same-year').lane);
-  assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.representative?.id,'a-earliest-tie');
+  assert.equal(e.nodes.find(n => n.method.id === 'cbs')?.origin?.id,'a-earliest-tie');
 });
 test('search retains ancestors and multiple parents remain explicit', () => {
   const next = structuredClone(fixture); next.relations.push({id:'multiple-parent',type:'builds_on',from:'eecbs',to:'icbs'});

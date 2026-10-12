@@ -33,7 +33,7 @@ function issuesOfPaper(snapshot: SurveySnapshot, paper: Paper, ids: Set<string>)
 /** The issue tree, drawn like the method tree: each root issue (one with no parent issue) is a row heading in the
  * leftmost column, and its sub-issues are the items of that row, generation by generation, with arrows from parent to
  * sub-issue. A sub-issue under several roots sits in the first and is linked to the others. Rows are ordered by the
- * earliest paper working on the root or its descendants (directly or through a method's representative paper). */
+ * earliest paper working on the root or its descendants (directly or through the paper that first proposed a method). */
 export function buildIssueTree(snapshot: SurveySnapshot): IssueTree {
   const { issues, ids, hierarchy } = issueHierarchy(snapshot);
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
