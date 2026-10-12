@@ -150,12 +150,12 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .tag { background: var(--color-yellow-soft); }
 .type-chip { font-weight: 600; background: var(--type-soft, var(--color-sky-soft)); }
 .issue-card h3, .paper-card h3, .keyword-card h3 { font-family: var(--font-display); font-size: 16px; font-weight: 600; line-height: 1.5; margin-bottom: var(--space-1); }
-.issue-card p, .keyword-card p { font-size: var(--text-caption); color: var(--color-muted); max-width: 72ch; }
+.issue-card p, .keyword-card p { font-size: var(--text-caption); color: var(--color-muted); }
 .card-bottom { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-3); }
 .card-bottom span { padding: 3px 10px; border-radius: var(--radius-pill); font-size: var(--text-small); background: var(--color-turquoise-soft); }
 .keyword-card .card-bottom span { background: var(--color-lavender-soft); }
 .keyword-aliases { color: var(--color-muted); }
-.tutorial { max-width: 760px; }
+.tutorial { max-width: none; }
 .tutorial>h2 { margin-bottom: var(--space-3); font-family: var(--font-display); font-size: var(--text-heading); font-weight: 700; }
 .tutorial-toc { margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); }
 .tutorial-toc ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 2px; }
@@ -214,9 +214,13 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .inspector { min-width: 0; }
 .side-panel { position: sticky; isolation: isolate; top: 56px; height: calc(100dvh - 56px); min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--color-surface); border-left: var(--rule-width) solid var(--color-line); }
 .side-tabs { display: flex; gap: var(--space-1); padding: var(--space-3) var(--space-4) 0; border-bottom: var(--rule-width) solid var(--color-line); }
-.side-tabs button { display: inline-flex; align-items: center; gap: 6px; margin-bottom: -1px; padding: var(--space-2) var(--space-3); border: 0; border-bottom: 2px solid var(--color-transparent); border-radius: 0; font-weight: 600; color: var(--color-muted); background: var(--color-transparent); }
-.side-tabs button:hover { color: var(--color-ink); background: var(--color-transparent); }
-.side-tabs button.active { color: var(--color-ink); border-bottom-color: var(--color-accent); background: var(--color-transparent); }
+.side-tab { display: inline-flex; align-items: center; margin-bottom: -1px; border-bottom: 2px solid var(--color-transparent); }
+.side-tab.active { border-bottom-color: var(--color-accent); }
+.side-tab>button[role="tab"] { display: inline-flex; align-items: center; gap: 6px; padding: var(--space-2) 4px var(--space-2) var(--space-3); border: 0; border-radius: 0; font-weight: 600; color: var(--color-muted); background: var(--color-transparent); }
+.side-tab>button[role="tab"]:hover, .side-tab.active>button[role="tab"] { color: var(--color-ink); background: var(--color-transparent); }
+.side-tab-close { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 4px; padding: 0; border: 0; border-radius: 50%; color: var(--color-faint); background: var(--color-transparent); }
+.side-tab-close:hover { color: var(--color-ink); background: var(--color-paper); }
+.side-tab-close:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .work-area.side-collapsed { grid-template-columns: minmax(0,1fr) 52px; }
 .side-rail { align-items: center; gap: var(--space-2); padding-top: var(--space-3); }
 .side-rail button, .side-toggle { position: relative; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--radius-small); color: var(--color-muted); background: var(--color-transparent); }
@@ -280,7 +284,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .muted-label { font-size: var(--text-small); color: var(--color-faint); }
 .paper-byline, .inspector>.paper-byline { margin: 0 0 var(--space-2); font-size: var(--text-small); color: var(--color-muted); overflow-wrap: anywhere; }
 .paper-reading { margin: var(--space-2) 0 0; }
-.paper-reading h4 { margin: var(--space-3) 0 2px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); }
+.paper-reading h4 { margin: var(--space-4) 0 var(--space-1); font-family: var(--font-display); font-size: var(--text-body); font-weight: 700; line-height: 1.5; color: var(--color-ink); }
 .paper-reading h4:first-child { margin-top: 0; }
 .paper-reading p, .paper-reading li { font-size: var(--text-caption); line-height: 1.8; color: var(--color-ink); overflow-wrap: anywhere; }
 .paper-reading ul { margin: 0; padding-left: 1.2em; }
@@ -440,7 +444,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .evolution-warning { padding: var(--space-2) var(--space-3); border-radius: var(--radius-small); font-size: var(--text-small); background: var(--color-yellow-soft); }
 
 /* Method and issue trees: years left to right, one row per lineage */
-.timeline { --label-width: 208px; display: flex; width: fit-content; max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); }
+.timeline { --label-width: 208px; display: flex; width: 100%; max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); }
 .timeline-labels { position: sticky; left: 0; z-index: 2; flex: 0 0 var(--label-width); background: var(--color-surface); border-right: var(--rule-width) solid var(--color-line); }
 .timeline-label { position: absolute; left: 0; right: 0; display: flex; align-items: flex-start; overflow: hidden; padding: 26px var(--space-3) 0; border-top: var(--rule-width) solid var(--color-line); font-size: var(--text-caption); font-weight: 700; }
 .timeline-label button { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0; text-align: left; font: inherit; line-height: 1.4; color: var(--color-ink); background: var(--color-transparent); overflow-wrap: anywhere; }
@@ -455,7 +459,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .short-rows .row-overview { -webkit-line-clamp: 2; }
 .timeline-status { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; font-size: var(--text-small); line-height: 1.5; color: var(--color-ink); }
 .timeline-status>span:last-child:not(.status-chip) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.timeline-canvas { position: relative; flex: 0 0 auto; }
+.timeline-canvas { position: relative; flex: 1 0 auto; }
 .timeline-year { position: absolute; top: 8px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); font-variant-numeric: tabular-nums; }
 .timeline-row { position: absolute; left: 0; right: 0; border-top: var(--rule-width) solid var(--color-line); }
 .timeline-edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
@@ -524,8 +528,8 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .resource-links a { margin-left: auto; color: var(--color-accent); }
 .detail-part { margin-top: var(--space-5); padding-top: var(--space-4); border-top: var(--rule-width) solid var(--color-line); }
 .detail-part:first-of-type { margin-top: var(--space-3); }
-.detail-part-heading { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
-.detail-part h4 { margin: var(--space-3) 0 2px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); }
+.detail-part-heading { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.detail-part h4 { margin: var(--space-4) 0 var(--space-1); font-family: var(--font-display); font-size: var(--text-body); font-weight: 700; line-height: 1.5; color: var(--color-ink); }
 .paper-abstract p { white-space: pre-wrap; }
 .source-list { display: grid; gap: 6px; margin: var(--space-2) 0 0; padding: 0; list-style: none; }
 .source { border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-small); background: var(--color-surface); }

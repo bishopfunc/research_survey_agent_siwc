@@ -58,7 +58,10 @@ test('shared rules limit tools to web search and keep sources verbatim, linked a
   for (const id of ['tools', 'untrusted', 'cache', 'facts', 'bibliography', 'nofabrication', 'keepstored']) assert.ok(PROMPT_RULES.some(r => r.id === id), id);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Research only with the web search tool\. Do not run shell commands or read local files\./);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Facts and sources: everything you extract from papers and literature-guide Resources is a fact with its source/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /Evidence copies verbatim, from a page you opened in this run or from a Paper's stored abstract \(source_url its abstract_source_url, locator "Abstract"\), one or two sentences, a table row or a theorem\./);
+  // Facts come from the full text (user instruction): the abstract is only a fallback.
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Evidence copies verbatim one or two sentences, a table row or a theorem from the full text of a page you opened in this run: the section, table, algorithm, theorem or caption that states the fact/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Do not settle for the abstract: cite it \(locator "Abstract"\) only for what the full text states nowhere else or when the full text cannot be retrieved/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /each from the full-text passages that support it \(the method section for key_idea, results tables for validation, the limitations or discussion for discussion\)/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /origin is the Paper or Resource of that page/);
   assert.ok(!SURVEY_RULES_INSTRUCTIONS.includes('abstract_only'), 'Codex may only write unverified Evidence');
   assert.match(SURVEY_RULES_INSTRUCTIONS, /A statement you cannot source is not a fact/);
@@ -241,7 +244,7 @@ test('blog search uses generic terms and covers individual authors; claims follo
 test('the prompt says which parts of a paper to read for issues, claims, evidence and achievement', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /for issues, read the problem statement in the introduction/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /For claims, collect candidates from the abstract and the contribution list at the end of the introduction, then check them against the main results tables/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /Take Evidence from where the number or guarantee is stated/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /where a number or guarantee is stated rather than merely asserted/);
 });
 test('readings translate every caption read and may name tables among the key figures', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /captions_ja: every figure, table and algorithm caption you read, faithfully translated into Japanese, each starting with its label/);

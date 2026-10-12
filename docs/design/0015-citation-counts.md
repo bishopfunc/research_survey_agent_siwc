@@ -57,3 +57,4 @@ DSLは変えない（citation_count・citation_source・citation_as_ofは既存�
 
 - OpenAlex：キーなしで利用でき無料キーで上限10倍（キーありは1日$1）、1日の枠を超えるか毎秒100件超で429、UTC 0時に回復、単体の作品は無料・一覧と絞り込みは1,000回$0.10・検索は1,000回$1（help.openalex.org の Pricing・Example costs、2026-10-12確認）、1つの絞り込みに最大100件のOR、`cited_by_count` による絞り込みと値（help.openalex.org の Rate limits and authentication・Filter works、2026-10-12確認）。
 - Semantic Scholar：キーなしの利用は全利用者で共有の上限、キーありは初期1 RPS（semanticscholar.org/product/api、2026-10-12確認）。
+- 2026-10-12追記：「引用数を更新」は「すべての論文を更新」に変わり、引用数とあわせて空いている書誌・アブストラクト・コード公開も埋める（[0026](0026-detail-overview-and-figures.md)の追記）。

@@ -15,6 +15,14 @@ function paperKey(p: Paper) {
   return `title:${p.title.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}:${p.year ?? ''}`;
 }
 
+/** The Evidence a paper's reading cites, and whether any of it comes from the full text rather than the abstract
+ * (user instruction: facts and sources come from the body, not only the abstract). */
+export function readingSources(snapshot: SurveySnapshot, paper: Paper) {
+  const ids = new Set([...(paper.reading?.evidence ?? []), ...Object.values(paper.reading?.cites ?? {}).flatMap(list => list ?? [])]);
+  const evidence = snapshot.entities.filter((e): e is Extract<SurveySnapshot['entities'][number], { type: 'Evidence' }> => e.type === 'Evidence' && ids.has(e.id));
+  return { evidence, fromBody: evidence.some(e => !/^\s*abstract\b/i.test(e.locator)) };
+}
+
 export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const t = SURVEY_TARGETS;
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
@@ -22,7 +30,8 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const issues = snapshot.entities.filter(e => e.type === 'Issue');
   const families = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && snapshot.entities.some((e): e is Concept => e.id === r.to && e.type === 'Concept')).map(r => r.to));
   const inFamily = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && families.has(r.to)).map(r => r.from));
-  const deep = papers.filter(p => p.reading && ((p.reading.evidence?.length ?? 0) > 0 || Object.values(p.reading.cites ?? {}).some(ids => ids?.length) || (p.reading.sources?.length ?? 0) > 0) && p.reading.contributions.length > 0);
+  // Read in depth: a reading with contributions whose sources include the full text (older readings: a non-abstract source locator).
+  const deep = papers.filter(p => p.reading && p.reading.contributions.length > 0 && (readingSources(snapshot, p).fromBody || (p.reading.sources ?? []).some(s => !/^\s*abstract\b/i.test(s.locator))));
   const identified = papers.filter(p => p.year !== null && (p.doi || p.arxiv_id || p.url));
   // A paper is placed in the map when something in the survey points at it, or it points at a method or issue.
   const cited = new Set<string>();
@@ -43,7 +52,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const check = (id: string, label: string, pass: boolean, detail: string): SurveyCheck => ({ id, label, pass, detail });
   return [
     check('papers', `論文が${t.papers}本以上（目標は数十〜百本）`, papers.length >= t.papers, `${papers.length}本`),
-    check('deep', `${t.deepRead}本以上を本文まで読み、出典つきの要点がある`, deep.length >= t.deepRead, `${deep.length}本`),
+    check('deep', `${t.deepRead}本以上を本文まで読み、本文の出典つきの要点がある`, deep.length >= t.deepRead, `${deep.length}本`),
     check('identified', 'すべての論文に年とDOI・arXiv ID・URLのいずれか', papers.length > 0 && identified.length === papers.length, `${identified.length}/${papers.length}`),
     check('placed', 'すべての論文が手法・課題・ナレッジ・チュートリアルのどれかにつながる', papers.length > 0 && placed.length === papers.length, `${placed.length}/${papers.length}`),
     check('unique', '同じ論文が重複していない', duplicates === 0, `重複${duplicates}`),
@@ -77,6 +86,7 @@ export function findGaps(snapshot: SurveySnapshot): SurveyGap[] {
     }
     if (e.type === 'Paper') {
       if (e.year === null) gap(e.id, 'year', '年が無い');
+      if (e.reading && e.reading.contributions.length && !readingSources(snapshot, e).fromBody) gap(e.id, 'reading.cites', '要点の出典がアブストラクトだけで、本文の出典が無い');
       if (!e.doi && !e.arxiv_id && !e.url) gap(e.id, 'doi/arxiv_id/url', '識別子が無い');
     }
     if (e.type === 'Keyword') {

@@ -21,6 +21,7 @@ import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citati
 import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 import { sanitizeLibrary } from '../packages/agent/src/library';
 import { enrichPatch } from './enrich';
+import { parseRefreshRequest, refreshPapers } from './paper-refresh';
 import { openSqlite, fileBlobStore } from '../packages/storage/src/node';
 import { libraryKey, paperLibrary } from '../packages/storage/src/index';
 import { libraryEntry, MAX_LIBRARY_CHARS, MAX_LIBRARY_PAPERS } from '../packages/agent/src/library';
@@ -101,8 +102,14 @@ async function libraryForRun(snapshot: SurveySnapshot, fromBrowser: Record<strin
   return out;
 }
 function warmFigures(patch: SurveyPatch) {
-  const ids = patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' && op.entity.reading?.key_figures?.length ? [parseArxivId(op.entity.arxiv_id, op.entity.url)] : []).filter((id): id is string => !!id);
-  void (async () => { for (const id of [...new Set(ids)]) { try { if (!(await readArxivCache(id))) await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ } } })();
+  void warmArxiv(patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' && op.entity.reading?.key_figures?.length ? [parseArxivId(op.entity.arxiv_id, op.entity.url)] : []).filter((id): id is string => !!id));
+}
+/** Fetches in the background, through the arXiv queue (15 s apart), the figures of the papers not fetched yet; returns how many. */
+async function warmArxiv(ids: string[]) {
+  const missing: string[] = [];
+  for (const id of new Set(ids)) if (!(await readArxivCache(id))) missing.push(id);
+  void (async () => { for (const id of missing) { try { await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ } } })();
+  return missing.length;
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
@@ -265,6 +272,16 @@ const server = createServer(async (req, res) => {
       const papers = parseCitationRequest(await body(req));
       const lookup = await lookupCitations(papers, target => fetch(target, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json' } }), process.env.OPENALEX_API_KEY);
       json(res, { source: CITATION_SOURCE, as_of: today(), ...lookup }); return;
+    }
+    // この論文を更新 / すべての論文を更新 (design 0026): empty fields from public sources and current citation counts.
+    if (url.pathname === '/api/papers/refresh' && req.method === 'POST') {
+      if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
+      let papers: Record<string, unknown>[];
+      try { papers = parseRefreshRequest(await body(req)); } catch { json(res, { error: 'INVALID_INPUT' }, 400); return; }
+      const result = await refreshPapers(papers, target => fetch(target, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'application/json, application/atom+xml' } }), today(), arxivApi, process.env.OPENALEX_API_KEY);
+      // The arXiv figures, tables and sections of the papers not fetched yet follow in the background (15 s apart).
+      const figures_queued = await warmArxiv(papers.map(p => { const filled = result.papers.find(r => r.id === p.id)?.fields ?? {}; return parseArxivId((filled.arxiv_id ?? p.arxiv_id) as string | null, (filled.url ?? p.url) as string | null); }).filter((id): id is string => !!id));
+      json(res, { as_of: today(), ...result, figures_queued }); return;
     }
     const arxiv = url.pathname.match(/^\/api\/arxiv-figures\/([^/]+)$/);
     if (arxiv && (req.method === 'GET' || req.method === 'POST')) {

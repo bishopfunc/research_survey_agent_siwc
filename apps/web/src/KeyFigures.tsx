@@ -53,7 +53,7 @@ export function Images({ figure }: { figure: ArxivFigure }) {
 }
 
 /** The paper's arXiv figures, algorithms, equations and sections: the saved result, or one fetch when the paper is opened.
- * load(true) is 最新を取得: it fetches the page again past the saved result. */
+ * load(true) is part of この論文を更新: it fetches the page again past the saved result. */
 export function useArxivData(id: string | null, preview: boolean) {
   const [data, setData] = useState<ArxivFigures | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
