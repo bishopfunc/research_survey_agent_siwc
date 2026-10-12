@@ -33,3 +33,7 @@ Codexの編集Prompt（`survey-editor/4`）に、abstractとexcerptはアプリ�
 ## 検証と完了条件
 
 既存Paperの互換、abstractとURLの組み合わせ、危険なURLの拒否、Patchによる追加と元snapshotの不変、abstract_onlyの断片必須、Promptの規則、Labの型表示を確認する。必須checkとWorker dry-runを実施する。
+
+## 追記：和訳（2026-10-12）
+
+ユーザー指示でアブストラクトを和訳する。原文の `abstract` は置き換えず、和訳は任意の `abstract_ja` に入れる。和訳には原文が必須（原文が無い和訳は拒否）。画面は和訳を先に出し、原文へ切り替えられる。調査にある論文の和訳は保存済みの原文から作り、論文を読み直さない（[0014](0014-expert-catch-up-survey.md)）。

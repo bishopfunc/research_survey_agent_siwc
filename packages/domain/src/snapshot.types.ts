@@ -35,6 +35,16 @@ export interface Issue {
   type: "Issue";
   description: string;
   kind: "fundamental" | "subproblem" | "method_dependent";
+  /**
+   * @maxItems 5
+   */
+  english_terms?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
 }
 export interface Method {
   id: string;
@@ -55,6 +65,8 @@ export interface Paper {
   one_line_summary: string;
   abstract?: string | null;
   abstract_source_url?: string | null;
+  abstract_ja?: string | null;
+  reading?: Reading | null;
   citation_count: number | null;
   citation_source: string | null;
   citation_as_of: string | null;
@@ -70,6 +82,14 @@ export interface Paper {
   code_url?: string | null;
   code_checked_at?: string | null;
   representative_figure?: Figure | null;
+}
+export interface Reading {
+  contributions: string[];
+  novelty: string;
+  key_idea: string;
+  validation: string;
+  discussion: string;
+  key_figures: string[];
 }
 export interface Figure {
   asset_id: string;
@@ -127,8 +147,10 @@ export interface Keyword {
     | "hardware"
     | "simulator"
     | "metric"
-    | "task"
+    | "sota"
+    | "model"
     | "baseline"
+    | "task"
     | "concept"
     | "method"
     | "other";
@@ -136,6 +158,7 @@ export interface Keyword {
   papers: string[];
   related: string[];
   official_url?: string | null;
+  as_of?: string | null;
   definition_excerpt: string;
   source_url: string | null;
   locator: string | null;

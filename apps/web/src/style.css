@@ -214,8 +214,9 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .paper-abstract { margin: var(--space-2) 0; padding: 10px var(--space-3); background: var(--color-paper); border-radius: var(--radius-small); font-size: var(--text-caption); }
 .paper-abstract summary { cursor: pointer; font-weight: 600; }
 .paper-abstract p { margin: var(--space-2) 0; line-height: 1.8; color: var(--color-ink); overflow-wrap: anywhere; }
-.form-fields>label.wide { grid-column: 1/-1; }
+.form-fields>label.wide, .form-fields fieldset>label.wide { grid-column: 1/-1; }
 .form-fields>label.wide textarea { min-height: 140px; }
+.form-fields fieldset>label.wide textarea { min-height: 96px; }
 .inspector blockquote { margin: 10px 0; padding: 10px var(--space-3); background: var(--color-paper); border-left: 3px solid var(--color-yellow); border-radius: var(--radius-small); font-size: var(--text-caption); line-height: 1.8; color: var(--color-muted); overflow-wrap: anywhere; }
 .detail-section { margin-top: var(--space-4); padding-top: var(--space-4); border-top: var(--rule-width) solid var(--color-line); }
 .detail-section h3 { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-family: var(--font-display); font-size: var(--text-caption); font-weight: 700; }
@@ -232,6 +233,54 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .inspector .paper-figure img { border-radius: var(--radius-small); }
 .figure-action { width: 100%; font-size: var(--text-small); }
 .detail-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: var(--space-3); font-size: var(--text-caption); font-weight: 500; }
+/* Status of a claim: how far an issue is achieved, or how a paper's claim stands. */
+.status-chip { flex-shrink: 0; display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; line-height: 1.7; color: var(--color-ink); background: var(--color-paper); white-space: nowrap; }
+.status-chip.open { background: var(--color-peach-soft); } .status-chip.partially_solved { background: var(--color-yellow-soft); } .status-chip.solved { background: var(--color-green-soft); } .status-chip.disputed { background: var(--color-rose-soft); }
+.english-terms, .inspector>.english-terms { margin: 2px 0 var(--space-2); font-size: var(--text-small); line-height: 1.6; color: var(--color-faint); overflow-wrap: anywhere; }
+.issue-card .english-terms { margin: -2px 0 6px; font-size: var(--text-small); color: var(--color-faint); }
+.achievement-line { display: flex; align-items: baseline; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--text-small); color: var(--color-ink); }
+.issue-card .achievement-line { font-size: var(--text-small); color: var(--color-ink); }
+.achievement-line>span:last-child { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.claim-row { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; padding: var(--space-2); border: 0; border-radius: var(--radius-small); text-align: left; font-size: var(--text-caption); line-height: 1.7; color: var(--color-ink); background: var(--color-transparent); }
+.claim-row:hover { color: var(--color-ink); background: var(--color-accent-soft); border-color: var(--color-transparent); }
+.claim-row>span:last-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.claim-row small, .claim-row q { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 2px; font-size: var(--text-small); color: var(--color-muted); }
+.muted-label { font-size: var(--text-small); color: var(--color-faint); }
+.paper-byline, .inspector>.paper-byline { margin: 0 0 var(--space-2); font-size: var(--text-small); color: var(--color-muted); overflow-wrap: anywhere; }
+.paper-reading { margin: var(--space-2) 0 0; }
+.paper-reading h3 { margin: var(--space-3) 0 2px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; color: var(--color-muted); }
+.paper-reading h3:first-child { margin-top: 0; }
+.paper-reading p, .paper-reading li { font-size: var(--text-caption); line-height: 1.8; color: var(--color-ink); overflow-wrap: anywhere; }
+.paper-reading ul { margin: 0; padding-left: 1.2em; }
+.paper-reading .muted-label { margin-top: var(--space-2); font-size: var(--text-small); color: var(--color-faint); }
+.text-toggle { padding: 0; border: 0; font-size: var(--text-caption); font-weight: 500; color: var(--color-accent); background: var(--color-transparent); }
+.text-toggle:hover { color: var(--color-accent-hover); background: var(--color-transparent); text-decoration: underline; text-underline-offset: 3px; }
+.knowledge-chips, .method-families { display: flex; flex-wrap: wrap; gap: 6px; }
+.method-families { margin-bottom: var(--space-2); }
+.method-families button { border: 0; padding: 2px 10px; font-size: var(--text-small); }
+.knowledge-chips button { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; padding: 3px 10px; border: 0; font-size: var(--text-small); background: var(--color-rose-soft); }
+.knowledge-chips small { font-size: 10px; color: var(--color-muted); }
+.as-of { display: inline-block; margin-left: var(--space-2); font-size: 11px; color: var(--color-muted); }
+.card-top .as-of { margin-left: auto; }
+.follow-ups { display: grid; gap: 6px; }
+.follow-ups button { display: flex; align-items: flex-start; gap: var(--space-2); padding: 9px var(--space-3); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); text-align: left; font-size: var(--text-caption); line-height: 1.6; color: var(--color-ink); background: var(--color-surface); }
+.follow-ups button:hover { color: var(--color-ink); background: var(--color-accent-soft); border-color: var(--color-accent); }
+.follow-ups .icon { width: 15px; height: 15px; margin-top: 3px; color: var(--color-accent); }
+.family-groups { display: grid; gap: var(--space-5); margin-top: var(--space-4); }
+.family-group h3 { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 4px; font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.family-group h3 button { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: 0; font: inherit; color: var(--color-ink); background: var(--color-transparent); }
+.family-group h3 button:hover { color: var(--color-accent); background: var(--color-transparent); }
+.family-group h3 .connection-dot { width: 10px; height: 10px; }
+.family-none { color: var(--color-muted); }
+.family-description { margin-bottom: var(--space-2); font-size: var(--text-caption); line-height: 1.7; color: var(--color-muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 80ch; }
+.family-group ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.family-group li button { display: grid; grid-template-columns: 52px minmax(0,1fr); gap: var(--space-3); width: 100%; padding: 10px 14px; border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); text-align: left; color: var(--color-ink); background: var(--color-surface); }
+.family-group li button:hover, .family-group li button.chosen { color: var(--color-ink); background: var(--color-surface); border-color: var(--color-accent); }
+.family-year { font-family: var(--font-display); font-size: var(--text-caption); font-weight: 700; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.family-method { min-width: 0; }
+.family-method strong { font-size: var(--text-body); }
+.family-method small { margin-left: var(--space-2); font-size: var(--text-small); color: var(--color-muted); }
+.family-method>span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; margin-top: 2px; font-size: var(--text-caption); color: var(--color-muted); }
 
 .connection-map { margin: var(--space-3) 0 0; padding: var(--space-2); border-radius: var(--radius-panel); background: var(--gradient-brand); overflow: clip; }
 .connection-canvas { position: relative; width: 100%; max-width: 440px; margin: 0 auto; aspect-ratio: 320 / 260; container-type: inline-size; }

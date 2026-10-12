@@ -221,3 +221,71 @@ test('deleting a collection keeps shared history, drops unreachable commits and 
   assert.throws(() => deleteBranch(withoutMain, 'fork'), /最後のコレクション/);
   assert.throws(() => deleteBranch(withoutMain, 'missing'), /見つかりません/);
 });
+
+test('expert-survey fields: English issue terms, a translation tied to its original, complete paper reading and dated SOTA', () => {
+  const input = structuredClone(fixture);
+  const issue = input.entities.find(e => e.id === 'scalability');
+  const paper = input.entities.find(e => e.id === 'paper-ecbs');
+  const keyword = input.entities.find(e => e.id === 'kw-makespan');
+  if (issue?.type !== 'Issue' || paper?.type !== 'Paper' || keyword?.type !== 'Keyword') throw Error('fixture changed');
+  assert.ok(fixture.entities.some(e => e.type === 'Paper' && e.reading?.contributions.length));
+  issue.english_terms = ['scalability', 'scalability'];
+  assert.match(validateSnapshot(input).join(), /english_terms/);
+  issue.english_terms = ['a', 'b', 'c', 'd', 'e', 'f'] as unknown as typeof issue.english_terms;
+  assert.match(validateSnapshot(input).join(), /english_terms/);
+  issue.english_terms = ['scalability'];
+  paper.abstract_ja = '和訳だけ';
+  assert.match(validateSnapshot(input).join(), /和訳には元のアブストラクト/);
+  paper.abstract = 'Original abstract.'; paper.abstract_source_url = 'https://example.org/abs';
+  assert.deepEqual(validateSnapshot(input), []);
+  // From an abstract alone some fields stay empty; that is allowed.
+  paper.reading = { contributions: ['貢献'], novelty: '差', key_idea: 'キモ', validation: '', discussion: '', key_figures: [] };
+  assert.deepEqual(validateSnapshot(input), []);
+  paper.reading = { contributions: [''], novelty: '差', key_idea: 'キモ', validation: '検証', discussion: '議論', key_figures: [] };
+  assert.match(validateSnapshot(input).join(), /contributions/);
+  paper.reading = { contributions: ['貢献'], novelty: '差', key_idea: 'キモ', validation: '検証', discussion: '議論', key_figures: ['Fig. 1: 全体像'] };
+  assert.deepEqual(validateSnapshot(input), []);
+  paper.reading = null;
+  assert.deepEqual(validateSnapshot(input), []);
+  keyword.category = 'sota';
+  assert.match(validateSnapshot(input).join(), /SOTAには時点/);
+  keyword.as_of = '2026-10-12';
+  assert.match(validateSnapshot(input).join(), /SOTAには時点/);
+  keyword.papers = ['paper-eecbs'];
+  assert.deepEqual(validateSnapshot(input), []);
+  keyword.as_of = '2026/10/12';
+  assert.match(validateSnapshot(input).join(), /as_of/);
+  keyword.as_of = '2026-10-12'; keyword.category = 'model';
+  assert.deepEqual(validateSnapshot(input), []);
+});
+
+test('a patch carries at most three follow-up requests; Codex output keeps three trimmed, non-empty ones', () => {
+  const head = makeCommit(fixture, [], 'base');
+  const base = { schema_version: '0.1.0' as const, base_commit_id: head.id, message: 'm', operations: [{ op: 'set_title' as const, title: 't' }] };
+  assert.doesNotThrow(() => applyPatch(fixture, { ...base, follow_ups: ['a', 'b', 'c'] } as SurveyPatch, head.id));
+  assert.throws(() => applyPatch(fixture, { ...base, follow_ups: ['a', 'b', 'c', 'd'] } as unknown as SurveyPatch, head.id));
+  assert.throws(() => applyPatch(fixture, { ...base, follow_ups: [''] } as unknown as SurveyPatch, head.id));
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  assert.deepEqual((stripCodexNulls({ ...base, follow_ups: [' 一つ目 ', '', '一つ目', '二つ目', '三つ目', '四つ目'] }, defs) as SurveyPatch).follow_ups, ['一つ目', '二つ目', '三つ目']);
+  assert.equal((stripCodexNulls({ ...base, follow_ups: ['あ'.repeat(250)] }, defs) as SurveyPatch).follow_ups?.[0]?.length, 200);
+  assert.throws(() => applyPatch(fixture, { ...base, follow_ups: ['a', 'a'] } as unknown as SurveyPatch, head.id));
+  assert.ok(!('follow_ups' in (stripCodexNulls({ ...base, follow_ups: null }, defs) as object)));
+  assert.ok(!('follow_ups' in (stripCodexNulls({ ...base, follow_ups: ['  '] }, defs) as object)));
+  const strict = codexPatchSchema(patchSchema) as { properties: Record<string, unknown>; required: string[] };
+  assert.ok(strict.required.includes('follow_ups'));
+});
+
+test('mechanical slips in English terms and reading are tidied before validation instead of costing a repair run', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const issue = { ...fixture.entities.find(e => e.id === 'scalability')!, english_terms: [' scalability', 'scalability', '', 'a', 'b', 'c', 'd', 'e'] };
+  const paper = { ...fixture.entities.find(e => e.id === 'paper-ecbs')!, reading: { contributions: ['貢献', ' ', '貢献'], novelty: ' 差 ', key_idea: '', validation: '', discussion: '', key_figures: [''] } };
+  const empty = { ...fixture.entities.find(e => e.id === 'paper-icbs')!, reading: { contributions: [''], novelty: ' ', key_idea: '', validation: '', discussion: '', key_figures: [] } };
+  const out = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: issue }, { op: 'replace_entity', entity: paper }, { op: 'replace_entity', entity: empty }] }, defs) as { operations: { entity: Record<string, unknown> }[] };
+  assert.deepEqual(out.operations[0].entity.english_terms, ['scalability', 'a', 'b', 'c', 'd']);
+  assert.deepEqual(out.operations[1].entity.reading, { contributions: ['貢献'], novelty: '差', key_idea: '', validation: '', discussion: '', key_figures: [] });
+  assert.equal(out.operations[2].entity.reading, null);
+  const snapshot = structuredClone(fixture);
+  snapshot.entities = snapshot.entities.map(e => (out.operations.find(o => o.entity.id === e.id)?.entity as unknown as typeof e | undefined) ?? e);
+  assert.deepEqual(validateSnapshot(snapshot), []);
+});
+

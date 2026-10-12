@@ -8,7 +8,7 @@ import { createInterface } from 'node:readline';
 import { createServer as createVite } from 'vite';
 import { applyPatch, snapshotSchema, validateSnapshot, type SurveySnapshot, type SurveyPatch } from '../packages/domain/src/index';
 import { patchSchema } from '../packages/domain/src/index';
-import { buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, promptVersion, REPAIR_PROMPT_VERSION, REPAIR_TIMEOUT_SECONDS, RESEARCH_MODES, type ResearchMode } from '../packages/agent/src/prompt';
+import { buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, promptVersion, REPAIR_PROMPT_VERSION, RESEARCH_MODES, type ResearchMode } from '../packages/agent/src/prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -19,7 +19,7 @@ const origin = `http://127.0.0.1:${port}`;
 const storage = resolve('.poc/runs');
 const MAX_LOG_BYTES = 2_000_000;
 mkdirSync(storage, { recursive: true, mode: 0o700 });
-type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch };
+type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[] };
 const MAX_TRACE = 120;
 function addTrace(run: Run, item: TraceItem) { run.trace = [...run.trace, { ...item, at: new Date().toISOString() }].slice(-MAX_TRACE); }
 const runs = new Map<string, Run>();
@@ -87,9 +87,11 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: promptVersion(input.mode), searches: 0, message: 'Codexが調査しています', trace: [] };
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
+  // One research date for the run, so a repair can fill a missing as_of with the same day.
+  const asOf = today();
   void executeResearch({
-    research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ ...input, as_of: today() }), RESEARCH_MODES[input.mode].timeoutSeconds),
-    repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors }), REPAIR_TIMEOUT_SECONDS); },
+    research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ ...input, as_of: asOf }), RESEARCH_MODES[input.mode].timeoutSeconds),
+    repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), RESEARCH_MODES[input.mode].repairTimeoutSeconds); },
     output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
     normalize: patch => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>),
     validate: patch => { const next = applyPatch(input.snapshot, patch, input.base_commit_id); assertFigureAssets(next, resolve('.poc/figures')); },
@@ -97,8 +99,8 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
   }).then(outcome => {
     if (outcome.status === 'stopped' || run.status !== 'running') return;
-    if (outcome.status === 'succeeded') { run.patch = outcome.patch; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
-    else if (outcome.status === 'unchanged') { run.status = 'succeeded'; run.message = `変更はありません：${outcome.message}`.slice(0, 1600); }
+    if (outcome.status === 'succeeded') { run.patch = outcome.patch; run.follow_ups = outcome.patch.follow_ups; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
+    else if (outcome.status === 'unchanged') { run.status = 'succeeded'; run.follow_ups = outcome.follow_ups; run.message = `変更はありません：${outcome.message}`.slice(0, 1600); }
     else { run.status = 'failed'; run.message = outcome.message.slice(0, 1600); }
     save(run);
   }).catch(error => { if (run.status === 'running') { run.status = 'failed'; run.message = error instanceof Error ? error.message.slice(0, 1600) : '調査に失敗しました'; save(run); } })

@@ -63,3 +63,8 @@ test('Codex output is normalized before validation', async () => {
   assert.ok(outcome.status === 'succeeded' && outcome.patch.message === 'normalized');
   assert.deepEqual(seen, ['normalized']);
 });
+test('follow-up requests survive a run that changed nothing', async () => {
+  const none = steps({ outputs: { research: JSON.stringify({ schema_version: '0.1.0', base_commit_id: 'b', message: '変更なし', operations: [], follow_ups: ['次に調べること'] }) } });
+  assert.deepEqual(await executeResearch(none.s), { status: 'unchanged', message: '変更なし', searches: 4, follow_ups: ['次に調べること'] });
+});
+

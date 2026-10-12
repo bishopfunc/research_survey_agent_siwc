@@ -73,6 +73,7 @@ export function validateSnapshot(value: unknown): string[] {
       if (e.abstract?.trim() && !e.abstract_source_url) errors.push(`${e.id}: アブストラクトには取得元のURLが必要です`);
       if (e.abstract_source_url && !e.abstract?.trim()) errors.push(`${e.id}: アブストラクトの原文が無いのに取得元URLがあります`);
       if (e.abstract_source_url && !/^https?:\/\//.test(e.abstract_source_url)) errors.push(`${e.id}: アブストラクトの取得元URLはhttp/httpsのみ対応します`);
+      if (e.abstract_ja?.trim() && !e.abstract?.trim()) errors.push(`${e.id}: 和訳には元のアブストラクト（原文）が必要です`);
       if (e.code_url && !/^https?:\/\//.test(e.code_url)) errors.push(`${e.id}: コードURLはhttp/httpsのみ対応します`);
       if (code === 'public' && (!e.code_url || !e.code_checked_at)) errors.push(`${e.id}: コード公開ありには公開URLと確認日が必要です`);
       if (code === 'not_found' && (!e.code_checked_at || e.code_url)) errors.push(`${e.id}: コードが見つからずには確認日が必要で、公開URLは空にしてください`);
@@ -93,8 +94,9 @@ export function validateSnapshot(value: unknown): string[] {
       for (const id of e.papers) reference(e.id, id, ['Paper']);
       for (const id of e.related) reference(e.id, id, ['Issue', 'Method', 'Concept', 'Domain']);
       if (e.definition_excerpt.trim() && !e.source_url) errors.push(`${e.id}: 定義の原文には取得元URLが必要です`);
-      if (e.source_url && !/^https?:\/\//.test(e.source_url)) errors.push(`${e.id}: キーワードの出典はhttp/httpsのみ対応します`);
+      if (e.source_url && !/^https?:\/\//.test(e.source_url)) errors.push(`${e.id}: ナレッジの出典はhttp/httpsのみ対応します`);
       if (e.official_url && !/^https?:\/\//.test(e.official_url)) errors.push(`${e.id}: 公式ページはhttp/httpsのみ対応します`);
+      if (e.category === 'sota' && (!e.as_of || !e.papers.length)) errors.push(`${e.id}: SOTAには時点（as_of）と根拠の論文が必要です`);
     }
   }
   const typed = RELATION_ENDPOINTS;

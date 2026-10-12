@@ -15,7 +15,11 @@
       "provenance": "fixture",
       "type": "Issue",
       "description": "複数のエージェントが衝突せずに目的地へ到達する経路を求める。",
-      "kind": "fundamental"
+      "kind": "fundamental",
+      "english_terms": [
+        "multi-agent path finding (MAPF)",
+        "collision-free paths"
+      ]
     },
     {
       "id": "scalability",
@@ -23,7 +27,11 @@
       "provenance": "fixture",
       "type": "Issue",
       "description": "エージェント数や競合の増加に対して探索をどう抑えるか。",
-      "kind": "subproblem"
+      "kind": "subproblem",
+      "english_terms": [
+        "scalability",
+        "large numbers of agents"
+      ]
     },
     {
       "id": "optimality",
@@ -31,7 +39,11 @@
       "provenance": "fixture",
       "type": "Issue",
       "description": "最適解の保証と、実用的な計算時間の間にあるトレードオフ。",
-      "kind": "subproblem"
+      "kind": "subproblem",
+      "english_terms": [
+        "optimality",
+        "bounded suboptimality"
+      ]
     },
     {
       "id": "tree",
@@ -39,7 +51,10 @@
       "provenance": "fixture",
       "type": "Issue",
       "description": "CBSの競合解消で探索する制約木が増大する問題。",
-      "kind": "method_dependent"
+      "kind": "method_dependent",
+      "english_terms": [
+        "constraint tree (CT)"
+      ]
     },
     {
       "id": "cbs",
@@ -56,15 +71,36 @@
       "description": "bounded-suboptimalな探索を用いるCBSの系統。表示確認用。"
     },
     {
+      "id": "family-cbs",
+      "label": "コンフリクトベース探索（CBS系）",
+      "provenance": "fixture",
+      "type": "Concept",
+      "description": "衝突ごとに制約を加えて探索木を分岐し、各エージェントは単独で経路を探す2段階の探索。最適解を求める系統（CBS・ICBS）と、解の質の上限を保って速くする準最適の系統（ECBS・EECBS）がある。"
+    },
+    {
       "id": "paper-cbs",
       "label": "CBS (2015)",
       "provenance": "fixture",
       "type": "Paper",
       "title": "Conflict-based search for optimal multi-agent pathfinding",
       "year": 2015,
-      "venue": "Artificial Intelligence",
+      "venue": "AIJ",
       "venue_type": "journal",
       "one_line_summary": "競合を制約木で解消するMAPF探索。サンプルの要約は本文未検証。",
+      "reading": {
+        "contributions": [
+          "衝突ごとに制約を加える上位の探索（制約木）と、各エージェント単独の下位の探索に分けた2段階の最適MAPFソルバCBSを提案",
+          "CBSが和コスト（Sum-of-costs）について最適かつ完全であることを示した",
+          "衝突の多いエージェントを統合するMA-CBS（Meta-Agent CBS）への一般化"
+        ],
+        "novelty": "A*系の手法のようにエージェントを結合した状態空間を探索しないため、ボトルネックが多く衝突の少ない地図で大幅に速い。",
+        "key_idea": "2エージェントが同じ時刻に同じ場所を使う衝突を見つけたら、どちらかに制約を課す2つの子ノードへ分岐し、各エージェントは制約の下で単独に最短経路を探す。",
+        "validation": "グリッド地図とゲーム（Dragon Age: Origins）の地図で、A*系の手法やICTSと成功率・実行時間を比較した。",
+        "discussion": "開けた地図で衝突が多いと制約木が指数的に大きくなり遅くなる。MA-CBSで緩和するが、統合の閾値の選び方に性能が依存する。評価は4近傍のグリッドが中心。",
+        "key_figures": [
+          "制約木（CT）の展開例：衝突から2つの子ノードへの分岐"
+        ]
+      },
       "citation_count": null,
       "citation_source": null,
       "citation_as_of": null,
@@ -361,6 +397,26 @@
       "definition_excerpt": "",
       "source_url": null,
       "locator": null
+    },
+    {
+      "id": "kw-cbs-baseline",
+      "label": "CBS（比較の基準）",
+      "provenance": "fixture",
+      "type": "Keyword",
+      "aliases": [
+        "Conflict-Based Search"
+      ],
+      "category": "baseline",
+      "meaning": "最適なMAPFソルバの比較の基準として広く使われる手法。改良版や準最適・学習ベースの手法も、CBSとの比較で評価されることが多い。",
+      "papers": [
+        "paper-icbs"
+      ],
+      "related": [
+        "cbs"
+      ],
+      "definition_excerpt": "",
+      "source_url": null,
+      "locator": null
     }
   ],
   "relations": [
@@ -471,6 +527,30 @@
       "type": "addresses",
       "from": "eecbs",
       "to": "collision"
+    },
+    {
+      "id": "instance_of-cbs-family-cbs",
+      "type": "instance_of",
+      "from": "cbs",
+      "to": "family-cbs"
+    },
+    {
+      "id": "instance_of-icbs-family-cbs",
+      "type": "instance_of",
+      "from": "icbs",
+      "to": "family-cbs"
+    },
+    {
+      "id": "instance_of-ecbs-family-cbs",
+      "type": "instance_of",
+      "from": "ecbs",
+      "to": "family-cbs"
+    },
+    {
+      "id": "instance_of-eecbs-family-cbs",
+      "type": "instance_of",
+      "from": "eecbs",
+      "to": "family-cbs"
     }
   ]
 }

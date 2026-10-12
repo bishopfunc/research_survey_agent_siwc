@@ -16,7 +16,9 @@
 | [論文ライブラリ](design/0010-paper-library.md) | DBにある論文は読み直さない。PDF・md・原文とリンクの保存 |
 | [アブストラクトと原文](design/0011-paper-abstract.md) | Paperのabstractと出典URL、Evidenceの原文 |
 | [Codexの新規調査と追加調査](design/0012-codex-research-modes.md) | 「調査」ボタン、Web検索、Promptの分離、実行の安全策 |
-| [キーワードと分野の既存ソース](design/0013-keywords-and-field-sources.md) | 初心者向けの用語集タブ、ブログ・記事を含む調べ先 |
+| [ナレッジと分野の既存ソース](design/0013-keywords-and-field-sources.md) | 参入者向けのナレッジタブ（旧キーワード）、ブログ・記事を含む調べ先 |
+| [専門家水準へのキャッチアップ調査](design/0014-expert-catch-up-survey.md) | 調査の目的と重視点、課題の英語表現と達成度、手法の系統、論文の要点と和訳、候補3つ |
+| [引用数の取得](design/0015-citation-counts.md) | OpenAlexからの引用数（Draft） |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

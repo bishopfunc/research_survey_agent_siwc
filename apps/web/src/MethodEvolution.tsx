@@ -1,11 +1,12 @@
 import { paperCodeLabel } from './paper-code';
 import { useId, useMemo, useState } from 'react';
-import { buildEvolution, byPublication } from '../../../packages/domain/src/evolution';
+import { buildEvolution, buildFamilies, byPublication } from '../../../packages/domain/src/evolution';
 import type { SurveySnapshot } from '../../../packages/domain/src/index';
 
 export function MethodEvolution({ snapshot, search, selected, onSelect, onSample }: { snapshot: SurveySnapshot; search: string; selected: string; onSelect: (id: string) => void; onSample: () => void }) {
-  const [mode, setMode] = useState('tree');
+  const [mode, setMode] = useState('families');
   const graph = useMemo(() => buildEvolution(snapshot, search), [snapshot, search]);
+  const families = useMemo(() => buildFamilies(snapshot), [snapshot]);
   const marker = useId().replace(/:/g,'');
   const rowHeight = 264, laneWidth = 258, axis = 63, top = 30, cardHeight = 228;
   const width = axis + graph.laneCount * laneWidth + 15;
@@ -13,9 +14,9 @@ export function MethodEvolution({ snapshot, search, selected, onSelect, onSample
   const position = (id: string) => { const n = graph.nodes.find(n => n.method.id === id)!; return { x: axis + n.lane * laneWidth, y: top + graph.years.indexOf(n.year) * rowHeight }; };
   const representatives = graph.nodes.filter(n => n.representative).sort((a,b) => byPublication(a.representative!,b.representative!));
   return <div className="evolution-panel">
-    <div className="evolution-controls"><div className="segmented" aria-label="系譜の表示方法"><button aria-pressed={mode === 'tree'} onClick={() => setMode('tree')}>系譜ツリー</button><button aria-pressed={mode === 'papers'} onClick={() => setMode('papers')}>代表論文</button></div><button className="evolution-sample" onClick={onSample}>系譜サンプル ↗</button></div>
+    <div className="evolution-controls"><div className="segmented" aria-label="手法の表示方法"><button aria-pressed={mode === 'families'} onClick={() => setMode('families')}>系統</button><button aria-pressed={mode === 'tree'} onClick={() => setMode('tree')}>系譜ツリー</button><button aria-pressed={mode === 'papers'} onClick={() => setMode('papers')}>代表論文</button></div><button className="evolution-sample" onClick={onSample}>系譜サンプル ↗</button></div>
     {graph.warnings.map(w => <p className="evolution-warning" key={w}>{w}</p>)}
-    {!graph.nodes.length ? <div className="empty">{search ? '該当なし' : '手法なし'}</div> : mode === 'tree' ? <>
+    {!graph.nodes.length ? <div className="empty">{search ? '該当なし' : '手法なし'}</div> : mode === 'families' ? <div className="family-groups">{families.map(g => <section key={g.family?.id ?? 'none'} className="family-group"><h3>{g.family ? <button onClick={() => onSelect(g.family!.id)}><span className="connection-dot t-Concept"/>{g.family.label}</button> : <span className="family-none">未分類</span>}</h3>{g.family?.description && <p className="family-description">{g.family.description}</p>}<ol>{g.nodes.map(n => <li key={n.method.id}><button className={selected === n.method.id ? 'chosen' : ''} onClick={() => onSelect(n.method.id)}><span className="family-year">{n.year ?? '—'}</span><span className="family-method"><strong>{n.method.label}</strong>{n.representative?.venue && <small>{n.representative.venue}</small>}<span>{n.method.description}</span></span></button></li>)}</ol></section>)}</div> : mode === 'tree' ? <>
       <div className="evolution-legend"><span><i/> 改良・派生</span><span><i className="dashed"/> 基盤として利用</span></div>
       <div className="evolution-scroll" tabIndex={0} aria-label="出版年順の手法系譜"><div className="evolution-graph" style={{ width, height }}>
         {graph.years.map((year,i) => <div key={year ?? 'unknown'} className={`year-row ${year === null ? 'unknown-year' : ''}`} style={{ top: top + i*rowHeight, width }}><span>{year ?? '年未取得'}</span><div/></div>)}

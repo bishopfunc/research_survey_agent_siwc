@@ -42,15 +42,35 @@ export function codexPatchSchema(patch: Schema): Schema {
   return out;
 }
 
-/** Drops the nulls Codex had to send for optional fields whose app schema does not accept null (e.g. code_availability). */
+/** Trimmed, non-empty, distinct strings, or undefined when the value is not a list of strings. */
+function distinct(value: unknown, limit: number, length = Infinity): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return [...new Set(value.filter((v): v is string => typeof v === 'string').map(v => v.trim().slice(0, length)).filter(Boolean))].slice(0, limit);
+}
+/** Drops the nulls Codex had to send for optional fields whose app schema does not accept null (e.g. code_availability),
+ * and tidies list fields that are mechanical to fix (follow-ups, English issue terms, reading lists) so they never need a repair run. */
 export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): unknown {
-  const clean = structuredClone(patch) as { operations?: { entity?: Record<string, unknown> }[] };
+  const clean = structuredClone(patch) as { operations?: { entity?: Record<string, unknown> }[]; follow_ups?: unknown };
+  if (clean && typeof clean === 'object' && 'follow_ups' in clean) {
+    const asked = distinct(clean.follow_ups, 3, 200);
+    if (asked?.length) clean.follow_ups = asked; else delete clean.follow_ups;
+  }
   for (const op of clean?.operations ?? []) {
     const entity = op?.entity; const def = entity && defs[String(entity.type)];
     if (!entity || !def) continue;
     const required = new Set((def.required as string[] | undefined) ?? []);
     const properties = (def.properties ?? {}) as Record<string, Schema>;
     for (const [key, value] of Object.entries(entity)) if (value === null && !required.has(key) && !allowsNull(properties[key])) delete entity[key];
+    if (entity.type === 'Issue' && 'english_terms' in entity) {
+      const terms = distinct(entity.english_terms, 5);
+      if (terms) entity.english_terms = terms;
+    }
+    const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
+    if (reading && typeof reading === 'object') {
+      for (const key of ['contributions', 'key_figures']) { const items = distinct(reading[key], Infinity); if (items) reading[key] = items; }
+      for (const key of ['novelty', 'key_idea', 'validation', 'discussion']) if (typeof reading[key] === 'string') reading[key] = (reading[key] as string).trim();
+      if (Object.values(reading).every(v => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
+    }
   }
   return clean;
 }

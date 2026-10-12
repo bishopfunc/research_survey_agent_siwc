@@ -82,6 +82,7 @@ html, body { overflow-x: clip; }
 .lab-domain-map>div { display: flex; flex-direction: column; gap: var(--space-2); text-align: center; }
 .lab-domain-map strong { font-size: var(--text-body); font-weight: 500; }
 .lab-domain-map span { font: 10px var(--font-code); color: var(--color-faint); }
+.lab-domain-map small { font-size: 10px; color: var(--color-muted); }
 .lab-domain-map i { font-style: normal; color: var(--color-accent); font-size: 9px; }
 .lab-model-rules { margin-top: var(--space-5); }
 .lab-model-rules>div { display: grid; grid-template-columns: 235px minmax(0,1fr); gap: var(--space-5); padding: var(--space-4) 0; border-bottom: var(--rule-width) solid var(--color-line); }

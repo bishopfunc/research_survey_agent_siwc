@@ -148,6 +148,15 @@
             "subproblem",
             "method_dependent"
           ]
+        },
+        "english_terms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "maxItems": 5
         }
       },
       "required": [
@@ -265,6 +274,22 @@
             "null"
           ],
           "format": "uri"
+        },
+        "abstract_ja": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reading": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Reading"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "citation_count": {
           "type": [
@@ -618,8 +643,10 @@
             "hardware",
             "simulator",
             "metric",
-            "task",
+            "sota",
+            "model",
             "baseline",
+            "task",
             "concept",
             "method",
             "other"
@@ -651,6 +678,13 @@
             "null"
           ],
           "format": "uri"
+        },
+        "as_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
         },
         "definition_excerpt": {
           "type": "string"
@@ -835,6 +869,46 @@
         "page",
         "crop",
         "extracted_at"
+      ]
+    },
+    "Reading": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contributions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "novelty": {
+          "type": "string"
+        },
+        "key_idea": {
+          "type": "string"
+        },
+        "validation": {
+          "type": "string"
+        },
+        "discussion": {
+          "type": "string"
+        },
+        "key_figures": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "contributions",
+        "novelty",
+        "key_idea",
+        "validation",
+        "discussion",
+        "key_figures"
       ]
     }
   }

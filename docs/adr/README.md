@@ -13,3 +13,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0007](0007-paper-code-compatibility.md) | コード公開情報と既存Commitの互換性 | Accepted |
 | [0008](0008-paper-figure-assets.md) | Fig画像とsnapshotを分離して不変保存 | Accepted |
 | [0009](0009-paper-library.md) | 論文ライブラリで抽出を再利用し、PDFとmdを保存 | Accepted |
+| [0010](0010-reuse-types-for-expert-survey.md) | 参入者向けの調査は既存の型に載せ、型名を変えない | Accepted |

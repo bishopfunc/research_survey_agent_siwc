@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, stageLabel } from '../packages/agent/src/research-prompt';
-import { CODEX_DISABLED_FEATURES, PROMPT_RULES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
+import { CODEX_DISABLED_FEATURES, PROMPT_RULES, RESEARCH_MODES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
 test('new survey research runs venues first, surveys and curated repositories in parallel, then primary papers', () => {
   assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage]), [['venues', 1], ['surveys', 2], ['awesome', 2], ['articles', 2], ['primary', 3]]);
@@ -44,23 +44,63 @@ test('rules define a no-change answer, method derivation cycles, and research ke
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /For every Paper you add, copy its abstract verbatim/);
 });
 test('the repair prompt keeps the rejected values and leaves out the retrieve-in-this-run rules', () => {
-  const prompt = buildRepairPrompt({ base_commit_id: 'b', snapshot: emptySurvey('t'), patch: { operations: [] }, errors: '/operations/0 bad' });
+  const prompt = buildRepairPrompt({ base_commit_id: 'b', snapshot: emptySurvey('t'), patch: { operations: [] }, errors: '/operations/0 bad', as_of: '2026-10-12' });
   assert.match(prompt, /were retrieved by that run: keep all other operations, IDs and text unchanged/);
-  assert.match(prompt, /Validator errors \(data\): "\/operations\/0 bad"/);
+  assert.match(prompt, /Research date \(as_of\): 2026-10-12\nValidator errors \(data\): "\/operations\/0 bad"/);
+  assert.match(prompt, /When a required date such as as_of is missing, use the research date given below/);
+  assert.ok(prompt.includes('copy its stored english_terms, abstract_ja and reading unchanged'));
   assert.ok(!prompt.includes('Research only with the web search tool') && !prompt.includes('from a page you retrieved in this run'));
   assert.ok(prompt.includes('The app rejects the whole patch if any rule fails'));
 });
-test('both modes extract beginner keywords; new subtopics start from surveys, awesome lists and blogs or articles', () => {
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Build Keyword entities from the papers you read, integrating them across papers, so that a newcomer can see the experimental setup/);
+test('both modes build knowledge from papers; new subtopics start from surveys, awesome lists and blogs or articles', () => {
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Build the knowledge \(Keyword entities\) from the papers you read so that a newcomer can see the field’s experimental setup and state of the art/);
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /representative survey papers, curated awesome repositories, and blogs or articles/);
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /use the stored abstracts, summaries and titles without re-reading the papers unless explicitly asked/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword\.papers lists Paper IDs and Keyword\.related lists Issue\/Method\/Concept\/Domain IDs/);
 });
-test('keywords are integrated across papers into datasets, benchmarks, hardware, simulators and metrics', () => {
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the datasets, benchmarks, hardware configurations, simulators and metrics the surveys treat as standard/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Record which datasets, benchmarks, hardware configurations, simulators and metrics each paper uses/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /category dataset, benchmark, hardware \(hardware configuration such as robot platform, sensors or compute\), simulator, or metric/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /Merge mentions of the same resource across papers into one Keyword \(match by name and aliases\) and list every paper that uses it/);
-  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /when a Keyword for the resource already exists, replace it with the merged paper list instead of adding a duplicate/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /a Keyword category is dataset, benchmark, hardware, simulator or metric/);
+test('knowledge is what a newcomer must catch up on, merged across papers, with SOTA, models and baselines', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Keyword entities are the knowledge a newcomer must catch up on/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /category dataset, benchmark, hardware \(robot platform, sensors, compute\), simulator, metric, sota \(the best result on a main benchmark: .*?\), model \(widely used pretrained or backbone models\) or baseline/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /a new Keyword category is dataset, benchmark, hardware, simulator, metric, sota, model or baseline, a sota Keyword needs as_of and at least one paper/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /note the datasets, benchmarks, metrics, simulators, hardware configurations, baselines, widely used models and the state of the art that the surveys treat as standard/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Merge mentions of the same item across papers into one Keyword \(match by name and aliases\) and list every paper that uses it/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /when a Keyword for the item already exists, replace it with the merged paper list instead of adding a duplicate/);
 });
+test('the shared rules open with the purpose and the priorities of an expert catch-up survey', () => {
+  assert.deepEqual(PROMPT_RULES.slice(0, 3).map(r => r.id), ['role', 'purpose', 'critical']);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /help a researcher who is entering a new field catch up quickly on its problems and prior work, reach roughly the working knowledge of a domain expert, and find research themes worth pursuing/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Prefer what domain experts know and care about/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Read papers critically instead of trusting their claims/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /keep the important ones \(problems experts treat as central, unresolved or decisive for progress\) rather than generic ones/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /put 1-3 English phrases exactly as papers use them in english_terms/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /quantify how far it has been achieved with a Claim about it/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Create method families as Concept entities whose description states the shared idea, and link every Method to its family with instance_of/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Cover each family chronologically from the seminal work to the latest state of the art/);
+});
+test('papers are read for their contributions and the five questions, venues use acronyms and abstracts keep the original', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /one_line_summary answers "What is it\?" in Japanese/);
+  for (const field of ['contributions', 'novelty', 'key_idea', 'validation', 'discussion', 'key_figures']) assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(`${field} (`), field);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Use null for papers you did not read/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Write Paper\.venue as the official acronym or short name/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put a faithful Japanese translation of the stored abstract in abstract_ja, never in abstract/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /do not add proposes Relations or Paper-to-Issue addresses Relations that repeat them/);
+});
+test('every run ends with three follow-up requests and long reading gets more time', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Finish by putting exactly three follow-up research requests in follow_ups/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /end with the three follow_ups/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /end with the three follow_ups/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /classifying methods into families, quantifying how far issues are achieved, translating abstracts or filling reading, use the stored entities first/);
+  assert.ok(RESEARCH_MODES.new.timeoutSeconds >= 1800 && RESEARCH_MODES.additional.timeoutSeconds >= 1200);
+});
+test('numbers, SOTA and paper reading come only from text retrieved in this run; stored analysis survives replacement', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Never fabricate venues, papers, URLs, citation counts, code releases, figures, reported numbers or results/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /If no retrieved text reports a number, create no achievement Claim and list the issue as unquantified/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /an Evidence whose excerpt copies the sentence or table row containing the number/);
+  assert.ok(!/\d+%/.test(SURVEY_RULES_INSTRUCTIONS), 'no concrete example numbers that could be copied as data');
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /key_figures lists only figures whose captions you read in this run/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /from an abstract alone, validation, discussion and key_figures are usually empty/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /whether it comes from a leaderboard or results page retrieved in this run or is only the best among the surveyed papers/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /copy its stored english_terms, abstract_ja and reading unchanged/);
+  assert.ok(RESEARCH_MODES.new.repairTimeoutSeconds >= 600 && RESEARCH_MODES.additional.repairTimeoutSeconds >= 600);
+});
+

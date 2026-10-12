@@ -18,10 +18,12 @@ export interface ResearchSteps {
 }
 export type ResearchOutcome =
   | { status: 'succeeded'; patch: SurveyPatch; repaired: boolean; searches: number }
-  | { status: 'unchanged'; message: string; searches: number }
+  | { status: 'unchanged'; message: string; searches: number; follow_ups?: string[] }
   | { status: 'failed'; message: string; searches: number }
   | { status: 'stopped' };
 
+/** Suggested next requests survive even when the run changed nothing. */
+const followUps = (patch: unknown) => { const asked = (patch as { follow_ups?: unknown } | undefined)?.follow_ups; return Array.isArray(asked) && asked.length ? { follow_ups: asked as string[] } : {}; };
 const completed = (attempt: CodexAttempt) => !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
 const failure = (attempt: CodexAttempt) => attempt.spawnError
   ? 'Codex CLIを起動できません。インストールを確認してください'
@@ -44,7 +46,7 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   const searches = first.state.searches;
   if (!completed(first)) return { status: 'failed', message: failure(first), searches };
   const result = check(steps, 'research');
-  if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches };
+  if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches, ...followUps(result.patch) };
   if (!result.error) return { status: 'succeeded', patch: result.patch as SurveyPatch, repaired: false, searches };
   if (result.patch === undefined) return { status: 'failed', message: result.error, searches };
   steps.progress(`検証エラーを修正しています（${result.error.split('\n').length}件）`);
