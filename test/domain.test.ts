@@ -382,6 +382,28 @@ test('nested strict-output nulls, item caps and strict-schema rules are applied 
   const timed = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: find('evidence-cbs') }] }, defs) as SurveyPatch;
   assert.equal((timed.operations[0] as { entity: { retrieved_at: string } }).entity.retrieved_at, '2026-10-12T00:00:00+09:00');
 });
+test('dates the strict output schema would have rejected are cut to the day or nulled, so a checkpoint still applies', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const head = makeCommit(fixture, [], 'base');
+  const find = (id: string) => structuredClone(fixture.entities.find(e => e.id === id)!) as unknown as Record<string, unknown>;
+  const tidy = (entity: Record<string, unknown>) => {
+    const out = stripCodexNulls({ schema_version: '0.1.0', base_commit_id: head.id, message: 'm', operations: [{ op: 'replace_entity', entity }] }, defs) as SurveyPatch;
+    assert.doesNotThrow(() => applyPatch(fixture, out, head.id), JSON.stringify(entity));
+    return (out.operations[0] as unknown as { entity: Record<string, unknown> }).entity;
+  };
+  // datetime.now().isoformat() in code mode has no offset; ajv's date-time requires one.
+  for (const value of ['2026-10-13T09:00:00', '2026-10-13 09:00', '2026/10/13', '2026-10-13', '2026-02-30T00:00:00Z', ''])
+    assert.equal(tidy({ ...find('evidence-cbs'), retrieved_at: value }).retrieved_at, null, value);
+  for (const value of ['2026-10-13T09:00:00+09:00', '2026-10-13T00:00:00Z', '2026-10-13 09:00:00.5-05:00'])
+    assert.equal(tidy({ ...find('evidence-cbs'), retrieved_at: value }).retrieved_at, value);
+  assert.equal(tidy({ ...find('res-kei18-intro'), checked_at: '2026-10-13T00:00:00Z' }).checked_at, '2026-10-13');
+  assert.equal(tidy({ ...find('res-kei18-intro'), checked_at: '2026/10/13' }).checked_at, null);
+  assert.equal(tidy({ ...find('claim-cbs'), as_of: '2026-10-13 09:00' }).as_of, '2026-10-13');
+  assert.equal(tidy({ ...find('kw-soc'), as_of: '2026-13-01' }).as_of, null);
+  const paper = tidy({ ...find('paper-cbs'), citation_as_of: '2026-10-13T09:00:00', code_checked_at: 'October 13, 2026' });
+  assert.deepEqual([paper.citation_as_of, paper.code_checked_at], ['2026-10-13', null]);
+  assert.equal(tidy(find('claim-cbs')).as_of, '2026-10-12');
+});
 test('nullable Codex reading arrays are normalized without losing additions or references', () => {
   const paper = structuredClone(fixture.entities.find(e => e.type === 'Paper' && e.id === 'paper-ecbs')!);
   const input = { schema_version: '0.1.0', base_commit_id: 'empty', message: 'reading repair', operations: [

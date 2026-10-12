@@ -1,5 +1,6 @@
 // Codex structured output uses strict JSON Schema: every property must be required, optional ones are expressed as nullable.
 // Application validation remains authoritative.
+import addFormats from 'ajv-formats';
 type Schema = Record<string, unknown>;
 /** Formats the structured-output API accepts; others (uniqueItems, minLength…) are checked by the app afterwards. */
 const SUPPORTED_FORMATS = ['date', 'date-time'];
@@ -10,6 +11,9 @@ export const HTTP_URL_PATTERN = `^https?://[${URL_CHARS}]+$`;
 const RAW_URL_CHARS = new RegExp(`[^${URL_CHARS}]+`, 'g');
 /** Percent-encodes what HTTP_URL_PATTERN does not allow raw (non-ASCII, spaces, | { }…), keeping existing escapes; a broken surrogate is dropped. */
 const encodeUrl = (url: string) => url.trim().replace(RAW_URL_CHARS, part => { try { return encodeURI(part); } catch { return ''; } });
+/** The same date and date-time (RFC 3339, offset required) checks the app's ajv-formats applies. */
+const formatCheck = (format: 'date' | 'date-time') => (addFormats.get(format) as unknown as { validate: (value: string) => boolean }).validate;
+const isDate = formatCheck('date'), isDateTime = formatCheck('date-time');
 
 const allowsNull = (schema: Schema | undefined): boolean => !!schema && (
   (Array.isArray(schema.type) ? schema.type.includes('null') : schema.type === 'null')
@@ -66,12 +70,18 @@ function resolve(schema: Schema | undefined, defs: Record<string, Schema>): Sche
 }
 /** Tidies a value against its app definition at any depth (reading.sources, a tutorial figure's caption_ja…): drops the nulls Codex had
  * to send for optional non-nullable keys, keeps the first distinct strings of a capped list (english_terms, Resource.authors),
- * percent-encodes URLs and nulls a nullable date-time that is only a date, as the strict output schema would have required. */
+ * percent-encodes URLs, cuts a date that carries a time to its day and nulls a nullable date or date-time ajv would reject
+ * (a date-time without an offset, 2026/10/13…), as the strict output schema would have required. */
 function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, Schema>): unknown {
   const def = resolve(schema, defs);
   if (!def) return value;
   if (typeof value === 'string' && def.format === 'uri') return encodeUrl(value);
-  if (typeof value === 'string' && def.format === 'date-time' && allowsNull(def) && /^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  if (typeof value === 'string' && (def.format === 'date' || def.format === 'date-time')) {
+    const text = value.trim(), day = def.format === 'date' ? /^(\d{4}-\d{2}-\d{2})(?:[T\s]|$)/i.exec(text)?.[1] : undefined;
+    if (def.format === 'date' ? isDate(text) : isDateTime(text)) return text;
+    if (day && isDate(day)) return day;
+    return allowsNull(schema) || allowsNull(def) ? null : value;
+  }
   if (Array.isArray(value)) return typeof def.maxItems === 'number' && (def.items as Schema | undefined)?.type === 'string' ? distinct(value, def.maxItems) : value.map(item => tidy(item, def.items as Schema | undefined, defs));
   if (value && typeof value === 'object' && def.properties) {
     const object = value as Record<string, unknown>, required = new Set((def.required as string[] | undefined) ?? []), properties = def.properties as Record<string, Schema>;
