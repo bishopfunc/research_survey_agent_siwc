@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptySurvey, fixture, validateSnapshot, type SurveyPatch } from '../packages/domain/src/index';
-import { assignWorkers, executeStagedResearch, mergeMemory, readCheck, restrictToWorker, settleIssueCandidates, snapshotAsPatch, stageStep, stageTraceText, type StagedSteps, type StageResult } from '../scripts/staged-run';
+import { assignWorkers, executeStagedResearch, mergeMemory, restrictToWorker, settleIssueCandidates, snapshotAsPatch, stageStep, stageTraceText, type StagedSteps, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the outline stage's output: everything except readings, claims, evidence and the tutorial. */
 function outlinePatch(): SurveyPatch {
@@ -20,8 +20,7 @@ function steps(over: Partial<StagedSteps> & { results?: Record<string, StageResu
       outline: () => 'outline', deepen: (_s, w, n, papers) => `deepen ${w}/${n} ${papers.join(',')}`, integrate: (_s, candidates) => { calls.push(`candidates:${candidates.join(',')}`); return 'integrate'; },
       diverge: (_s, memory) => { calls.push(`diverge-memory:${memory.queries.join(',')}`); return 'diverge'; },
       extend: (_s, w, n, papers, issues) => { calls.push(`extend-papers:${papers.join(',')}|${issues.join(',')}`); return `extend ${w}/${n}`; },
-      reintegrate: (_s, candidates) => { calls.push(`recandidates:${candidates.join(',')}`); return 'reintegrate'; },
-      check: (_s, gaps, unmet) => { calls.push(`check-gaps:${gaps.length > 0}:${unmet.length > 0}`); return 'check'; },
+      tutorial: () => 'tutorial',
       fill: (_s, gaps, memory) => { calls.push(`fill:${JSON.stringify(gaps)}|${memory.queries.join(',')}`); return 'fill'; },
     },
     normalize: p => p, prepare: async p => p, checkpoint: () => {}, active: () => true, progress: m => { calls.push(`progress:${m}`); },
@@ -148,17 +147,17 @@ test('a worker that failed only after a long time (a timeout) is not retried', a
 });
 
 
-test('the eight steps run in order; step 4 only adds, step 5 reads only its papers, step 8 never removes and writes the follow-ups', async () => {
+test('the eight steps run in four waves; step 4 only adds, step 5 reads only its papers, the tutorial agent writes only the Tutorial, step 8 never removes', async () => {
   const outline = outlinePatch();
   const lacam = (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'paper-lacam') as unknown as { entity: Record<string, unknown> }).entity;
   const scalability = (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'scalability') as { entity: object }).entity;
   const found = { ...lacam, id: 'd-paper', label: 'd', title: 'A paper from another field', doi: null, arxiv_id: null, url: 'https://example.org/d', reading: null, claims: [], evidence: [], abstract_ja: null };
   const reading = { contributions: ['c'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: 'https://example.org/d', locator: 'Abstract' }] };
+  const tutorial = fixture.entities.find(e => e.type === 'Tutorial')!;
   const patch = (message: string, operations: unknown[], extra: object = {}) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations, ...extra });
   const results: Record<string, StageResult> = {
     outline: { ...patch('全体像', []), output: JSON.stringify(outline), searched: { queries: ['q1'], opened: ['https://a.example'] } },
     'deepen-1': { ...patch('w1', []), searched: { queries: ['q1', 'q2'], opened: [] } },
-    integrate: patch('統合した', [], { follow_ups: ['古い候補'] }),
     diverge: { ...patch('安全性の観点が抜けていた', [
       { op: 'add_entity', entity: found },
       { op: 'add_entity', entity: { id: 'd-issue', label: '安全性', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem' } },
@@ -168,48 +167,53 @@ test('the eight steps run in order; step 4 only adds, step 5 reads only its pape
       { op: 'replace_entity', entity: { ...found, reading } },
       { op: 'add_entity', entity: { id: 'x1-cand', label: 'c', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem' } },
     ]),
-    reintegrate: patch('統合し直した', []),
-    check: { ok: true, searches: 0, output: JSON.stringify({ gaps: [{ target: 'paper-lacam', field: 'year', problem: '年が無い', fill: 'existing', query: null }, { target: 'x', field: 'y', problem: 3 }], message: 'm' }) },
+    integrate: patch('統合した', [], { follow_ups: ['古い候補'] }),
+    // The tutorial agent's other operations are ignored.
+    tutorial: patch('t', [{ op: 'add_entity', entity: { ...tutorial, sections: tutorial.sections.map(s => ({ ...s, refs: [], media: [], body: s.body.replace(/\[@[^\]]+\]/g, '') })) } }, { op: 'set_title', title: 'チュートリアルの題' }]),
     fill: patch('補完した', [{ op: 'set_title', title: '補完した題' }, { op: 'remove_entity', id: 'paper-lacam' }], { follow_ups: ['次1', '次2', '次3'] }),
   };
   const remembered: string[][] = [];
-  const run = steps({ results, remember: memory => remembered.push(memory.queries) });
+  const marked: string[] = [];
+  const run = steps({ results, remember: memory => remembered.push(memory.queries), mark: stage => marked.push(stage), now: () => 0 });
   const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s, 1);
   assert.ok(outcome.status === 'succeeded');
   if (outcome.status !== 'succeeded') return;
-  const stages = run.calls.filter(c => /^(outline|deepen-|integrate|diverge|extend-|reintegrate|check|fill)$|^(deepen|extend)-\d+$/.test(c));
-  assert.deepEqual(stages, ['outline', 'deepen-1', 'integrate', 'diverge', 'extend-1', 'reintegrate', 'check', 'fill']);
-  assert.ok(run.calls.includes('diverge-memory:q1,q2'));
+  const stages = run.calls.filter(c => /^(outline|integrate|diverge|tutorial|fill)$|^(deepen|extend)-\d+$/.test(c));
+  // Wave 2 starts the deepen workers and the divergent agent together; wave 3 starts the integration and the tutorial together.
+  assert.deepEqual(stages, ['outline', 'deepen-1', 'diverge', 'extend-1', 'integrate', 'tutorial', 'fill']);
+  assert.deepEqual(marked, ['check']);
+  assert.ok(run.calls.includes('diverge-memory:q1'), 'the divergent agent starts from the outline');
   assert.ok(run.calls.includes('extend-papers:d-paper|d-issue'));
-  assert.ok(run.calls.includes('recandidates:x1-cand'));
-  assert.ok(run.calls.includes('check-gaps:true:true'));
-  assert.ok(run.calls.includes(`fill:${JSON.stringify([{ target: 'paper-lacam', field: 'year', problem: '年が無い', fill: 'existing', query: null }])}|q1,q2,q3`));
-  assert.deepEqual(remembered.at(-1), ['q1', 'q2', 'q3']);
+  assert.ok(run.calls.includes('candidates:x1-cand'), 'the divergent issues are not per-paper candidates');
+  const fill = JSON.parse(run.calls.find(c => c.startsWith('fill:'))!.slice(5).split('|')[0]) as { target: string }[];
+  assert.ok(fill.length > 0, 'the server check hands its gaps to the fill');
+  assert.deepEqual(new Set(remembered.at(-1)), new Set(['q1', 'q2', 'q3']));
   const added = outcome.patch.operations.flatMap(o => o.op === 'add_entity' ? [o.entity] : []);
   assert.ok(added.some(e => e.id === 'paper-lacam'), 'the fill step cannot remove');
   assert.ok(added.some(e => e.id === 'd-paper' && e.type === 'Paper' && e.reading), 'step 5 read the paper step 4 found');
-  assert.ok(!added.some(e => e.id === 'x1-cand'), 'an unsourced candidate is removed after the reintegration');
+  assert.ok(added.some(e => e.id === 'd-issue'), 'a divergent issue stays');
+  assert.ok(!added.some(e => e.id === 'x1-cand'), 'an unsourced candidate is removed after the integration');
   assert.ok(added.some(e => e.id === 'scalability' && e.type === 'Issue' && e.description !== 'changed by the divergent agent'), 'step 4 cannot replace');
+  assert.ok(added.some(e => e.type === 'Tutorial'), 'the tutorial agent wrote the Tutorial');
+  assert.ok(!outcome.patch.operations.some(o => o.op === 'set_title' && o.title === 'チュートリアルの題'));
   assert.deepEqual(outcome.patch.follow_ups, ['次1', '次2', '次3']);
   assert.match(outcome.patch.message, /^補完した[\s\S]*発散：安全性の観点が抜けていた/);
   assert.ok(outcome.patch.operations.some(o => o.op === 'set_title' && o.title === '補完した題'));
 });
-test('a failed schema check hands the server-found gaps to the fill step; nothing found by step 4 skips step 5', async () => {
-  const run = steps({ results: { outline: ok(outlinePatch()), fill: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'f', operations: [] }) } });
+test('the fill is skipped when the run is already past the deadline; nothing found by step 4 skips step 5', async () => {
+  let t = 0;
+  const run = steps({ results: { outline: ok(outlinePatch()), integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'i', follow_ups: ['a'], operations: [{ op: 'set_title', title: 't' }] }) }, now: () => (t += 500_000) });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 1);
-  assert.equal(outcome.status, 'succeeded');
-  assert.ok(!run.calls.some(c => c.startsWith('extend')));
-  const fill = run.calls.find(c => c.startsWith('fill:'))!;
-  const gaps = JSON.parse(fill.slice(5, fill.lastIndexOf('|'))) as { target: string; fill: string }[];
-  assert.ok(gaps.length > 0 && gaps.every(g => g.fill === 'search'));
-  assert.ok(gaps.some(g => g.target === 'survey'), 'unmet survey requirements come first');
-  assert.ok(outcome.status === 'succeeded' && /点検の段階を使えませんでした/.test(outcome.patch.message));
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.ok(!run.calls.some(c => c.startsWith('extend') || c.startsWith('fill')));
+  assert.match(outcome.patch.message, /時間の上限のため補完を省きました/);
+  assert.deepEqual(outcome.patch.follow_ups, ['a'], 'the integration writes the follow-ups when the fill is skipped');
 });
-test('stages are numbered 1–8 in the trace; the search memory has no duplicates; a malformed gap is dropped', () => {
-  assert.deepEqual((['outline', 'deepen-2', 'integrate', 'diverge', 'extend-1', 'reintegrate', 'check', 'fill'] as const).map(stageStep), [1, 2, 3, 4, 5, 6, 7, 8]);
+test('stages are numbered 1–8 in the trace; the search memory has no duplicates', () => {
+  assert.deepEqual((['outline', 'deepen-2', 'integrate', 'diverge', 'extend-1', 'tutorial', 'check', 'fill'] as const).map(stageStep), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.equal(stageTraceText('deepen-2'), '2/8 事実と出典（作業2）');
+  assert.equal(stageTraceText('tutorial'), '6/8 チュートリアル');
   assert.equal(stageTraceText('check'), '7/8 点検');
   assert.deepEqual(mergeMemory({ queries: ['a'], opened: ['u'] }, { queries: ['a', 'b', 'b'], opened: ['u', 'v'] }), { queries: ['a', 'b'], opened: ['u', 'v'] });
-  assert.deepEqual(readCheck(JSON.stringify({ gaps: [{ target: 't', field: 'f', problem: 'p', fill: 'other', query: '' }, { target: 1 }] })), [{ target: 't', field: 'f', problem: 'p', fill: 'search', query: null }]);
-  assert.throws(() => readCheck('{}'));
 });

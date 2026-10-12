@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { CHECK_SCHEMA, checkInstructions, deepenInstructions, divergeInstructions, fillInstructions, integrateInstructions, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, reintegrateInstructions, STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
+import { deepenInstructions, divergeInstructions, fillInstructions, integrateInstructions, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS, tutorialInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -161,7 +161,6 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
   writeFileSync(join(directory, 'router-schema.json'), JSON.stringify(routerSchema), { mode: 0o600 });
-  writeFileSync(join(directory, 'check-schema.json'), JSON.stringify(CHECK_SCHEMA), { mode: 0o600 });
   writeFileSync(join(directory, 'explanation-schema.json'), JSON.stringify(explanationSchema), { mode: 0o600 });
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
@@ -181,9 +180,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
       const timeout = STAGE_TIMEOUT_SECONDS[stage.replace(/-\d+$/, '') as keyof typeof STAGE_TIMEOUT_SECONDS];
       const started = Date.now();
-      // The schema check (step 7) answers with a gap list and does not search.
-      const check = stage === 'check' ? { schema: 'check-schema.json', webSearch: 'disabled' as const } : {};
-      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: `stage-${stage}.json`, failRunOnTimeout: false, ...check });
+      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: `stage-${stage}.json`, failRunOnTimeout: false });
       const ok = !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
       let output: string | undefined; try { output = readFileSync(join(directory, `stage-${stage}.json`), 'utf8'); } catch { /* no output */ }
       return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
@@ -194,10 +191,11 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot),
       extend: (snapshot, worker, workers, papers, issues) => stagePrompt(deepenInstructions(worker, workers, papers, issues, 5), snapshot),
-      reintegrate: (snapshot, candidates) => stagePrompt(reintegrateInstructions(candidates), snapshot),
-      check: (snapshot, gaps, unmet, memory) => stagePrompt(checkInstructions(gaps, unmet, memory), snapshot),
+      tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot),
       fill: (snapshot, gaps, memory) => stagePrompt(fillInstructions(gaps, memory), snapshot),
     },
+    now: () => Date.now(),
+    mark: stage => { addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run); },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),
     remember: memory => writeFileSync(join(directory, 'search-memory.json'), JSON.stringify(memory), { mode: 0o600 }),

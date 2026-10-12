@@ -1,6 +1,6 @@
 # 0028: 新規調査の8つの手順と別Agentの発散・点検
 
-状態: Implemented（ローカルPoC、モック試験のみ）
+状態: Implemented（ローカルPoC、モック試験のみ）。実行の順序・7の点検Agent・6の統合し直しは [0029](0029-four-wave-survey.md) で変更
 日付: 2026-10-12 JST
 対象タスク: P30
 関連: [0021 論文DBと段階実行](0021-paper-db-and-staged-runs.md)、[0027 課題の抽出と統合](0027-issue-extraction-and-deep-read-allocation.md)、[0025 事実と出典](0025-facts-and-sources.md)、[0012 Codexの調査](0012-codex-research-modes.md)

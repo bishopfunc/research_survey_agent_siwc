@@ -17,32 +17,32 @@ export const RESEARCH_STEPS = [
     instruction:'Concrete: read the papers marked for depth (the arXiv HTML full text when available; stored papers follow the cache rule), and for every other listed paper confirm its bibliography and what it contributes from its abstract or listing page. Everything you take from a paper is a fact with its source (the facts rule), and nearly every piece of information in it counts: the issues it tackles, the method and what it derives from, the reported numbers with their benchmarks, metrics and baselines, the datasets, simulators, hardware and models it uses, its limitations and the figures needed to understand it. Fill its abstract translation and reading with these facts and their Evidence. Check each claim against the source text, its location, assumptions, evaluation conditions and the assessment date. Record confirmed code URLs and check dates; never infer private code from failure to find it.',
   },
   {
-    id:'integrate',stage:3,level:'抽象',short:'統合',runner:'1つ',title:'各論文の情報を統合する',
+    id:'integrate',stage:3,level:'抽象',short:'統合',runner:'6と1回にまとめる',title:'各論文の情報を統合する',
     explanation:'論文から取り出した事実をまたいで、課題を種類と重要度で階層に分類し、手法を系統にまとめて古典から最新まで時系列にそろえ、ナレッジを1件ずつに統合し、すべての課題に達成度を書く。',
     instruction:'Abstract: integrate the facts across the papers: classify the issues by kind and importance into a hierarchy, group the methods into families and cover each family chronologically, merge the knowledge items across papers, and write an achievement Claim for every issue.',
   },
   {
-    id:'diverge',stage:4,level:'発散',short:'発散',runner:'別Agent',title:'抜けている観点を探し、他の分野から参考にできるものを調べる',
-    explanation:'別のAgentが、統合した調査を受け取って調べる。ここまでのサーベイや論文が扱っていない観点（評価条件、実環境での運用、安全性、データ、理論、反対の結果など）と、似た問題を解いた隣の分野で移せそうな考え方（分野・考え方・代表論文）、未解決の問題を探して検索する。',
+    id:'diverge',stage:4,level:'発散',short:'発散',runner:'別Agent（2と同時）',title:'抜けている観点を探し、他の分野から参考にできるものを調べる',
+    explanation:'別のAgentが、1の全体像を受け取り、2と同時に調べる。ここまでのサーベイや論文が扱っていない観点（評価条件、実環境での運用、安全性、データ、理論、反対の結果など）と、似た問題を解いた隣の分野で移せそうな考え方（分野・考え方・代表論文）、未解決の問題を探して検索する。',
     instruction:'Divergent: look for what is still missing: perspectives the surveys and papers so far do not cover (evaluation conditions, real-world deployment, safety, data, theory, contradicting results), adjacent fields that solved a similar problem and whose ideas could transfer (name the field, the idea and a representative paper), and open problems. Search specifically for each of these.',
   },
   {
-    id:'primary2',stage:5,level:'具体',short:'追加の論文',runner:`並行（最大${EXTEND_WORKERS}）`,title:'見つけた一次論文から事実と出典を整理する',
+    id:'primary2',stage:5,level:'具体',short:'追加の論文',runner:`4の後に並行（最大${EXTEND_WORKERS}、2と同時）`,title:'見つけた一次論文から事実と出典を整理する',
     explanation:'4で見つけた一次論文を、2と同じように読み、事実と出典の組として取り出す。',
     instruction:'Concrete: read the primary papers found in step 4 the same way as in step 2: everything you take from them is a fact with its source.',
   },
   {
-    id:'integrate2',stage:6,level:'抽象',short:'統合し直し',runner:'1つ',title:'全体を統合し直す',
-    explanation:'新しい論文を加えて、課題の階層・手法の系統・ナレッジ・達成度を更新する。他の分野の考え方は、課題に対応する手法（addresses）として残す。統合した調査から参入者向けのチュートリアルを書く。',
+    id:'integrate2',stage:6,level:'抽象',short:'統合し直し',runner:'3と1回にまとめ、チュートリアルは別Agentで同時',title:'全体を統合し直す',
+    explanation:'3と1回にまとめ、2と5の論文から課題の階層・手法の系統・ナレッジ・達成度を作る。他の分野の考え方は、課題に対応する手法（addresses）として残す。同じ調査から、別のAgentが同時に参入者向けのチュートリアルを書く。',
     instruction:'Abstract: integrate everything again with the new papers: update the issue hierarchy, method families, knowledge items and achievement Claims, record each idea from another field as a Method with addresses relations to the issues it could address, and write the Tutorial from the integrated survey as the tutorial rule describes.',
   },
   {
-    id:'check',stage:7,level:'点検',short:'点検',runner:'別Agent・検索なし',title:'スキーマの抜け漏れを点検する',
-    explanation:'別のAgentが、Web検索をせずに、調査をDSLのスキーマと調査の要件に照らす。サーバーが機械的に見つけた空の欄（英語表現・出典・達成度・系統・年・識別子・公式ページ・概要など）と要件の未達を受け取り、確かめて重要な順に並べ、見落としを足す。抜け漏れごとに、これまでの情報で埋められるか、検索が必要かと検索の語を書く。',
+    id:'check',stage:7,level:'点検',short:'点検',runner:'サーバー（機械的）',title:'スキーマの抜け漏れを点検する',
+    explanation:'サーバーが調査をDSLのスキーマと調査の要件に機械的に照らし、空の欄（英語表現・出典・達成度・系統・年・識別子・公式ページ・概要など）と要件の未達を重要な順に一覧にする。Agentは使わない。一括で調べる実行では、Agentが検索せずに同じ点検をする。',
     instruction:'Check: compare the survey with the DSL schema and the survey requirements, without searching. List the missing or empty fields the rules expect (english_terms, evidence, achievement Claims, method families and lineage, years, identifiers, official pages, overviews, tutorial citations and so on) and the requirements not met, most important first, and for each say whether it can be filled from what this run already found or needs a new search, with the query to use.',
   },
   {
-    id:'fill',stage:8,level:'具体',short:'補完',runner:'1つ',title:'追加調査またはこれまでの情報から埋める',
+    id:'fill',stage:8,level:'具体',short:'補完',runner:'抜けがあり時間内のときだけ',title:'追加調査またはこれまでの情報から埋める',
     explanation:'7の一覧を、まず調査とこれまでに開いたページから埋め、検索が必要なものだけ追加で調べる。保存済みの分析は消さず、変えた項目に合わせてチュートリアルの節を直す。埋められなかったものはmessageに書き、最後の候補3つにする。',
     instruction:'Fill: fill the gaps from step 7, first from the survey and the pages already opened in this run, and search only for the gaps that need it. Keep stored analysis, update the matching tutorial sections, report what stays unfilled in the message and turn the remaining gaps into the three follow_ups.',
   },
@@ -81,14 +81,17 @@ export const ADDITIONAL_RESEARCH_INSTRUCTIONS = [
 ].join('\n\n');
 
 /** New surveys run as eight steps (design 0028): each step is its own Codex process, steps 2 and 5 split into parallel
- * workers, and steps 4 and 7 are separate agents that get only what their step needs. The server merges the results. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-12T20:01+09:00';
+ * workers, step 4 and the tutorial are separate agents, and step 7 is the server's check. The server merges the results. */
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-12T20:49+09:00';
+/** The eight steps run in four waves (design 0029): 1 → {2 ×N, 4→5} → {3+6, tutorial} → 7 (server) → 8 only for gaps. Limits fit about ten minutes. */
 /** Limits per step; a worker over its limit is dropped, the others continue. */
-export const STAGE_TIMEOUT_SECONDS = { outline: 420, deepen: 360, integrate: 360, diverge: 300, extend: 360, reintegrate: 360, check: 180, fill: 360 } as const;
+export const STAGE_TIMEOUT_SECONDS = { outline: 330, deepen: 270, integrate: 240, diverge: 150, extend: 150, fill: 120, tutorial: 240 } as const;
+/** Wave 4 (the fill) starts only if the run is still within this time, so the whole run stays near ten minutes. */
+export const FILL_DEADLINE_SECONDS = 480;
 /** Step 4 adds at most this many papers; step 5 reads them, EXTEND_PER_WORKER per worker. */
 export const DIVERGE_MAX_PAPERS = 8;
 export const EXTEND_PER_WORKER = 4;
-/** The schema check returns at most this many gaps. */
+/** The server's schema check passes at most this many gaps to the fill. */
 export const MAX_GAPS = 40;
 /** Searches and opened pages collected from every step of the run, passed to later steps as data (the search memory). */
 export interface SearchMemory { queries: string[]; opened: string[] }
@@ -123,54 +126,33 @@ function issueHierarchy(candidates: string[]) {
 /** Step 3 (design 0027): the issue hierarchy is rebuilt from the per-paper issue candidates of step 2. */
 export function integrateInstructions(candidates: string[]) {
   return [
-    'Mode: new survey, step 3 of 8 (integrate, abstract). The snapshot holds the outline and the in-depth readings of the parallel workers. Later steps search for missing perspectives, read what they find, check the schema and fill the gaps, so do not write the Tutorial or follow_ups here.',
+    'Mode: new survey, steps 3 and 6 of 8 together (integrate, abstract). The snapshot holds the outline, the in-depth readings of the parallel workers (step 2), the additions of the divergent search (step 4) and the readings of their papers (step 5). Another agent writes the Tutorial from the same snapshot at the same time, so do not write the Tutorial.',
     `3. ${RESEARCH_STEPS[2].instruction}`,
+    `6. ${RESEARCH_STEPS[5].instruction}`,
     issueHierarchy(candidates),
-    'Output: the issue hierarchy; the knowledge items (Keyword entities) as the knowledge rule describes, built from the readings and the outline; achievement Claims for every Issue still without one; replace_entity for Methods, Concepts or the Domain only where integration needs it. Keep every paper reading as it is; do not remove entities. Leave follow_ups empty.',
+    'Output: the issue hierarchy; the knowledge items (Keyword entities) as the knowledge rule describes, built from the readings and the outline; achievement Claims for every Issue still without one; addresses relations from the ideas of other fields to the issues they could address; replace_entity for Methods, Concepts or the Domain only where integration needs it; and the three follow_ups. Keep every paper reading as it is; do not remove entities.',
+  ].join('\n\n');
+}
+/** Wave 3, a separate agent beside the integration: writes only the Tutorial from the survey of waves 1–2. */
+export function tutorialInstructions() {
+  return [
+    'Mode: new survey, the tutorial agent (step 6 of 8, in parallel with the integration). The snapshot holds the outline, the in-depth readings and the papers of the divergent search. Another agent integrates the issues, methods and knowledge at the same time, so write only the Tutorial.',
+    'Output only: add_entity one Tutorial (id tutorial) as the tutorial rule describes, citing entities of the snapshot as [@ID] and in refs, with media from papers whose figures, algorithms or equations you saw; no other operation and no follow_ups.',
   ].join('\n\n');
 }
 /** Step 4, a separate agent: additions only, the papers it finds are read by step 5. */
 export function divergeInstructions(memory: SearchMemory) {
   return [
-    'Mode: new survey, step 4 of 8 (diverge). You are a separate agent: the snapshot is the survey that other agents built and integrated in steps 1–3. Your only job is the divergent search below; other agents read the papers you find (step 5), integrate them (step 6), check the schema (step 7) and fill the gaps (step 8).',
+    'Mode: new survey, step 4 of 8 (diverge). You are a separate agent: the snapshot is the outline from step 1, while other agents read its papers in depth at the same time. Your only job is the divergent search below; other agents read the papers you find (step 5), integrate them (step 6), check the schema (step 7) and fill the gaps (step 8).',
     `4. ${RESEARCH_STEPS[3].instruction}`,
     searchMemoryText(memory),
     `Output additions only: at most ${DIVERGE_MAX_PAPERS} add_entity Papers for the primary papers on the missing perspectives, adjacent fields and open problems, each with its exact title, one identifier, year when known, a one_line_summary, proposes and addresses, and reading null (step 5 reads them in depth); Methods (with a Concept family when needed) for the ideas from other fields, with addresses relations to the issues they could address; Issues for missing perspectives and open problems, each citing Evidence copied verbatim from a page you opened (the facts rule) and placed under a broader Issue with part_of; and the sources you opened as Resources (the guide rule). Do not replace or remove existing entities or relations. Use IDs prefixed with d- for everything you add. In the message, list the missing perspectives and adjacent fields you found. Leave follow_ups empty.`,
   ].join('\n\n');
 }
-/** Step 6: the candidates of step 5 are merged the same way, and the Tutorial is written from the whole survey. */
-export function reintegrateInstructions(candidates: string[]) {
-  return [
-    'Mode: new survey, step 6 of 8 (integrate again, abstract). The snapshot holds the integrated survey, the additions of the divergent search (step 4) and the readings of their papers (step 5).',
-    `6. ${RESEARCH_STEPS[5].instruction}`,
-    issueHierarchy(candidates),
-    'Output: the updated issue hierarchy; replace_entity for the knowledge items, Methods, Concepts or the Domain where the new papers change them, and new Keyword entities for new items; achievement Claims for every Issue still without one; addresses relations from the ideas of other fields to the issues they could address; and the Tutorial as the tutorial rule describes, citing the papers in the snapshot. Keep every paper reading as it is; do not remove entities. Leave follow_ups empty (step 8 writes them).',
-  ].join('\n\n');
-}
-/** Step 7, a separate agent without web search: returns the gap list (CHECK_SCHEMA), not a patch. */
-export function checkInstructions(gaps: unknown[], unmet: unknown[], memory: SearchMemory) {
-  return [
-    'Mode: new survey, step 7 of 8 (schema check). You are a separate agent and have no tools: do not search. The snapshot is the survey after steps 1–6. Use the rules above as the checklist of what the survey should contain, but do not write a patch in this step: return the gap list in the output schema.',
-    `7. ${RESEARCH_STEPS[6].instruction}`,
-    `Empty fields the server found mechanically (data): ${JSON.stringify(gaps)}`,
-    `Survey requirements not met (data): ${JSON.stringify(unmet)}`,
-    searchMemoryText(memory),
-    `Output: gaps, at most ${MAX_GAPS}, most important first. Each has target (an entity ID, or "survey" for a requirement of the whole survey), field (the schema field or the requirement), problem (one Japanese sentence), fill ("existing" when the snapshot or the pages already opened hold the answer, "search" when a new search is needed) and query (the search to run for "search", otherwise null). Confirm the server's gaps against the snapshot and drop the ones that are acceptable as empty (for example the venue of a preprint or the official page of a metric). Add the gaps the server cannot see: facts without Evidence, Claims without as_of, missing method lineage (extends, builds_on), Issues without a broader Issue, and method families, knowledge layers or classic papers the field has but the survey lacks. Summarize the check in message, in Japanese.`,
-  ].join('\n\n');
-}
-export const CHECK_SCHEMA = {
-  type: 'object', additionalProperties: false, required: ['gaps', 'message'],
-  properties: {
-    gaps: { type: 'array', maxItems: MAX_GAPS, items: { type: 'object', additionalProperties: false, required: ['target', 'field', 'problem', 'fill', 'query'], properties: {
-      target: { type: 'string' }, field: { type: 'string' }, problem: { type: 'string' }, fill: { type: 'string', enum: ['existing', 'search'] }, query: { type: ['string', 'null'] },
-    } } },
-    message: { type: 'string' },
-  },
-} as const;
 /** Step 8: fills the gaps from what the run already found, searching only where needed, and writes the follow-ups. */
 export function fillInstructions(gaps: unknown[], memory: SearchMemory) {
   return [
-    'Mode: new survey, step 8 of 8 (fill). The snapshot is the survey after steps 1–7; the gap list comes from the schema check (step 7).',
+    'Mode: new survey, step 8 of 8 (fill). The snapshot is the survey after steps 1–7; the gap list comes from the server\'s schema check (step 7).',
     `8. ${RESEARCH_STEPS[7].instruction}`,
     `Gaps to fill (data): ${JSON.stringify(gaps)}`,
     searchMemoryText(memory),
