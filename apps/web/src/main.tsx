@@ -22,7 +22,7 @@ import { CardFigure, Diagrams, KeySections, arxivIdOf, useArxivData } from './Ke
 import { overviewOf, overviewSources } from '../../../packages/domain/src/overview';
 import { TutorialView } from './TutorialView';
 import { validateContextPapers } from '../../../packages/agent/src/chat-context';
-import { addContext, canDispatchQueue, loadContexts, loadQueues, removeQueued, QUICK_REQUESTS, QUEUE_KEY, CONTEXT_KEY, type ChatQueues, type QueuedRequest } from './chat-state';
+import { addContext, canCiteAfterSave, canDispatchQueue, enqueue, loadContexts, loadQueues, keepPolling, nextRunStates, pollDelay, provisionalName, removeQueued, requestTitle, retryRequest, runGone, NEW_SURVEY_TITLE, QUICK_REQUESTS, QUEUE_KEY, CONTEXT_KEY, type ChatQueues, type QueuedRequest } from './chat-state';
 import { buildLibrary } from '../../../packages/agent/src/library';
 
 function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'send' | 'pen' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh' | 'book' | 'back'; className?: string }) {
@@ -89,11 +89,7 @@ const KEYWORD_SECTIONS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metr
 const readingLabels = { contributions:'貢献', novelty:'先行研究と比べてどこがすごい？', key_idea:'技術や手法のキモはどこ？', validation:'どうやって有効だと検証した？', discussion:'議論はある？', key_figures:'理解に重要な図・表', key_formulas:'理解に重要なアルゴリズム・数式', key_sections:'理解に重要な節', captions_ja:'図・表・アルゴリズムのキャプションの和訳', cites:'要点の各項目の出典' } as const;
 /** The reading questions shown in 解説, each with its own sources (reading.cites). */
 const EXPLANATION_FIELDS = ['novelty', 'key_idea', 'validation', 'discussion'] as const;
-/** A new survey is named after what the user asks for until research gives it a title. */
-const NEW_SURVEY_TITLE = '新規調査';
 const runStateLabels = { running: '実行中', succeeded: '完了', failed: '失敗', cancelled: '取消' } as const;
-/** The first line of a request, short enough for a collection name. */
-const requestTitle = (text: string) => text.trim().split('\n')[0].trim().slice(0, 40);
 const fieldLabels: Record<string, string> = {representative_figure:'代表Fig',caption:'キャプション',source_name:'元PDF',page:'ページ',crop:'切り出し範囲',extracted_at:'抽出日',x:'左端',y:'上端',width:'幅',height:'高さ', code_availability:'コード公開状況',code_url:'コード公開URL',code_checked_at:'コード確認日', from:'対象',to:'関連先',label:'名前',description:'説明',kind:'課題の種類',title:'論文タイトル',year:'出版年',venue:'会議・ジャーナル',venue_type:'出版種別',one_line_summary:'概要',aliases:'別名・略称',category:'分類',meaning:'意味',papers:'登場する論文',related:'関連する項目',official_url:'公式ページ',definition_excerpt:'定義の原文',abstract:'要旨',abstract_source_url:'要旨の取得元URL',citation_count:'引用数',citation_source:'引用数の取得元',citation_as_of:'引用数の取得日',doi:'DOI',arxiv_id:'arXiv ID',url:'論文URL',authors:'著者',proposes:'提案する手法',addresses:'対象の課題',claims:'主張',evidence:'根拠',statement:'主張の内容',status:'解決状態',scope:'評価条件',task:'タスク',setting:'問題設定',metric:'評価指標',assumptions:'前提',limitations:'制約',as_of:'評価日',source_url:'出典URL',locator:'出典のページ・節',excerpt:'原文の抜粋',verification:'出典の確認状態',retrieved_at:'原文の取得日時',english_terms:'英語表現',abstract_ja:'要旨の和訳',reading:'論文の要点',...readingLabels,follow_ups:'次の調査の候補' };
 function describeValue(value: unknown, lookup: (id: string) => string = id => id): string {
   if (value === null || value === undefined) return 'なし';
@@ -122,7 +118,7 @@ const stamp = (iso: string) => new Date(iso).toLocaleString('sv-SE', { timeZone:
 type Explanation = { message: string; sources: { title: string; url: string }[]; follow_ups: string[] };
 /** An explanation kept in the chat after its run is closed (this browser, per collection). */
 type ExplanationTurn = Explanation & { id: string; instruction: string; created_at: string; context_papers?: string[] };
-type Run = { id: string; mode?: ResearchMode; skill?: SkillId; explanation?: Explanation; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; instruction?: string; title?: string | null; base_commit_id?: string; message: string; searches?: number; trace?: Trace[]; patch?: SurveyPatch; follow_ups?: string[]; context_papers?: string[] };
+type Run = { id: string; mode?: ResearchMode; skill?: SkillId; explanation?: Explanation; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; instruction?: string; title?: string | null; base_commit_id?: string; message: string; searches?: number; trace?: Trace[]; patch?: SurveyPatch; follow_ups?: string[]; context_papers?: string[]; use_library?: boolean };
 async function request(path: string, body?: unknown) {
   const response = await fetch(path, body === undefined ? undefined : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await response.json(); if (!response.ok) { const error = Error(data.error ?? `HTTP ${response.status}`) as Error & { status: number }; error.status = response.status; throw error; } return data;
@@ -287,8 +283,8 @@ function App() {
   // Paper cache: reuse stored papers (this survey's and the other collections') instead of re-reading them. Per-viewer preference.
   const [paperCache, setPaperCache] = useState(() => { try { return localStorage.getItem(CACHE_KEY) !== '0'; } catch { return true; } });
   function togglePaperCache() { setPaperCache(on => { try { localStorage.setItem(CACHE_KEY, on ? '0' : '1'); } catch { /* per-viewer preference only */ } return !on; }); }
-  // Set when a Codex proposal is saved, so the new papers get their citation counts right after.
-  const [citeAfterSave, setCiteAfterSave] = useState(false);
+  // The collection whose Codex proposal was saved, so its new papers get their citation counts once no run or queued request is based on its head.
+  const [citeAfterSave, setCiteAfterSave] = useState<string | null>(null);
   const branch = workspace.branches.find(b => b.id === workspace.active_branch)!;
   const head = workspace.commits.find(c => c.id === branch.head)!;
   const commit = workspace.commits.find(c => c.id === viewId) ?? head;
@@ -326,33 +322,38 @@ function App() {
     setRun(current => current && current.id === runId ? current : null);
     if (!runId) return;
     let active = true;
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout>, failures = 0;
     const poll = async () => {
       try {
         const result: Run = await request(`/api/codex/runs/${runId}`);
         if (!active) return;
-        setRun(result);
-        if (result.status === 'running') timer = setTimeout(poll, 1600);
-      } catch (e) { if (active) { setNotice(e instanceof Error ? e.message : 'run取得失敗'); setPendingRuns(current => Object.fromEntries(Object.entries(current).filter(([, id]) => id !== runId))); } }
+        failures = 0; setRun(result);
+        if (result.status === 'running') timer = setTimeout(poll, pollDelay(0));
+      } catch (e) {
+        if (!active) return;
+        setNotice(e instanceof Error ? e.message : 'run取得失敗');
+        // Only a run the server no longer has is forgotten; a network blip or sleep keeps it and its queue waiting.
+        if (runGone(e)) setPendingRuns(current => Object.fromEntries(Object.entries(current).filter(([, id]) => id !== runId))); else timer = setTimeout(poll, pollDelay(++failures));
+      }
     };
     void poll(); return () => { active = false; clearTimeout(timer); };
   }, [runId]);
   // The state of the runs of the other collections, so the sidebar shows which are running and which have finished.
-  const [otherRuns, setOtherRuns] = useState<Record<string, Run['status']>>({});
+  const [otherRuns, setOtherRuns] = useState<Record<string, Pick<Run, 'status' | 'instruction'>>>({});
   useEffect(() => {
     const others = Object.entries(pendingRuns).filter(([b]) => b !== workspace.active_branch);
     if (!others.length) { setOtherRuns({}); return; }
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
-      const found = await Promise.all(others.map(async ([b, id]) => { try { return [b, ((await request(`/api/codex/runs/${id}`)) as Run).status] as const; } catch (error) { if (error instanceof Error && (error as Error & { status?: number }).status === 404) dropBranchRun(b, id); return [b, null] as const; } }));
+      const found = await Promise.all(others.map(async ([b, id]) => { try { const { status, instruction }: Run = await request(`/api/codex/runs/${id}`); return [b, { status, instruction }] as const; } catch (error) { if (runGone(error)) dropBranchRun(b, id); return [b, null] as const; } }));
       if (!active) return;
-      setOtherRuns(Object.fromEntries(found.filter((entry): entry is readonly [string, Run['status']] => !!entry[1])));
-      if (found.some(([, status]) => status === 'running')) timer = setTimeout(poll, 4000);
+      setOtherRuns(current => nextRunStates(current, found));
+      if (keepPolling(found)) timer = setTimeout(poll, 4000);
     };
     void poll(); return () => { active = false; clearTimeout(timer); };
   }, [pendingRuns, workspace.active_branch]);
-  const runState = (b: Workspace['branches'][number]): Run['status'] | null => b.id === branch.id ? (run && run.id === runId ? run.status : runId ? 'running' : null) : pendingRuns[b.id] ? otherRuns[b.id] ?? null : null;
+  const runState = (b: Workspace['branches'][number]): Run['status'] | null => b.id === branch.id ? (run && run.id === runId ? run.status : runId ? 'running' : null) : pendingRuns[b.id] ? otherRuns[b.id]?.status ?? null : null;
   // A deleted collection's run waits here, so 元に戻す can still bring the research back; it is cancelled once the undo is gone.
   const pendingCancel = useRef<{ runId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   function flushCancel() {
@@ -389,14 +390,21 @@ function App() {
     if (text.length > 8000) { setNotice('依頼は8000文字以内にしてください'); return; }
     const owner = branch.id;
     const item: QueuedRequest = { id: crypto.randomUUID(), instruction: text.trim(), context_papers: [...ids], use_library: paperCache, created_at: new Date().toISOString() };
-    setQueues(current => ({ ...current, [owner]: [...(current[owner] ?? []), item] }));
+    setQueues(current => enqueue(current, owner, item));
     setInstruction(''); setContexts(current => ({ ...current, [owner]: [] }));
     if (startingSurvey) showSideTab('chat'); else openSide('chat');
   }
-  const otherRunning = Object.entries(pendingRuns).some(([id]) => id !== branch.id && (!otherRuns[id] || otherRuns[id] === 'running'));
+  /** 再実行 puts the request back at the front of its queue, ahead of ones sent while it ran; the draft and chosen papers stay. */
+  function retryRun(failed: Run) {
+    const item = retryRequest(failed, paperCache, crypto.randomUUID(), new Date().toISOString());
+    if (reviewPreview || !agentReady || !item || historical || submitting) return;
+    const owner = branch.id;
+    closeRun(); setQueues(current => enqueue(current, owner, item, true));
+  }
+  const otherRunning = Object.entries(pendingRuns).some(([id]) => id !== branch.id && (!otherRuns[id] || otherRuns[id].status === 'running'));
   useEffect(() => {
     const owner = branch.id, item = queues[owner]?.[0];
-    if (!item || dispatching.current || reviewPreview || !canDispatchQueue({ ready: agentReady, historical, submitting, pending: !!runId, otherRunning, failed: !!queuePaused[owner], queued: queues[owner]?.length ?? 0 })) return;
+    if (!item || dispatching.current || reviewPreview || !canDispatchQueue({ ready: agentReady, historical, submitting, pending: !!runId, updating, otherRunning, failed: !!queuePaused[owner], queued: queues[owner]?.length ?? 0 })) return;
     dispatching.current = item.id; setSubmitting(true); flushCancel(); setUndo(null);
     const send = async () => {
       try {
@@ -416,7 +424,7 @@ function App() {
       } finally { dispatching.current = null; setSubmitting(false); }
     };
     void send();
-  }, [queues, branch.id, head.id, agentReady, historical, submitting, runId, otherRunning, queuePaused]);
+  }, [queues, branch.id, head.id, agentReady, historical, submitting, runId, updating, otherRunning, queuePaused]);
   function deleteQueuedRequest(id: string) {
     if (dispatching.current === id) return;
     if (queues[branch.id]?.[0]?.id === id) setQueuePaused(current => ({ ...current, [branch.id]: false }));
@@ -442,7 +450,7 @@ function App() {
     if (!title && !head.snapshot.entities.length && next.title === NEW_SURVEY_TITLE && run.instruction?.trim()) { title = requestTitle(run.instruction); next.title = title; }
     newCommit(next, run.patch.message, 'codex', run.patch, title);
     setRun(null); dropBranchRun(branch.id, run.id);
-    if (next.entities.some(e => e.type === 'Paper' && e.citation_count === null)) setCiteAfterSave(true);
+    if (next.entities.some(e => e.type === 'Paper' && e.citation_count === null)) setCiteAfterSave(branch.id);
     // Sending already cleared the submitted draft; preserve anything typed during research or review.
   }
   /** この論文を更新 / すべての論文を更新 (design 0026): fills the papers' empty fields that public sources give mechanically
@@ -473,7 +481,7 @@ function App() {
     } catch (e) { setNotice(e instanceof Error ? e.message : '論文を更新できませんでした'); }
     finally { setUpdating(false); }
   }
-  useEffect(() => { if (citeAfterSave && !updating) { setCiteAfterSave(false); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id]);
+  useEffect(() => { if (canCiteAfterSave({ requested: citeAfterSave === branch.id, updating, historical, pending: !!runId, queued: queues[branch.id]?.length ?? 0 })) { setCiteAfterSave(null); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id, branch.id, historical, runId, queues]);
   function closeRun() {
     if (!run) return;
     const previous = run, owner = branch.id;
@@ -507,8 +515,8 @@ function App() {
   const [renaming, setRenaming] = useState<string | null>(null);
   /** The name of a collection is the title of its latest version, so the sidebar and the page always agree. */
   const storedTitle = (b: Workspace['branches'][number]) => workspace.commits.find(c => c.id === b.head)?.snapshot.title || b.name;
-  // A new survey shows the request typed in its chat until research names it; renaming starts from the stored name.
-  const collectionTitle = (b: Workspace['branches'][number]) => b.id === branch.id && provisionalTitle ? provisionalTitle : storedTitle(b);
+  // A new survey shows its running, queued or typed request until research names it; renaming starts from the stored name.
+  const collectionTitle = (b: Workspace['branches'][number]) => (b.id === branch.id ? provisionalTitle : provisionalName(workspace.commits.find(c => c.id === b.head)?.snapshot ?? { title: '', entities: [] }, [otherRuns[b.id]?.instruction, queues[b.id]?.[0]?.instruction, drafts[b.id]])) || storedTitle(b);
   /** Renames a collection and its survey together: the title changes in a new version and the collection follows it. */
   function renameCollection(id: string, value: string) {
     setRenaming(null);
@@ -535,8 +543,8 @@ function App() {
     });
   }
   const startingSurvey = !snapshot.entities.length && !historical;
-  // A new survey is named after the request typed or running in its chat until research gives it a title (design 0026).
-  const provisionalTitle = startingSurvey && snapshot.title === NEW_SURVEY_TITLE ? requestTitle(composerText) : '';
+  // A new survey is named after the request running in its chat, then the next queued one, then the one typed, until research gives it a title (design 0026).
+  const provisionalTitle = historical ? '' : provisionalName(snapshot, [run && run.id === runId ? run.instruction : undefined, queues[branch.id]?.[0]?.instruction, composerText]);
   const panelCollapsed = sideCollapsed || !sideTabs.length || (startHidden && startingSurvey);
   // Codex's saved research, and the sample's own request and answer.
   const chatHistory = [...history].reverse().filter(c => (c.source === 'codex' || c.source === 'fixture') && c.instruction);
@@ -564,7 +572,7 @@ function App() {
   const runTrace = run?.trace?.length ? <details className="run-trace" open={run.status === 'running'}><summary><Icon name="chevron"/><span>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.searches ?? run.trace.filter(t => t.kind === 'search').length}回`}</span></summary>{runSteps}<ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details> : null;
   const messageContext = (ids: string[] | undefined, source = snapshot) => ids?.length ? <div className="sent-context">{ids.map(id => <button key={id} data-entity-id={id} disabled={!linked(id)} onClick={() => select(id)}><Icon name="paper"/>{source.entities.find(e => e.id === id)?.label ?? id}</button>)}</div> : null;
   // The running survey and its proposal: in the right chat, or under the input while a new survey is being made.
-  const runTurn = run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}{messageContext(run.context_papers)}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.skill && skillById(run.skill) && <strong className="run-skill">{skillById(run.skill).label}</strong>}{run.message}</span>{run.status === 'running' ? <button onClick={() => { const owner = branch.id; void request(`/api/codex/runs/${run.id}/cancel`, {}).then((value: Run) => showRun(owner, value)).catch(e => setNotice(e.message)); }} className="run-cancel" aria-label="取消" title="取消"><Icon name="stop"/></button> : <span className="run-actions">{run.status !== 'succeeded' && <button className="run-icon" disabled={!run.instruction || !agentReady || historical || submitting} onClick={() => { const text = run.instruction!; closeRun(); askCodex(text, run.context_papers ?? []); }} aria-label="再実行" title="再実行"><Icon name="refresh"/></button>}<button className="run-icon" onClick={closeRun} aria-label="閉じる" title="閉じる"><CloseIcon size={16}/></button></span>}</div>{runTrace}</div>}</div>;
+  const runTurn = run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}{messageContext(run.context_papers)}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.skill && skillById(run.skill) && <strong className="run-skill">{skillById(run.skill).label}</strong>}{run.message}</span>{run.status === 'running' ? <button onClick={() => { const owner = branch.id; void request(`/api/codex/runs/${run.id}/cancel`, {}).then((value: Run) => showRun(owner, value)).catch(e => setNotice(e.message)); }} className="run-cancel" aria-label="取消" title="取消"><Icon name="stop"/></button> : <span className="run-actions">{run.status !== 'succeeded' && <button className="run-icon" disabled={!run.instruction || !agentReady || historical || submitting} onClick={() => retryRun(run)} aria-label="再実行" title="再実行"><Icon name="refresh"/></button>}<button className="run-icon" onClick={closeRun} aria-label="閉じる" title="閉じる"><CloseIcon size={16}/></button></span>}</div>{runTrace}</div>}</div>;
   const sideRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (selected) showSideTab('detail'); }, [selected]);
   useEffect(() => { if (side === 'chat' && sideRef.current) sideRef.current.scrollTop = sideRef.current.scrollHeight; }, [side, run?.status, run?.trace?.length, chatTurns.length]);
