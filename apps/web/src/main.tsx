@@ -15,6 +15,7 @@ import { SubTabs } from './SubTabs';
 import { LiteratureGuide, RESOURCE_KINDS } from './LiteratureGuide';
 import { PaperFacts, Sources } from './Facts';
 import { skillById, type SkillId } from '../../../packages/agent/src/skills/index';
+import { RESEARCH_STEPS } from '../../../packages/agent/src/research-prompt';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
 import { CardFigure, Diagrams, KeySections, arxivIdOf, useArxivData } from './KeyFigures';
 import { overviewOf, overviewSources } from '../../../packages/domain/src/overview';
@@ -112,7 +113,7 @@ function load(): { workspace: Workspace; warning: string } {
   } catch { return { workspace: initialWorkspace(), warning: '保存データを読み込めませんでした。元データは保持しています。新しい調査を作成するか、保存データを確認してください。' }; }
 }
 type ResearchMode = 'new' | 'additional';
-type Trace = { at: string; kind: 'search' | 'open' | 'thinking' | 'error' | 'step'; text: string };
+type Trace = { at: string; kind: 'search' | 'open' | 'thinking' | 'error' | 'step'; text: string; step?: number };
 /** Versions are shown as JST timestamps. */
 const stamp = (iso: string) => new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 type Explanation = { message: string; sources: { title: string; url: string }[]; follow_ups: string[] };
@@ -501,7 +502,11 @@ function App() {
   ].filter((q): q is string => !!q).slice(0, 3);
   const codexFollowUps = run ? run.follow_ups ?? run.patch?.follow_ups ?? [] : (lastTurn?.kind === 'explanation' ? lastTurn.explanation.follow_ups : lastTurn?.commit.patch?.follow_ups) ?? [];
   const followUps = codexFollowUps.length ? codexFollowUps : run ? [] : gaps;
-  const runTrace = run?.trace?.length ? <details className="run-trace" open={run.status === 'running'}><summary><Icon name="chevron"/><span>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.searches ?? run.trace.filter(t => t.kind === 'search').length}回`}</span></summary><ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details> : null;
+  // A new survey's trace starts with its eight steps (design 0028): done, running and still to come.
+  const reachedSteps = new Set(run?.trace?.flatMap(t => t.kind === 'step' && t.step ? [t.step] : []) ?? []);
+  const currentStep = run?.status === 'running' && reachedSteps.size ? Math.max(...reachedSteps) : 0;
+  const runSteps = reachedSteps.size > 0 && <ol className="run-steps">{RESEARCH_STEPS.map(s => <li key={s.id} className={s.stage === currentStep ? 'current' : reachedSteps.has(s.stage) ? 'done' : undefined}>{s.stage === currentStep ? '◌' : reachedSteps.has(s.stage) ? '✓' : s.stage} {s.short}</li>)}</ol>;
+  const runTrace = run?.trace?.length ? <details className="run-trace" open={run.status === 'running'}><summary><Icon name="chevron"/><span>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.searches ?? run.trace.filter(t => t.kind === 'search').length}回`}</span></summary>{runSteps}<ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details> : null;
   // The running survey and its proposal: in the right chat, or under the input while a new survey is being made.
   const runTurn = run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.skill && skillById(run.skill) && <strong className="run-skill">{skillById(run.skill).label}</strong>}{run.message}</span>{run.status === 'running' ? <button onClick={() => { const owner = branch.id; void request(`/api/codex/runs/${run.id}/cancel`, {}).then((value: Run) => showRun(owner, value)).catch(e => setNotice(e.message)); }} className="run-cancel" aria-label="取消" title="取消"><Icon name="stop"/></button> : <span className="run-actions">{run.status !== 'succeeded' && <button className="run-icon" disabled={!run.instruction || !agentReady || historical || submitting} onClick={() => { const text = run.instruction!; closeRun(); void askCodex(text); }} aria-label="再実行" title="再実行"><Icon name="refresh"/></button>}<button className="run-icon" onClick={closeRun} aria-label="閉じる" title="閉じる"><CloseIcon size={16}/></button></span>}</div>{runTrace}</div>}</div>;
   const sideRef = useRef<HTMLDivElement>(null);

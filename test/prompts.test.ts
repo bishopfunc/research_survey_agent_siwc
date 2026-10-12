@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, deepenInstructions, integrateInstructions, stageLabel } from '../packages/agent/src/research-prompt';
+import { ADDITIONAL_RESEARCH_INSTRUCTIONS, CHECK_SCHEMA, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, checkInstructions, deepenInstructions, divergeInstructions, fillInstructions, integrateInstructions, reintegrateInstructions, stageLabel } from '../packages/agent/src/research-prompt';
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, RESEARCH_MODES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
-test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract without a separate venue step', () => {
-  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['integrate', 3, '抽象'], ['diverge', 4, '発散'], ['primary2', 5, '具体'], ['integrate2', 6, '抽象']]);
-  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6']);
+test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract, then checks and fills, without a separate venue step', () => {
+  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['integrate', 3, '抽象'], ['diverge', 4, '発散'], ['primary2', 5, '具体'], ['integrate2', 6, '抽象'], ['check', 7, '点検'], ['fill', 8, '具体']]);
+  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6', '7', '8']);
+  assert.deepEqual(RESEARCH_STEPS.map(s => s.short), ['全体像', '事実と出典', '統合', '発散', '追加の論文', '統合し直し', '点検', '補完']);
+  assert.equal(RESEARCH_STEPS[1].title, '一次論文から事実と出典を整理する');
+  assert.match(RESEARCH_STEPS[1].instruction, /Everything you take from a paper is a fact with its source \(the facts rule\), and nearly every piece of information in it counts/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Run the eight steps below in order/);
   assert.ok(!(RESEARCH_STEPS as readonly { id: string }[]).some(s => s.id === 'venues'));
   assert.match(NEW_SURVEY_INSTRUCTIONS, /abstract → concrete → abstract → divergent → concrete → abstract/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /1\. Start with broad Internet searches/);
@@ -148,6 +152,24 @@ test('issues are built bottom-up: per-paper candidates with sources, then a hier
   const integrate = integrateInstructions(['w1-cand-a', 'w2-cand-b']);
   assert.match(integrate, /the Issues w1-cand-a, w2-cand-b are per-paper issue candidates/);
   assert.match(integrate, /so the tree has at least three levels wherever the papers support it/);
+});
+test('the eight steps: separate agents for the divergent search and the schema check, search memory as data, follow-ups only at the end', () => {
+  const memory = { queries: ['MAPF survey'], opened: ['https://example.org/a'] };
+  assert.match(deepenInstructions(2, 4, ['p1'], []), /step 2 of 8[\s\S]*Use IDs prefixed with w2- for everything you add/);
+  const extend = deepenInstructions(1, 2, ['d-p'], [], 5);
+  assert.match(extend, /step 5 of 8[\s\S]*found in step 4[\s\S]*2\. Concrete: read the papers marked for depth[\s\S]*Use IDs prefixed with x1- for everything you add/);
+  assert.match(integrateInstructions([]), /do not write the Tutorial or follow_ups here/);
+  const diverge = divergeInstructions(memory);
+  assert.match(diverge, /You are a separate agent[\s\S]*4\. Divergent:/);
+  assert.match(diverge, /Search memory of this run \(data, newest first\)\. Searches already made, do not repeat them: \["MAPF survey"\]/);
+  assert.match(diverge, /Output additions only: at most 8 add_entity Papers[\s\S]*Do not replace or remove existing entities/);
+  assert.match(reintegrateInstructions(['x1-c']), /step 6 of 8[\s\S]*the Issues x1-c are per-paper issue candidates[\s\S]*the Tutorial as the tutorial rule describes[\s\S]*Leave follow_ups empty \(step 8 writes them\)/);
+  const check = checkInstructions([{ target: 'i1', field: 'english_terms', problem: '英語表現が無い' }], [], memory);
+  assert.match(check, /step 7 of 8 \(schema check\)\. You are a separate agent and have no tools: do not search/);
+  assert.match(check, /Empty fields the server found mechanically \(data\): \[\{"target":"i1"/);
+  assert.deepEqual(CHECK_SCHEMA.properties.gaps.items.required, ['target', 'field', 'problem', 'fill', 'query']);
+  const fill = fillInstructions([], memory);
+  assert.match(fill, /step 8 of 8 \(fill\)[\s\S]*Do not remove entities or relations[\s\S]*end with the three follow_ups/);
 });
 test('a method is named after its approach group, never after a paper or system alone', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /a Method is the generic name of a group of approaches that share one approach/);

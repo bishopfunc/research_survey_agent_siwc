@@ -1,5 +1,6 @@
 import type { Concept, Paper, SurveySnapshot } from './snapshot.types';
 import { assessTutorial } from './tutorial';
+import { overviewOf } from './overview';
 
 /** Test requirements for a new survey of tens to about a hundred papers (design 0019). Structural checks only:
  * they show that the survey reached the intended breadth and depth, not that its statements are correct. */
@@ -53,4 +54,39 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
     check('guide', '文献ガイド：3件以上、うちサーベイ1件以上', resources.length >= 3 && resources.some(r => r.kind === 'survey'), `${resources.length}件（サーベイ${resources.filter(r => r.kind === 'survey').length}）`),
     check('tutorial', 'チュートリアルが要件をすべて満たす', tutorial.every(c => c.pass), `未達：${tutorial.filter(c => !c.pass).map(c => c.id).join('・') || 'なし'}`),
   ];
+}
+
+export interface SurveyGap { target: string; field: string; problem: string }
+/** Empty fields the rules expect, found mechanically for the schema check of a new survey (design 0028). Some are
+ * acceptable as empty (the official page of a metric, for example); the check agent decides which to keep. */
+export function findGaps(snapshot: SurveySnapshot): SurveyGap[] {
+  const gaps: SurveyGap[] = [];
+  const gap = (target: string, field: string, problem: string) => gaps.push({ target, field, problem });
+  const inFamily = new Set(snapshot.relations.filter(r => r.type === 'instance_of').map(r => r.from));
+  const achieved = new Set(snapshot.relations.filter(r => r.type === 'about' && snapshot.entities.some(e => e.id === r.from && e.type === 'Claim')).map(r => r.to));
+  for (const e of snapshot.entities) {
+    if (['Issue', 'Method', 'Concept', 'Paper', 'Keyword', 'Resource'].includes(e.type) && !overviewOf(e).trim()) gap(e.id, 'overview', '概要が空');
+    if (e.type === 'Issue') {
+      if (!e.english_terms?.length) gap(e.id, 'english_terms', '英語表現が無い');
+      if (!e.evidence?.length) gap(e.id, 'evidence', '出典が無い');
+      if (!achieved.has(e.id)) gap(e.id, 'about', '達成度の主張が無い');
+    }
+    if (e.type === 'Method') {
+      if (!inFamily.has(e.id)) gap(e.id, 'instance_of', '系統が無い');
+      if (!e.evidence?.length) gap(e.id, 'evidence', '出典が無い');
+    }
+    if (e.type === 'Paper') {
+      if (e.year === null) gap(e.id, 'year', '年が無い');
+      if (!e.doi && !e.arxiv_id && !e.url) gap(e.id, 'doi/arxiv_id/url', '識別子が無い');
+    }
+    if (e.type === 'Keyword') {
+      if (!e.papers.length) gap(e.id, 'papers', '使う論文が無い');
+      if (!e.evidence?.length) gap(e.id, 'evidence', '出典が無い');
+      if (!e.official_url) gap(e.id, 'official_url', '公式ページが無い');
+    }
+  }
+  const tutorial = snapshot.entities.find(e => e.type === 'Tutorial');
+  if (!tutorial) gap('survey', 'Tutorial', 'チュートリアルが無い');
+  else if (tutorial.type === 'Tutorial') tutorial.sections.forEach((section, i) => { if (!section.refs.length && !/\[@[^\]\s]+\]/.test(section.body)) gap(tutorial.id, `sections[${i}]`, `節「${section.heading}」に引用が無い`); });
+  return gaps;
 }

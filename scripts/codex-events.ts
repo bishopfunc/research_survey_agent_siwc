@@ -1,14 +1,31 @@
 // Reads `codex exec --json` events. Pure functions so the server's success/failure rules are testable.
-export interface CodexEventState { searches: number; completed: boolean; error: string | null; usage: Record<string, number> | null }
-export const initialCodexState = (): CodexEventState => ({ searches: 0, completed: false, error: null, usage: null });
+/** `queries` and `opened` are the search memory of the step (design 0028): what was searched and which pages were opened. */
+export interface CodexEventState { searches: number; completed: boolean; error: string | null; usage: Record<string, number> | null; queries: string[]; opened: string[] }
+export const initialCodexState = (): CodexEventState => ({ searches: 0, completed: false, error: null, usage: null, queries: [], opened: [] });
 
-type CodexEvent = { type?: unknown; message?: unknown; item?: { type?: unknown }; error?: { message?: unknown }; usage?: unknown };
+type WebSearchItem = { type?: unknown; query?: unknown; action?: { type?: unknown; queries?: unknown; query?: unknown; url?: unknown } };
+type CodexEvent = { type?: unknown; message?: unknown; item?: WebSearchItem & { text?: unknown }; error?: { message?: unknown }; usage?: unknown };
+/** What a completed web_search item did: the queries it ran, or the page it opened. */
+function webSearchOf(item: WebSearchItem | undefined): { queries: string[] } | { opened: string } | null {
+  if (item?.type !== 'web_search') return null;
+  if (typeof item.action?.url === 'string' && /^https?:\/\//.test(item.action.url)) return { opened: item.action.url };
+  const queries = (Array.isArray(item.action?.queries) ? item.action.queries : [item.action?.query ?? item.query]).filter((q): q is string => typeof q === 'string' && !!q.trim());
+  if (!queries.length) return null;
+  // A non-search action whose query is a URL means Codex opened that page.
+  if (item.action?.type !== 'search' && queries.length === 1 && /^https?:\/\//.test(queries[0])) return { opened: queries[0] };
+  return { queries };
+}
 
 export function readCodexEvent(state: CodexEventState, line: string): CodexEventState {
   let event: CodexEvent;
   try { event = JSON.parse(line); } catch { return state; }
   if (!event || typeof event !== 'object') return state;
-  if (event.type === 'item.completed' && event.item?.type === 'web_search') return { ...state, searches: state.searches + 1 };
+  if (event.type === 'item.completed' && event.item?.type === 'web_search') {
+    const action = webSearchOf(event.item);
+    const queries = action && 'queries' in action ? action.queries.map(q => redact(q)) : [];
+    const opened = action && 'opened' in action ? [redact(action.opened)] : [];
+    return { ...state, searches: state.searches + 1, queries: [...state.queries, ...queries], opened: [...state.opened, ...opened] };
+  }
   if (event.type === 'turn.completed') return { ...state, completed: true, usage: event.usage && typeof event.usage === 'object' ? event.usage as Record<string, number> : null };
   if (event.type === 'error' && typeof event.message === 'string') return { ...state, error: errorText(event.message) };
   if (event.type === 'turn.failed') return { ...state, error: errorText(typeof event.error?.message === 'string' ? event.error.message : 'turn.failed') };
@@ -36,17 +53,16 @@ export function redact(text: string): string {
 }
 
 /** Minimal ChatGPT-style trace: what was searched and the short reasoning headings, plus errors. */
-export interface TraceItem { kind: 'search' | 'open' | 'thinking' | 'error' | 'step'; text: string }
+/** `step` numbers the steps of a new survey (1–8, design 0028), so the screen can show where the run is. */
+export interface TraceItem { kind: 'search' | 'open' | 'thinking' | 'error' | 'step'; text: string; step?: number }
 export function traceItem(line: string): TraceItem | null {
-  let event: CodexEvent & { item?: { type?: unknown; text?: unknown; query?: unknown; action?: { type?: unknown; queries?: unknown; query?: unknown } } };
+  let event: CodexEvent;
   try { event = JSON.parse(line); } catch { return null; }
   const item = event?.item;
   if (event?.type === 'item.completed' && item?.type === 'web_search') {
-    const queries = (Array.isArray(item.action?.queries) ? item.action.queries : [item.action?.query ?? item.query]).filter((q): q is string => typeof q === 'string' && !!q.trim());
-    if (!queries.length) return null;
-    // A non-search action whose query is a URL means Codex opened that page.
-    if (item.action?.type !== 'search' && queries.length === 1 && /^https?:\/\//.test(queries[0])) return { kind: 'open', text: redact(queries[0]).slice(0, 200) };
-    return { kind: 'search', text: redact(queries.join(' / ')).slice(0, 200) };
+    const action = webSearchOf(item);
+    if (!action) return null;
+    return 'opened' in action ? { kind: 'open', text: redact(action.opened).slice(0, 200) } : { kind: 'search', text: redact(action.queries.join(' / ')).slice(0, 200) };
   }
   if (event?.type === 'item.completed' && item?.type === 'reasoning' && typeof item.text === 'string') {
     // A summary can hold several **headings**; the latest one is the current step.

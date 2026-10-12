@@ -360,6 +360,10 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .run-trace .trace-search { color: var(--color-ink); }
 .run-trace .trace-error { color: var(--color-error); }
 .run-trace .trace-step { font-weight: 600; }
+.run-trace .run-steps { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); margin: 6px 0 0; padding: 0; border-left: 0; max-height: none; overflow: visible; color: var(--color-faint); }
+.run-trace .run-steps li { padding: 0; white-space: nowrap; }
+.run-trace .run-steps .done { color: var(--color-muted); }
+.run-trace .run-steps .current { color: var(--color-ink); font-weight: 600; }
 .run-title { display: flex; justify-content: space-between; align-items: start; gap: 10px; font-size: var(--text-caption); line-height: 1.7; color: var(--color-muted); }
 /* Controls in the run line are 28px tall; padding the text centres its first line on them, even when an error wraps. */
 .run-title>span { padding-block: calc((28px - 1.7em) / 2); }
