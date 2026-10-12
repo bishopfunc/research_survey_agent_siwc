@@ -15,13 +15,15 @@ import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } 
 import { executeResearch, type CodexAttempt } from './research-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
+import { sanitizeLibrary } from '../packages/agent/src/library';
+import type { LibraryPaper } from '../packages/agent/src/prompt';
 
 const port = Number(process.env.POC_PORT ?? 8788);
 const origin = `http://127.0.0.1:${port}`;
 const storage = resolve('.poc/runs');
 const MAX_LOG_BYTES = 2_000_000;
 mkdirSync(storage, { recursive: true, mode: 0o700 });
-type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[] };
+type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[]; use_library?: boolean; library_papers?: number };
 const MAX_TRACE = 120;
 function addTrace(run: Run, item: TraceItem) { run.trace = [...run.trace, { ...item, at: new Date().toISOString() }].slice(-MAX_TRACE); }
 const runs = new Map<string, Run>();
@@ -42,7 +44,7 @@ function json(res: ServerResponse, body: unknown, status = 200) {
 async function body(req: IncomingMessage) {
   if (!req.headers['content-type']?.startsWith('application/json')) throw Error('JSON_REQUIRED');
   let size = 0; const chunks: Buffer[] = [];
-  for await (const chunk of req) { size += chunk.length; if (size > 512_000) throw Error('BODY_TOO_LARGE'); chunks.push(chunk); }
+  for await (const chunk of req) { size += chunk.length; if (size > 4_000_000) throw Error('BODY_TOO_LARGE'); chunks.push(chunk); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
@@ -84,15 +86,15 @@ function runCodexStep(run: Run, directory: string, step: 'research' | 'repair', 
 }
 const outputs = { research: 'patch.json', repair: 'patch-repair.json' } as const;
 const logged = new Map<string, number>();
-function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null }): Run {
+function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null; useLibrary: boolean; library: LibraryPaper[] }): Run {
   const id = randomUUID(); const directory = join(storage, id); mkdirSync(directory, { mode: 0o700 });
-  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: promptVersion(input.mode), searches: 0, message: 'Codexが調査しています', trace: [] };
+  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: promptVersion(input.mode), searches: 0, message: 'Codexが調査しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length };
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
   void executeResearch({
-    research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ ...input, as_of: asOf }), RESEARCH_MODES[input.mode].timeoutSeconds),
+    research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library }), RESEARCH_MODES[input.mode].timeoutSeconds),
     repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), RESEARCH_MODES[input.mode].repairTimeoutSeconds); },
     output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
     normalize: patch => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>),
@@ -165,12 +167,14 @@ const server = createServer(async (req, res) => {
       const input = await body(req);
       if (typeof input.instruction !== 'string' || !input.instruction.trim() || input.instruction.length > 8000 || typeof input.base_commit_id !== 'string' || !input.base_commit_id || input.base_commit_id.length > 200) throw Error('INVALID_INPUT');
       const errors = validateSnapshot(input.snapshot); if (errors.length) { json(res, { error: errors.join('\n') }, 400); return; }
+      if (input.use_library !== undefined && typeof input.use_library !== 'boolean') throw Error('INVALID_INPUT');
+      const useLibrary = input.use_library ?? true, library = useLibrary ? sanitizeLibrary(input.library) : [];
       // One 調査 button for both cases: an empty survey gets the new-survey prompt, otherwise additional research.
       const mode: ResearchMode = (input.snapshot as SurveySnapshot).entities.length ? 'additional' : 'new';
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });
       if (status.status !== 0 || !/ChatGPT/i.test(status.stdout + status.stderr)) { json(res, { error: 'CodexをChatGPTでログインしてから実行してください' }, 503); return; }
-      json(res, startRun({ mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, title: null }), 202); return;
+      json(res, startRun({ mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, title: null, useLibrary, library }), 202); return;
     }
     const match = url.pathname.match(/^\/api\/codex\/runs\/([\da-f-]{36})(\/cancel)?$/);
     if (match) {

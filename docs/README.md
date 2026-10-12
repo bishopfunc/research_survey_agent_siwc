@@ -20,6 +20,7 @@
 | [専門家水準へのキャッチアップ調査](design/0014-expert-catch-up-survey.md) | 調査の目的と重視点、課題の英語表現と達成度、手法の系統、論文の要点と和訳、候補3つ |
 | [引用数の取得](design/0015-citation-counts.md) | OpenAlexからの引用数・取得元・取得日 |
 | [論文の理解に重要なFig](design/0016-paper-key-figures.md) | arXiv HTML版から図を取得し、要点のFigと並べる |
+| [調査の6段階と論文キャッシュ](design/0017-research-flow-and-paper-cache.md) | 抽象→具体→抽象→発散→具体→抽象、全課題の達成度、ほかの調査の論文を使うトグル |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

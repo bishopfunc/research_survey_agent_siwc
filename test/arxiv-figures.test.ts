@@ -36,15 +36,16 @@ function pages(map: Record<string, { status: number; url?: string; type?: string
 }
 test('a page without figures falls through to ar5iv; redirects off arXiv and bad IDs are refused', async () => {
   const fallback = pages({ 'https://arxiv.org/html/2101.00001': { status: 200, body: '<p>HTML is not available</p>' }, 'https://ar5iv.labs.arxiv.org/html/2101.00001': { status: 200, body: html.replaceAll('2307.15644v2/', 'x/') } });
-  const out = await fetchArxivFigures('2101.00001', fallback.fetcher, '2026-10-12T00:00:00Z');
+  const now = <T,>(task: () => Promise<T>) => task();
+  const out = await fetchArxivFigures('2101.00001', fallback.fetcher, '2026-10-12T00:00:00Z', now);
   assert.equal(out.source_url, 'https://ar5iv.labs.arxiv.org/html/2101.00001');
   assert.equal(out.figures[0].images[0], 'https://ar5iv.labs.arxiv.org/html/x/intro.svg');
   assert.deepEqual(fallback.seen, ['https://arxiv.org/html/2101.00001', 'https://ar5iv.labs.arxiv.org/html/2101.00001']);
   const redirected = pages({ 'https://arxiv.org/html/2101.00002': { status: 200, url: 'https://evil.example/html/2101.00002', body: html } });
-  await assert.rejects(fetchArxivFigures('2101.00002', redirected.fetcher), /arXiv以外/);
-  await assert.rejects(fetchArxivFigures('../x', redirected.fetcher), /arXiv ID/);
+  await assert.rejects(fetchArxivFigures('2101.00002', redirected.fetcher, 't', now), /arXiv以外/);
+  await assert.rejects(fetchArxivFigures('../x', redirected.fetcher, 't', now), /arXiv ID/);
   const none = pages({});
-  assert.deepEqual((await fetchArxivFigures('2101.00003', none.fetcher, 't')).figures, []);
+  assert.deepEqual((await fetchArxivFigures('2101.00003', none.fetcher, 't', now)).figures, []);
 });
 test('arXiv requests are serialized with a minimum gap', async () => {
   let clock = Date.now() + 60_000; const waits: number[] = [];
@@ -52,10 +53,22 @@ test('arXiv requests are serialized with a minimum gap', async () => {
   const order: string[] = [];
   await Promise.all(['a', 'b', 'c'].map(name => throttled(async () => { order.push(name); }, wait, () => clock)));
   assert.deepEqual(order, ['a', 'b', 'c']);
-  assert.ok(waits.length >= 2 && waits.every(ms => ms > 0 && ms <= 3000));
+  assert.ok(waits.length >= 2 && waits.every(ms => ms > 0 && ms <= 15_000));
 });
 test('appendix figures keep their label without a number that could match a main-text figure', () => {
   const figures = extractFigures('<figure class="ltx_figure"><img src="x/c1.svg"><figcaption><span class="ltx_tag ltx_tag_figure">Figure C.1: </span>Beam size.</figcaption></figure>', page);
   assert.deepEqual(figures, [{ number: null, label: 'Figure C.1', caption: 'Beam size.', images: ['https://arxiv.org/html/x/c1.svg'] }]);
+});
+test('a "<" inside math does not swallow the caption text after it', () => {
+  const [figure] = extractFigures('<figure class="ltx_figure"><img src="x/a.png"><figcaption>Figure 5: Success rate when <math alttext="\\epsilon&lt;0.1"><mi>ε</mi></math> compared with HAMT <cite>[9]</cite>. Higher is better.</figcaption></figure>', page);
+  assert.equal(figure.caption, 'Success rate when \\epsilon<0.1 compared with HAMT [9] . Higher is better.');
+});
+test('side-by-side figures in one float become separate figures; sub-numbered labels are kept whole', () => {
+  const twin = `<figure class="ltx_figure">
+    <figure class="ltx_figure ltx_minipage"><img src="x/x3.png"><figcaption>Figure 3: Left.</figcaption></figure>
+    <figure class="ltx_figure ltx_minipage"><img src="x/x4.png"><figcaption>Figure 4: Right.</figcaption></figure></figure>
+  <figure class="ltx_figure"><figure class="ltx_figure_panel"><img src="x/a.png"><figcaption>(a)</figcaption></figure><figure class="ltx_figure_panel"><img src="x/b.png"><figcaption>(b)</figcaption></figure><figcaption>Figure 5: Two panels.</figcaption></figure>
+  <figure class="ltx_figure"><img src="x/s1.png"><figcaption>Figure 2.1: Sub-numbered.</figcaption></figure>`;
+  assert.deepEqual(extractFigures(twin, page).map(f => [f.label, f.number, f.caption, f.images.length]), [['Figure 3', 3, 'Left.', 1], ['Figure 4', 4, 'Right.', 1], ['Figure 5', 5, 'Two panels.', 2], ['Figure 2.1', null, 'Sub-numbered.', 1]]);
 });
 

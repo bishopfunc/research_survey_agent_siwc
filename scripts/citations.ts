@@ -54,12 +54,13 @@ export async function lookupCitations(papers: CitationQuery[], fetcher: Fetcher,
     // so it is tried last, after an exact title match has had the chance to find the published edition.
     const isArxiv = (doi: string) => doi.startsWith('10.48550/arxiv.');
     await byDoi(papers.flatMap(p => { const doi = normalizeDoi(p.doi); return doi && !isArxiv(doi) ? [[p, doi] as [CitationQuery, string]] : []; }), 'doi');
-    for (const paper of pending().filter(p => normalizeTitle(p.title).split(' ').length >= 3).slice(0, MAX_TITLE_QUERIES)) {
+    // Without a year a title alone is too weak: a generic title would match unrelated works across decades.
+    for (const paper of pending().filter(p => p.year !== null && normalizeTitle(p.title).split(' ').length >= 3).slice(0, MAX_TITLE_QUERIES)) {
       const title = normalizeTitle(paper.title);
-      const years = paper.year ? `,publication_year:${paper.year - 1}-${paper.year + 1}` : '';
+      const years = `,publication_year:${paper.year! - 1}-${paper.year! + 1}`;
       // Only an exact title match counts; among editions of the same title (preprint and proceedings) take the closest year, then the most cited.
       const candidates = (await get(`filter=title.search:${encodeURIComponent(title)}${years}&per_page=10`)).filter(w => normalizeTitle(w.title) === title);
-      const best = candidates.sort((a, b) => (paper.year ? Math.abs((a.publication_year ?? 0) - paper.year) - Math.abs((b.publication_year ?? 0) - paper.year) : 0) || b.cited_by_count - a.cited_by_count)[0];
+      const best = candidates.sort((a, b) => Math.abs((a.publication_year ?? 0) - paper.year!) - Math.abs((b.publication_year ?? 0) - paper.year!) || b.cited_by_count - a.cited_by_count)[0];
       if (best) found.set(paper.id, { id: paper.id, citation_count: best.cited_by_count, openalex_id: best.id, matched_by: 'title' });
     }
     await byDoi(pending().flatMap(p => { const doi = arxivDoi(p.arxiv_id) ?? (normalizeDoi(p.doi)?.startsWith('10.48550/arxiv.') ? normalizeDoi(p.doi) : null); return doi ? [[p, doi] as [CitationQuery, string]] : []; }), 'arxiv');

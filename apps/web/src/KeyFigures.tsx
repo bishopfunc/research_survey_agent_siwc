@@ -10,7 +10,8 @@ export function arxivIdOf(paper: Paper): string | null {
   const fromUrl = paper.url?.match(/^https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf|html)\/([^?#]+?)(?:\.pdf)?\/?$/i)?.[1];
   return paper.arxiv_id?.replace(/^arxiv:/i, '') || fromUrl || null;
 }
-const figureNumber = (text: string) => Number(text.match(/(?:fig(?:ure)?\.?|図)\s*(\d+)/i)?.[1] ?? NaN);
+/** "Fig. 2.1", "Figure C.1", "図3" → "2.1", "c.1", "3"; matched against the label of each arXiv figure. */
+const figureKey = (text: string) => text.match(/(?:fig(?:ure)?\.?|図)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)/i)?.[1].toLowerCase().replace(/^([a-z])(\d)/, '$1.$2') ?? null;
 
 function Images({ figure }: { figure: ArxivFigure }) {
   return <div className={figure.images.length > 1 ? 'figure-images many' : 'figure-images'}>{figure.images.map(src => <a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${figure.label} ${figure.caption}`} loading="lazy" referrerPolicy="no-referrer"/></a>)}</div>;
@@ -32,6 +33,8 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
     } catch { if (signal?.active !== false) setState('error'); }
   }
   useEffect(() => {
+    // A changed arXiv ID (edit or saved proposal) must not keep showing the previous paper's figures.
+    setData(null); setState('idle');
     if (!id || preview) return;
     const signal = { active: true };
     // Opening a paper reads the saved result, or fetches its arXiv HTML once; the server spaces requests and keeps the result.
@@ -39,8 +42,10 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
     return () => { signal.active = false; };
   }, [id, preview]);
   if (!notes.length && !id) return null;
-  const byNumber = new Map((data?.figures ?? []).filter(f => f.number !== null).map(f => [f.number as number, f]));
-  const named = notes.map(note => ({ note, figure: byNumber.get(figureNumber(note)) }));
+  const byKey = new Map<string, ArxivFigure[]>();
+  for (const f of data?.figures ?? []) { const key = figureKey(f.label); if (key) byKey.set(key, [...(byKey.get(key) ?? []), f]); }
+  // An ambiguous label (two figures with the same number) gets no image rather than a wrong one.
+  const named = notes.map(note => { const key = figureKey(note); const found = key ? byKey.get(key) : undefined; return { note, figure: found?.length === 1 ? found[0] : undefined }; });
   const used = new Set(named.flatMap(n => n.figure ? [n.figure] : []));
   const rest = (data?.figures ?? []).filter(f => !used.has(f));
   return <section className="detail-section key-figures" aria-label={notes.length ? '理解に重要なFig' : 'Fig'}>

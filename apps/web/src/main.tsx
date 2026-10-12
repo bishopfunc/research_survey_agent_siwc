@@ -12,6 +12,7 @@ import { byPublication } from '../../../packages/domain/src/evolution';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
 import { ConnectionMap } from './ConnectionMap';
 import { KeyFigures } from './KeyFigures';
+import { buildLibrary } from '../../../packages/agent/src/library';
 
 function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh'; className?: string }) {
   const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12 M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M18 9a9 9 0 0 1-9 9', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6', refresh:'M19.5 12a7.5 7.5 0 1 1-2.2-5.3 M19.5 4.5v4h-4' };
@@ -30,6 +31,7 @@ function loadPendingRuns(): Record<string, string> {
 }
 const SIDEBAR_KEY = 'survey-studio.sidebar-collapsed';
 const SIDE_KEY = 'survey-studio.side-collapsed';
+const CACHE_KEY = 'survey-studio.paper-cache';
 const SIDEBAR_WIDTH = { key: 'survey-studio.sidebar-width', fallback: 248, min: 184, max: 420 };
 const SIDE_WIDTH = { key: 'survey-studio.side-width', fallback: 380, min: 300, max: 760 };
 function storedWidth({ key, fallback, min, max }: typeof SIDEBAR_WIDTH) {
@@ -217,6 +219,9 @@ function App() {
   const [agentReady, setAgentReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [citing, setCiting] = useState(false);
+  // Paper cache: reuse stored papers (this survey's and the other collections') instead of re-reading them. Per-viewer preference.
+  const [paperCache, setPaperCache] = useState(() => { try { return localStorage.getItem(CACHE_KEY) !== '0'; } catch { return true; } });
+  function togglePaperCache() { setPaperCache(on => { try { localStorage.setItem(CACHE_KEY, on ? '0' : '1'); } catch { /* per-viewer preference only */ } return !on; }); }
   // Set when a Codex proposal is saved, so the new papers get their citation counts right after.
   const [citeAfterSave, setCiteAfterSave] = useState(false);
   const branch = workspace.branches.find(b => b.id === workspace.active_branch)!;
@@ -265,8 +270,15 @@ function App() {
     };
     void poll(); return () => { active = false; clearTimeout(timer); };
   }, [runId]);
+  // A deleted collection's run waits here, so 元に戻す can still bring the research back; it is cancelled once the undo is gone.
+  const pendingCancel = useRef<{ runId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+  function flushCancel() {
+    const pending = pendingCancel.current; if (!pending) return;
+    pendingCancel.current = null; clearTimeout(pending.timer);
+    void request(`/api/codex/runs/${pending.runId}/cancel`, {}).catch(() => { /* the run may already be gone */ });
+  }
   function save(next: Workspace) {
-    setUndo(null);
+    flushCancel(); setUndo(null);
     if (!reviewPreview) localStorage.setItem(KEY, pretty(next)); setWorkspace(next); setNotice(reviewPreview ? 'プレビュー内で変更しました' : 'ブラウザに保存しました');
   }
   function newCommit(value: SurveySnapshot, message: string, source: 'user' | 'codex' = 'user', patch: SurveyPatch | null = null, rename: string | null = null) {
@@ -288,13 +300,17 @@ function App() {
   const canResearch = agentReady && !!instruction.trim() && !historical && !submitting && run?.status !== 'running' && !run?.patch;
   async function askCodex(text = instruction) {
     if (reviewPreview || !agentReady || !text.trim() || historical || submitting || run?.status === 'running' || run?.patch) return;
-    const owner = branch.id;
-    setSubmitting(true); openSide('chat');
+    const owner = branch.id, previousUndo = undo;
+    setSubmitting(true); setUndo(null); openSide('chat');
     try {
-      const result: Run = await request('/api/codex/runs', { instruction: text, base_commit_id: head.id, snapshot });
+      const others = workspace.branches.filter(b => b.id !== owner).map(b => workspace.commits.find(c => c.id === b.head)?.snapshot).filter((v): v is SurveySnapshot => !!v);
+      const result: Run = await request('/api/codex/runs', { instruction: text, base_commit_id: head.id, snapshot, use_library: paperCache, library: paperCache ? buildLibrary(others, snapshot) : [] });
+      if (!latestWorkspace.current.branches.some(b => b.id === owner)) { void request(`/api/codex/runs/${result.id}/cancel`, {}).catch(() => { /* already finished */ }); return; }
       setBranchRun(owner, result.id); showRun(owner, result);
-      if (activeBranch.current === owner) setUndo(null);
-    } catch (e) { setNotice(e instanceof Error ? e.message : 'Codex実行失敗'); }
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Codex実行失敗');
+      if (previousUndo && activeBranch.current === owner) setUndo(() => previousUndo);
+    }
     finally { setSubmitting(false); }
   }
   function acceptPatch() {
@@ -317,14 +333,17 @@ function App() {
     setCiting(true);
     try {
       const found: { source: string; as_of: string; results: { id: string; citation_count: number }[]; not_found: string[]; error: string | null } = await request('/api/citations', { papers: list.map(p => ({ id: p.id, doi: p.doi, arxiv_id: p.arxiv_id, title: p.title, year: p.year })) });
+      let saved = false;
       if (found.results.length) guard(() => {
         // newCommit works on the workspace of this render, so nothing may have changed while OpenAlex answered.
-        if (latestWorkspace.current !== before) throw Error('調査が変わったため引用数を保存しませんでした');
+        if (latestWorkspace.current !== before) { setUndo(null); throw Error('調査が変わったため引用数を保存しませんでした'); }
         const next = structuredClone(base.snapshot);
         for (const r of found.results) { const paper = next.entities.find(e => e.id === r.id); if (paper?.type === 'Paper') Object.assign(paper, { citation_count: r.citation_count, citation_source: found.source, citation_as_of: found.as_of }); }
         newCommit(next, `引用数を更新（${found.source}・${found.results.length}件）`);
         setUndo(() => () => save(before));
+        saved = true;
       });
+      if (found.results.length && !saved) return;
       const summary = [found.results.length ? `引用数を更新しました（${found.results.length}件）` : '引用数は見つかりませんでした', found.not_found.length ? `未発見 ${found.not_found.length}件` : '', found.error ?? ''].filter(Boolean).join(' · ');
       setNotice(summary);
     } catch (e) { setNotice(e instanceof Error ? e.message : '引用数を取得できませんでした'); }
@@ -360,10 +379,17 @@ function App() {
   const activeCategory = categoryFilter !== 'all' && ((KEYWORD_SECTIONS as readonly string[]).includes(categoryFilter) || keywords.some(k => k.category === categoryFilter)) ? categoryFilter : 'all';
   const shownKeywords = keywords.filter(k => (activeCategory === 'all' || k.category === activeCategory)).sort((a, b) => keywordOrder.indexOf(a.category) - keywordOrder.indexOf(b.category) || a.label.localeCompare(b.label));
   function removeCollection(id: string) {
-    guard(() => { const previous = workspace, previousRun = pendingRuns[id];
-      save(deleteBranch(workspace, id)); setBranchRun(id, null);
-      // A deleted collection cannot show its stop button, so its run is cancelled (a finished run is left as it is).
-      if (previousRun) void request(`/api/codex/runs/${previousRun}/cancel`, {}).catch(() => { /* the run may already be gone */ }); setViewId(null); setSelected(''); setUndo(() => () => { save(previous); if (previousRun) setBranchRun(id, previousRun); }); setNotice('コレクションを削除しました'); });
+    guard(() => {
+      const previous = workspace, previousRun = pendingRuns[id];
+      save(deleteBranch(workspace, id)); setBranchRun(id, null); setViewId(null); setSelected('');
+      if (previousRun) pendingCancel.current = { runId: previousRun, timer: setTimeout(flushCancel, 20_000) };
+      setUndo(() => () => {
+        const pending = pendingCancel.current;
+        if (pending?.runId === previousRun) { clearTimeout(pending.timer); pendingCancel.current = null; }
+        save(previous); if (previousRun) setBranchRun(id, previousRun);
+      });
+      setNotice('コレクションを削除しました');
+    });
   }
   const startingSurvey = !snapshot.entities.length && !historical;
   const chatHistory = [...history].reverse().filter(c => c.source === 'codex' && c.instruction);
@@ -400,7 +426,7 @@ function App() {
         <div className={`work-area ${sideCollapsed ? 'side-collapsed' : ''}`}><section className={`canvas ${tab === 'evolution' ? 'canvas-evolution' : ''}`}>
         <div className="heading"><h1>{snapshot.title}</h1></div>
         {historical && <div className="historical-note" role="status"><strong>過去の版</strong><button onClick={() => guard(fork)}>この版からフォーク</button><button onClick={() => setViewId(null)}>最新に戻る</button></div>}
-        {startingSurvey ? <div className="start-research"><div className="agent-input start-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={startRef} aria-label="調べたいテーマ" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="調べたいテーマ"/><button className="primary" disabled={!canResearch} onClick={() => void askCodex()}>{submitting || run?.status === 'running' ? '調査中…' : '調査'}</button></div><div className="suggestions">{SUGGESTIONS.map(q => <button key={q} onClick={() => { setInstruction(q); startRef.current?.focus(); }}>{q}</button>)}</div><p className="agent-status">{agent}</p></div> : <>
+        {startingSurvey ? <div className="start-research"><div className="agent-input start-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={startRef} aria-label="調べたいテーマ" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="調べたいテーマ"/><button className="primary" disabled={!canResearch} onClick={() => void askCodex()}>{submitting || run?.status === 'running' ? '調査中…' : '調査'}</button></div><div className="suggestions">{SUGGESTIONS.map(q => <button key={q} onClick={() => { setInstruction(q); startRef.current?.focus(); }}>{q}</button>)}</div><div className="composer-meta"><button className="cache-toggle" role="switch" aria-checked={paperCache} onClick={togglePaperCache}><span className="switch-track"><span/></span>保存済みの論文を使う</button><p className="agent-status">{agent}</p></div></div> : <>
         <div className="modes"><div className="tabs" role="tablist" aria-label="サーベイのビュー">{tabs.map(([id, name]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon name={id === 'issues' ? 'layers' : id === 'evolution' ? 'branch' : id === 'matrix' ? 'grid' : id === 'keywords' ? 'spark' : 'paper'}/>{name}<span className="tab-count">{id === 'issues' ? issues.length : ['matrix','evolution'].includes(id) ? methods.length : id === 'keywords' ? keywords.length : papers.length}</span></button>)}</div>
           </div>
           {tab === 'evolution' && <MethodEvolution snapshot={snapshot} search="" selected={selected} onSelect={setSelected} onSample={() => guard(() => createSurvey(fixture, `evolution-${workspace.branches.length}`, 'fixture'))}/>}
@@ -422,7 +448,7 @@ function App() {
           {'description' in entity && entity.description && <p>{entity.description}</p>}
           {entity.type === 'Paper' && <PaperReading paper={entity}/>}
           {entity.type === 'Paper' && <KeyFigures key={entity.id} paper={entity} preview={reviewPreview}/>}
-          {entity.type === 'Issue' && <section className="detail-section claims" aria-label="達成度"><h3>達成度</h3>{claimsAbout(entity.id).length ? <ClaimRows claims={claimsAbout(entity.id)} onSelect={setSelected}/> : <p className="muted-label">未調査</p>}</section>}
+          {entity.type === 'Issue' && <section className="detail-section claims" aria-label="達成度"><h3>達成度</h3>{claimsAbout(entity.id).length ? <ClaimRows claims={claimsAbout(entity.id)} evidence={firstExcerpt} onSelect={setSelected}/> : <p className="muted-label">未調査</p>}</section>}
           {entity.type === 'Paper' && <div className="detail-section">{entity.representative_figure && <FigureImage figure={entity.representative_figure}/>}<button className="figure-action" disabled={historical} onClick={()=>setFigurePaper(entity)}>{entity.representative_figure ? '代表Figを差し替える' : 'PDFから代表Figを抽出'}</button></div>}
           {entity.type === 'Paper' && <PaperAbstract key={entity.id} paper={entity}/>}
           {entity.type === 'Paper' && entity.claims.length > 0 && <section className="detail-section claims" aria-label="主張と根拠"><h3>主張と根拠</h3><ClaimRows claims={entity.claims.map(id => linked(id)).filter((e): e is Claim => e?.type === 'Claim')} evidence={firstExcerpt} onSelect={setSelected}/></section>}
@@ -436,7 +462,7 @@ function App() {
           {entity.type === 'Keyword' && (entity.definition_excerpt || entity.source_url) && <div className="detail-section">{entity.definition_excerpt && <blockquote>{entity.definition_excerpt}</blockquote>}{entity.locator && <dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl>}{entity.source_url && <div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div>}</div>}
           {entity.type === 'Evidence' && <div className="detail-section"><dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl><div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div></div>}
           {connections.length > 0 && <div className="detail-section related"><h3>関連 <span>{connections.length}</span></h3>{connections.map(c => <button key={c.entity.id} onClick={() => setSelected(c.entity.id)}><span className={`connection-dot t-${c.entity.type}`}/><span><small>{linkLabel(c)}{c.entity.type === 'Paper' && ` · ${c.entity.year ?? '年未取得'}`}</small>{display(c.entity)}</span><span aria-hidden="true">→</span></button>)}</div>}
-        </> : tab === 'issues' && roots.length ? <nav className="issue-tree" aria-label="課題ツリー"><h3>課題ツリー</h3><ul>{roots.map(e => tree(e.id))}</ul></nav> : <div className="empty">未選択</div>}</div> : <div className="chat">{chatHistory.map(c => <div key={c.id} className="chat-turn"><div className="chat-msg user">{c.instruction}</div><div className="chat-msg codex"><small>{stamp(c.created_at)} · 保存済み</small><p>{c.message}</p></div></div>)}{run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.message}</span>{run.status === 'running' ? <button onClick={() => { const owner = branch.id; void request(`/api/codex/runs/${run.id}/cancel`, {}).then((value: Run) => showRun(owner, value)).catch(e => setNotice(e.message)); }} className="run-cancel" aria-label="取消" title="取消"><Icon name="stop"/></button> : <button onClick={closeRun}>閉じる</button>}</div>{runTrace}</div>}</div>}{!chatHistory.length && !run && <div className="empty">チャットなし</div>}{followUps.length > 0 && run?.status !== 'running' && <div className="follow-ups" role="group" aria-label="次の調査の候補">{followUps.map(q => <button key={q} onClick={() => { setInstruction(q); composerRef.current?.focus(); }}><Icon name="spark"/><span>{q}</span></button>)}</div>}</div>}</div>{!startingSurvey && <div className="side-composer"><div className="agent-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={composerRef} aria-label="調べたいこと" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="調べたいこと"/><button className="primary" disabled={!canResearch} onClick={() => void askCodex()}>{submitting || run?.status === 'running' ? '調査中…' : '調査'}</button></div><p className="agent-status">{agent}</p></div>}</aside>}</div>
+        </> : tab === 'issues' && roots.length ? <nav className="issue-tree" aria-label="課題ツリー"><h3>課題ツリー</h3><ul>{roots.map(e => tree(e.id))}</ul><p className="tree-legend"><span><i className="node-dot"/>分野</span>{Object.entries(kindLabels).map(([kind, name]) => <span key={kind}><i className={`node-dot ${kind}`}/>{name}</span>)}</p></nav> : <div className="empty">未選択</div>}</div> : <div className="chat">{chatHistory.map(c => <div key={c.id} className="chat-turn"><div className="chat-msg user">{c.instruction}</div><div className="chat-msg codex"><small>{stamp(c.created_at)} · 保存済み</small><p>{c.message}</p></div></div>)}{run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.message}</span>{run.status === 'running' ? <button onClick={() => { const owner = branch.id; void request(`/api/codex/runs/${run.id}/cancel`, {}).then((value: Run) => showRun(owner, value)).catch(e => setNotice(e.message)); }} className="run-cancel" aria-label="取消" title="取消"><Icon name="stop"/></button> : <button onClick={closeRun}>閉じる</button>}</div>{runTrace}</div>}</div>}{!chatHistory.length && !run && <div className="empty">チャットなし</div>}{followUps.length > 0 && run?.status !== 'running' && <div className="follow-ups" role="group" aria-label="次の調査の候補">{followUps.map(q => <button key={q} onClick={() => { setInstruction(q); composerRef.current?.focus(); }}><Icon name="spark"/><span>{q}</span></button>)}</div>}</div>}</div>{!startingSurvey && <div className="side-composer"><div className="agent-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={composerRef} aria-label="調べたいこと" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="調べたいこと"/><button className="primary" disabled={!canResearch} onClick={() => void askCodex()}>{submitting || run?.status === 'running' ? '調査中…' : '調査'}</button></div><div className="composer-meta"><button className="cache-toggle" role="switch" aria-checked={paperCache} onClick={togglePaperCache}><span className="switch-track"><span/></span>保存済みの論文を使う</button><p className="agent-status">{agent}</p></div></div>}</aside>}</div>
       </main>
     </div>{figurePaper && <FigureExtractor paper={figurePaper} preview={reviewPreview} onClose={()=>setFigurePaper(null)} onSave={figure=>{const next=structuredClone(snapshot);const paper=next.entities.find(e=>e.id===figurePaper.id && e.type==='Paper');if(!paper || paper.type!=='Paper')throw Error('論文が見つかりません');paper.representative_figure=figure;newCommit(next,`${paper.label}の代表Figを保存`);}}/>}{editing && <EntityEditor entity={editing} entities={snapshot.entities} onClose={() => setEditing(null)} onSave={value => {
       const next = structuredClone(snapshot); const index = next.entities.findIndex(e => e.id === value.id);
@@ -446,7 +472,7 @@ function App() {
         if (value.type === 'Method' && entity?.type === 'Issue') next.relations.push({id:crypto.randomUUID(),type:'addresses',from:value.id,to:entity.id});
       }
       newCommit(next, `${value.label}を${index >= 0 ? '編集' : '追加'}`);setEditing(null);
-    }}/>} {notice && <div className="toast" role="status"><span>{notice}</span>{undo && <button className="toast-action" onClick={() => { undo(); setUndo(null); setNotice('元に戻しました'); }}>元に戻す</button>}<button aria-label="通知を閉じる" onClick={() => { setNotice(''); setUndo(null); }}><CloseIcon/></button></div>}
+    }}/>} {notice && <div className="toast" role="status"><span>{notice}</span>{undo && <button className="toast-action" onClick={() => { undo(); setUndo(null); setNotice('元に戻しました'); }}>元に戻す</button>}<button aria-label="通知を閉じる" onClick={() => { flushCancel(); setNotice(''); setUndo(null); }}><CloseIcon/></button></div>}
   </div>;
 }
 createRoot(document.getElementById('root')!).render(location.pathname.replace(/\/$/,'') === '/lab' ? <Lab/> : <App/>);

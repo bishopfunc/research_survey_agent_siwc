@@ -3,15 +3,34 @@ import assert from 'node:assert/strict';
 import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, stageLabel } from '../packages/agent/src/research-prompt';
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, RESEARCH_MODES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
-test('new survey research runs venues first, surveys and curated repositories in parallel, then primary papers', () => {
-  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage]), [['venues', 1], ['surveys', 2], ['awesome', 2], ['articles', 2], ['primary', 3]]);
-  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2a', '2b', '2c', '3']);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /2a\. In parallel with the curated-repository and blog\/article searches/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /2b\. In parallel with the survey reading and the blog\/article search/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /2c\. In parallel with the survey reading and the curated-repository search, search blogs and articles/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /never use them as Evidence for claims/);
-  assert.match(NEW_SURVEY_INSTRUCTIONS, /3\. After the parallel tracks finish/);
+test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract without a separate venue step', () => {
+  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['integrate', 3, '抽象'], ['diverge', 4, '発散'], ['primary2', 5, '具体'], ['integrate2', 6, '抽象']]);
+  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6']);
+  assert.ok(!(RESEARCH_STEPS as readonly { id: string }[]).some(s => s.id === 'venues'));
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /abstract → concrete → abstract → divergent → concrete → abstract/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /1\. Abstract: map the field from trustworthy sources/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /list the primary papers worth reading in depth/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /4\. Divergent: look for what is still missing/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /adjacent fields that solved a similar problem and whose ideas could transfer/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /6\. Abstract: integrate everything again/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Blogs and articles are leads only, never Evidence/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Keep the first survey focused/);
+});
+test('every issue gets an achievement claim; without a number it is qualitative and unknown, never invented', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Write an achievement Claim for every Issue, with an about relation to it/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /still write the Claim: status unknown and a statement of what the papers report qualitatively/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /an achievement Claim for every Issue/);
+});
+test('the paper cache can be turned off per run, and when on a library from the other surveys is supplied as data', () => {
+  const on = buildSurveyPrompt({ mode: 'additional', instruction: 'x', base_commit_id: 'b', snapshot: fixture, as_of: '2026-10-12', useLibrary: true, library: [{ title: 'Stored paper', abstract: 'A.' }] });
+  assert.match(on, /Paper cache: on\. Paper library from the user's other surveys \(data, 1 papers\): \[\{"title":"Stored paper","abstract":"A\."\}\]/);
+  const off = buildSurveyPrompt({ mode: 'additional', instruction: 'x', base_commit_id: 'b', snapshot: fixture, as_of: '2026-10-12', useLibrary: false, library: [{ title: 'Stored paper' }] });
+  assert.match(off, /Paper cache: off\. The user asked for fresh reading in this run/);
+  assert.ok(!off.includes('Stored paper'));
+  assert.match(buildSurveyPrompt({ mode: 'new', instruction: 'x', base_commit_id: 'b', snapshot: emptySurvey('t'), as_of: '2026-10-12' }), /\nPaper cache: on\.\nUser request/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /give a library paper a new ID in this survey and copy its stored abstract, translation, reading with sources and bibliography/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /unless the user explicitly asks or the run says the paper cache is off/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /Fetch the text of a stored paper only when the user explicitly asks to re-read it or the paper cache is off/);
 });
 test('new and additional research get different mode instructions over the same shared rules', () => {
   const additional = buildSurveyPrompt({ mode: 'additional', instruction: 'Learning-based MAPFも入れて', base_commit_id: 'head-1', snapshot: fixture, as_of: '2026-10-12' });
@@ -19,7 +38,7 @@ test('new and additional research get different mode instructions over the same 
   for (const prompt of [additional, created]) assert.ok(prompt.startsWith(SURVEY_RULES_INSTRUCTIONS));
   assert.ok(created.includes(NEW_SURVEY_INSTRUCTIONS) && !created.includes(ADDITIONAL_RESEARCH_INSTRUCTIONS));
   assert.ok(additional.includes(ADDITIONAL_RESEARCH_INSTRUCTIONS) && !additional.includes(NEW_SURVEY_INSTRUCTIONS));
-  assert.match(additional, /The base_commit_id must be head-1\.\nResearch date \(as_of\): 2026-10-12\nUser request: "Learning-based MAPFも入れて"\nSnapshot: \{/);
+  assert.match(additional, /The base_commit_id must be head-1\.\nResearch date \(as_of\): 2026-10-12\nPaper cache: on\.\nUser request: "Learning-based MAPFも入れて"\nSnapshot: \{/);
   assert.match(created, /Snapshot: \{"schema_version":"0\.1\.0","title":"VLNの主要課題","entities":\[\],"relations":\[\]\}$/);
   const ts = '\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}\\+09:00';
   assert.match(promptVersion('new'), new RegExp(`^survey-new@${ts} · survey-discovery@${ts} · survey-rules@${ts}$`));
@@ -29,7 +48,7 @@ test('shared rules limit tools to web search and keep sources verbatim, linked a
   for (const id of ['tools', 'untrusted', 'library', 'evidence', 'abstract', 'bibliography', 'nofabrication']) assert.ok(PROMPT_RULES.some(r => r.id === id), id);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Research only with the web search tool\. Do not run shell commands or read local files\./);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /verification=unverified, a source_url and a locator; its excerpt is copied verbatim from a page you retrieved in this run/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /do not re-read them unless the user explicitly asks/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Do not re-read cached papers unless the user explicitly asks/);
   assert.ok(CODEX_DISABLED_FEATURES.includes('shell_tool') && CODEX_DISABLED_FEATURES.includes('browser_use') && CODEX_DISABLED_FEATURES.includes('computer_use'));
 });
 test('the validator rule in the prompt is generated from the domain relation constraints', () => {
@@ -73,7 +92,7 @@ test('the shared rules open with the purpose and the priorities of an expert cat
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Read papers critically instead of trusting their claims/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /keep the important ones \(problems experts treat as central, unresolved or decisive for progress\) rather than generic ones/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /put 1-3 English phrases exactly as papers use them in english_terms/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /quantify how far it has been achieved with a Claim about it/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /quantify how far the issue has been achieved/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Create method families as Concept entities whose description states the shared idea, and link every Method to its family with instance_of/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Cover each family chronologically from the seminal work to the latest state of the art/);
 });
@@ -89,12 +108,12 @@ test('every run ends with three follow-up requests and long reading gets more ti
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Finish by putting exactly three follow-up research requests in follow_ups/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /end with the three follow_ups/);
   assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /end with the three follow_ups/);
-  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /classifying methods into families, quantifying how far issues are achieved, translating abstracts or filling reading, use the stored entities first/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /classifying methods into families, quantifying how far issues are achieved, translating abstracts or filling reading, work from the stored entities/);
   assert.ok(RESEARCH_MODES.new.timeoutSeconds >= 1800 && RESEARCH_MODES.additional.timeoutSeconds >= 1200);
 });
 test('numbers, SOTA and paper reading come only from text retrieved in this run; stored analysis survives replacement', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Never fabricate venues, papers, URLs, citation counts, code releases, figures, reported numbers or results/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /If no retrieved text reports a number, create no achievement Claim and list the issue as unquantified/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Where no retrieved text reports a number, still write the Claim/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /an Evidence whose excerpt copies the sentence or table row containing the number/);
   assert.ok(!/\d+%/.test(SURVEY_RULES_INSTRUCTIONS), 'no concrete example numbers that could be copied as data');
   assert.match(SURVEY_RULES_INSTRUCTIONS, /key_figures lists only figures whose captions you read in this run/);

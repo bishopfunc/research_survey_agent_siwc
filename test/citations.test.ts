@@ -72,3 +72,11 @@ test('the request body is checked before anything is sent', () => {
   for (const bad of [{}, { papers: [] }, { papers: [{ id: '' }] }, { papers: [{ id: 'p', year: '2023' }] }, { papers: [{ id: 'p', doi: 5 }] }, { papers: Array.from({ length: 201 }, (_, i) => ({ id: `p${i}` })) }])
     assert.throws(() => parseCitationRequest(bad), /INVALID_INPUT/);
 });
+test('a paper without a year is not matched by title; its arXiv DOI is used instead', async () => {
+  const chapter = { id: 'https://openalex.org/W9', doi: null, title: 'Graph Neural Networks', publication_year: 2009, cited_by_count: 900 };
+  const api = openalex([chapter as unknown as Work, { id: 'https://openalex.org/W10', doi: 'https://doi.org/10.48550/arxiv.2101.00001', title: 'Graph Neural Networks', publication_year: 2021, cited_by_count: 3 }]);
+  const out = await lookupCitations([{ id: 'p', doi: null, arxiv_id: '2101.00001', title: 'Graph Neural Networks', year: null }], api.fetcher);
+  assert.deepEqual(out.results.map(r => [r.matched_by, r.citation_count]), [['arxiv', 3]]);
+  assert.ok(!api.urls.some(u => u.includes('title.search')));
+});
+
