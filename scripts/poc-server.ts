@@ -335,7 +335,7 @@ const server = createServer(async (req, res) => {
     json(res, { error: message === 'BODY_TOO_LARGE' ? message : '入力を確認してください' }, message === 'BODY_TOO_LARGE' ? 413 : 400);
   }
 });
-server.listen(port, '127.0.0.1', () => console.log(`Survey Studio: ${origin}`));
+server.listen(port, '127.0.0.1', () => console.log(`Speedrun Survey: ${origin}`));
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
   for (const [key, child] of children) { const run = runs.get(key.split(':')[0]); if (run) { run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); } child.kill('SIGTERM'); }
   server.close(); void vite.close().then(() => process.exit(0));

@@ -1,10 +1,9 @@
 import type { Method, Paper, SurveySnapshot } from './snapshot.types';
 import { buildEvolution, byPublication } from './evolution';
 
-/** origin: the first registered proposal of a method. influence: citations per year in the survey's top quarter.
- * foundation: a method it proposes has at least two methods deriving from it in the survey. */
-export type ImportanceReason = 'origin' | 'influence' | 'foundation';
-export const IMPORTANCE_LABELS: Record<ImportanceReason, string> = { origin: '初出', influence: '影響力', foundation: '系譜の基' };
+/** origin: the first registered proposal of a method. influence: citations per year in the survey's top quarter. */
+export type ImportanceReason = 'origin' | 'influence';
+export const IMPORTANCE_LABELS: Record<ImportanceReason, string> = { origin: 'Original', influence: 'Highly cited' };
 export interface PaperImportance { reasons: ImportanceReason[]; citationsPerYear: number | null }
 export interface RepresentativePaper { paper: Paper; reasons: ImportanceReason[]; methods: Method[] }
 
@@ -23,19 +22,11 @@ export function assessPapers(snapshot: SurveySnapshot, currentYear = new Date().
   const known = [...rates.values()].filter((r): r is number => r !== null).sort((a, b) => a - b);
   // The top quarter of the papers with a known count; with fewer than four, only the most cited.
   const threshold = known.length >= 4 ? known[Math.floor(0.75 * (known.length - 1))] : known.at(-1) ?? Infinity;
-  const derived = (id: string) => {
-    const seen = new Set<string>(), stack = [id];
-    while (stack.length) { const current = stack.pop()!; for (const n of evolution.nodes) if (!seen.has(n.method.id) && n.parents.some(p => p.id === current)) { seen.add(n.method.id); stack.push(n.method.id); } }
-    seen.delete(id);
-    return seen.size;
-  };
-  const foundation = new Set(evolution.nodes.filter(n => derived(n.method.id) >= 2).map(n => n.method.id));
   return new Map(papers.map(paper => {
     const proposed = evolution.nodes.filter(n => n.papers.some(p => p.id === paper.id));
     const reasons: ImportanceReason[] = [];
     if (proposed.some(n => n.origin?.id === paper.id)) reasons.push('origin');
     if ((rates.get(paper.id) ?? -1) >= threshold) reasons.push('influence');
-    if (proposed.some(n => foundation.has(n.method.id))) reasons.push('foundation');
     return [paper.id, { reasons, citationsPerYear: rates.get(paper.id) ?? null }];
   }));
 }

@@ -1,4 +1,4 @@
-# Survey Studio デザインシステム
+# Speedrun Survey デザインシステム
 
 ## 方針
 
@@ -16,7 +16,7 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
 
 見出し・ブランド・数値はPlus Jakarta Sans（600〜800）、本文と操作はIBM Plex Sans。日本語は端末のゴシックへフォールバックする。フォントは `@fontsource` でローカル配信する。
 
-色はOKLCH。主操作と選択は青（accent）、面は白と淡い青灰。情報の種類はパステルで区別する：課題=peach、手法=turquoise、論文=lavender、主張=green、根拠=yellow、分野=sky。濃い文字を淡い色の上に置き、パステルを文字色に使わない。色だけで意味を伝えず、ラベルや凡例を添える。色・font-familyは必ずtokensを参照する。
+色はOKLCH。主操作と選択は彩度を抑えた深い青（accent、`oklch(46% .13 258)`）、面は白と淡い青灰。情報の種類はパステルで区別する：課題=peach、手法=turquoise、論文=lavender、主張=green、根拠=yellow、分野=sky。濃い文字を淡い色の上に置き、パステルを文字色に使わない。色だけで意味を伝えず、ラベルや凡例を添える。色・font-familyは必ずtokensを参照する。
 
 カードは丸角14px・大きな面は20px、ボタン・タブ・チップはピル型。影は弱く、hoverで少し強める。選択はaccentの枠と淡い輪。hover・focus・disabled・errorを区別し、focusリングは即時に出す。動きはtransformと色の短い遷移だけ。`prefers-reduced-motion` で止める。
 
@@ -32,7 +32,7 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
 /* Hallmark · genre: playful · macrostructure: Workbench (column browser) · designed-as-app
  * theme: studied-DNA (source: https://www.researchrabbit.ai/) · studied: yes · DNA-source: url
  * observed-fonts: Plus Jakarta Sans + Open Sans · observed-accent: #2962ff · pastel lavender/turquoise/green/peach
- * build: Plus Jakarta Sans + IBM Plex Sans · paper oklch(97.8% .006 255) · accent oklch(52% .22 266)
+ * build: Plus Jakarta Sans + IBM Plex Sans · paper oklch(97.8% .006 255) · accent oklch(46% .13 258)
  * nav: N3 side-rail (collections) · trail: version history · footer: none · enrichment: connection map from survey data
  * pre-emit critique: P4 H4 E4 S4 R4 V4 · design-system: design.md
  */
@@ -44,9 +44,9 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   --color-faint: oklch(56% .02 255);
   --color-line: oklch(92.5% .012 255);
   --color-line-strong: oklch(80% .02 255);
-  --color-accent: oklch(52% .22 266);
-  --color-accent-hover: oklch(44% .19 264);
-  --color-accent-soft: oklch(95.5% .025 268);
+  --color-accent: oklch(46% .13 258);
+  --color-accent-hover: oklch(39% .115 258);
+  --color-accent-soft: oklch(95.5% .02 252);
   --color-accent-ink: oklch(100% 0 0);
   --color-brand: var(--color-accent);
   --color-brand-soft: var(--color-accent-soft);
@@ -124,9 +124,9 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   --color-faint: oklch(56% .02 255);
   --color-line: oklch(92.5% .012 255);
   --color-line-strong: oklch(80% .02 255);
-  --color-accent: oklch(52% .22 266);
-  --color-accent-hover: oklch(44% .19 264);
-  --color-accent-soft: oklch(95.5% .025 268);
+  --color-accent: oklch(46% .13 258);
+  --color-accent-hover: oklch(39% .115 258);
+  --color-accent-soft: oklch(95.5% .02 252);
   --color-accent-ink: oklch(100% 0 0);
   --color-brand: var(--color-accent);
   --color-brand-soft: var(--color-accent-soft);
@@ -211,15 +211,15 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
     "$type": "color"
   },
   "color-accent": {
-    "$value": "oklch(52% .22 266)",
+    "$value": "oklch(46% .13 258)",
     "$type": "color"
   },
   "color-accent-hover": {
-    "$value": "oklch(44% .19 264)",
+    "$value": "oklch(39% .115 258)",
     "$type": "color"
   },
   "color-accent-soft": {
-    "$value": "oklch(95.5% .025 268)",
+    "$value": "oklch(95.5% .02 252)",
     "$type": "color"
   },
   "color-accent-ink": {

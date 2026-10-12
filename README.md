@@ -26,7 +26,7 @@ http://127.0.0.1:8788 を開きます。Issue Explorer、手法の系譜（時�
 
 Codex CLI自身のChatGPTログインを使い、アプリは内部資格情報を読みません。ユーザー設定・hooks・MCPを引き継がない隔離実行のため、モデルはCLIの標準設定です。未ログイン時は実行せずログインを案内します。実行は1件ずつ、上限5分、取消可能です。モデルの生成結果やサンプルデータは確認済みの文献情報と区別してください。
 
-`npm run dev`と`npm run deploy`は従来のSIWC Worker PoC用です。新しいSurvey Studioの公開デプロイではありません。Cloudflare MVPのD1/R2/Workflowsは後続で実装します。
+`npm run dev`と`npm run deploy`は従来のSIWC Worker PoC用です。新しいSpeedrun Surveyの公開デプロイではありません。Cloudflare MVPのD1/R2/Workflowsは後続で実装します。
 
 ## 既存PoCの利用方法と検証記録
 

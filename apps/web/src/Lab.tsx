@@ -72,7 +72,7 @@ export function Lab() {
   const repairMinutes = [...new Set(ROUTED_SKILLS.filter(s => s.output === 'patch').map(s => minutes(s.repairTimeoutSeconds)))].join('、');
 
   return <div className="lab-shell">
-    <header className="lab-header"><a className="lab-wordmark" href="/lab"><span aria-hidden="true">↗</span>Survey Studio <small>Lab</small></a><a href="/">アプリに戻る ↗</a></header>
+    <header className="lab-header"><a className="lab-wordmark" href="/lab"><span aria-hidden="true">↗</span>Speedrun Survey <small>Lab</small></a><a href="/">アプリに戻る ↗</a></header>
     <div className="lab-layout">
       <nav className="lab-nav" aria-label="目次">
         <a href="#overview">全体の流れ</a>
@@ -90,10 +90,10 @@ export function Lab() {
       </nav>
       <main className="lab-content">
         <section className="lab-intro" id="overview">
-          <span className="lab-kicker">Survey Studio / ローカルPoC</span>
+          <span className="lab-kicker">Speedrun Survey / ローカルPoC</span>
           <h1>調査が作られる仕組み</h1>
           <div className="lab-prose">
-            <p>Survey Studioでは、ユーザーの依頼を受けたCodexがWeb検索で調べ、結果を変更案として返す。変更案は検証とユーザーの確認を経て、調査の新しい版になる。このページでは、この流れを決めている2つのロジックを説明する。1つはCodexに渡す指示（Agent Prompt）、もう1つは調査を保存する形式と検証の規則（DSL）である。</p>
+            <p>Speedrun Surveyでは、ユーザーの依頼を受けたCodexがWeb検索で調べ、結果を変更案として返す。変更案は検証とユーザーの確認を経て、調査の新しい版になる。このページでは、この流れを決めている2つのロジックを説明する。1つはCodexに渡す指示（Agent Prompt）、もう1つは調査を保存する形式と検証の規則（DSL）である。</p>
             <p>ページ内の指示文、型の定義、検証と採点の結果は、アプリの実行時と同じモジュールから読み込んで表示している。</p>
           </div>
           <dl className="lab-scope"><div><dt>実装済み</dt><dd>新規調査と追加の依頼、変更案の検証と保存、ブラウザでの版の履歴、ローカルの論文DB（SQLite）</dd></div><div><dt>未実装</dt><dd>Cloudflareでの運用（D1への保存、Workflowによる長時間の実行）、保存した原文と根拠の照合</dd></div></dl>
@@ -213,7 +213,7 @@ export function Lab() {
             <div className="lab-rubric"><h4>チュートリアルの採点表</h4><p>基準は、サンプルの「{REFERENCE_TUTORIAL.label}」である。構成は<a href="https://kei18.github.io/note/posts/mapf-tutorial/" target="_blank" rel="noreferrer">マルチエージェント経路計画の紹介</a>を、課題と達成度の書き方は<a href="https://huyenchip.com/2023/08/16/llm-research-open-challenges.html" target="_blank" rel="noreferrer">Open challenges in LLM research</a>を手本にした。Codexには基準の章立てと規模を渡し、出力を同じ採点表で確かめて、基準と数値で比べる。</p><ul>{assessTutorial(fixture).map(c=><li key={c.id} className={c.pass ? 'pass' : 'fail'}><span>{c.pass ? '満たす' : '未達'}</span>{c.label}<small>{c.detail}</small></li>)}</ul><dl className="lab-reference">{compareToReference(fixture).map(r=><div key={r.id}><dt>{r.label}</dt><dd>{r.reference}</dd></div>)}</dl></div>
           </Sub>
         </section>
-        <footer className="lab-footer"><span>Survey Studio Lab</span><a href="/">アプリに戻る ↗</a></footer>
+        <footer className="lab-footer"><span>Speedrun Survey Lab</span><a href="/">アプリに戻る ↗</a></footer>
       </main>
     </div>
   </div>;

@@ -1,7 +1,7 @@
 /* Hallmark · genre: playful · macrostructure: Workbench (column browser) · designed-as-app
  * theme: studied-DNA (source: https://www.researchrabbit.ai/) · studied: yes · DNA-source: url
  * observed-fonts: Plus Jakarta Sans + Open Sans · observed-accent: #2962ff · pastel lavender/turquoise/green/peach
- * build: Plus Jakarta Sans + IBM Plex Sans · paper oklch(97.8% .006 255) · accent oklch(52% .22 266)
+ * build: Plus Jakarta Sans + IBM Plex Sans · paper oklch(97.8% .006 255) · accent oklch(46% .13 258)
  * nav: N3 side-rail (collections) · trail: version history · footer: none · enrichment: connection map from survey data
  * pre-emit critique: P4 H4 E4 S4 R4 V4 · design-system: design.md
  */
@@ -13,9 +13,9 @@
   --color-faint: oklch(56% .02 255);
   --color-line: oklch(92.5% .012 255);
   --color-line-strong: oklch(80% .02 255);
-  --color-accent: oklch(52% .22 266);
-  --color-accent-hover: oklch(44% .19 264);
-  --color-accent-soft: oklch(95.5% .025 268);
+  --color-accent: oklch(46% .13 258);
+  --color-accent-hover: oklch(39% .115 258);
+  --color-accent-soft: oklch(95.5% .02 252);
   --color-accent-ink: oklch(100% 0 0);
   --color-brand: var(--color-accent);
   --color-brand-soft: var(--color-accent-soft);

@@ -42,7 +42,7 @@ function send(res: ServerResponse, status: number, body: string, type = 'text/pl
 }
 const json = (res: ServerResponse, status: number, body: unknown) => send(res, status, JSON.stringify(body), 'application/json');
 const redirect = (res: ServerResponse, location: string, headers: Record<string, string> = {}) => send(res, 302, '', 'text/plain', { Location: location, ...headers });
-const loginPage = (command: string) => `<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Survey Studio</title>
+const loginPage = (command: string) => `<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Speedrun Survey</title>
 <style>:root{--bg:#f6f5f2;--fg:#1f1f1f;--muted:#666}@media (prefers-color-scheme:dark){:root{--bg:#1b1b1b;--fg:#f2f2f2;--muted:#aaa}}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif}main{display:grid;gap:12px;justify-items:center;padding:16px}a{background:var(--fg);color:var(--bg);padding:10px 20px;border-radius:999px;text-decoration:none}code{font-size:12px;color:var(--muted);overflow-wrap:anywhere}</style>
 <main><a href="/auth/start">ChatGPTでログイン</a><code>${command}</code></main></html>`;
 
