@@ -7,10 +7,10 @@ const GAP = 24, ROW_PAD = 14, INSET = 16;
 export const ITEM = { compact: { width: 156, height: 72 }, paper: { width: 220, height: 128 } } as const;
 
 export interface TimelineCard { title: string; meta?: string; note?: string; dot?: string; hint?: string }
-/** A paper item in every paper tree: its title, year and venue, and one sentence the tree is about
+/** A paper item in every paper tree: its title, year, venue and citation count, and one sentence the tree is about
  * (the claim in the issue tree, what it is in the method tree). */
 export function paperCard(paper: Extract<Entity, { type: 'Paper' }>, note?: string): TimelineCard {
-  return { title: paper.title, meta: [paper.year ?? '年未取得', paper.venue].filter(Boolean).join(' · '), note: note || undefined, hint: paper.title };
+  return { title: paper.title, meta: [paper.year ?? '年未取得', paper.venue, `引用 ${paper.citation_count ?? '未取得'}`].filter(Boolean).join(' · '), note: note || undefined, hint: paper.title };
 }
 
 /** Years (or generations) left to right, one row per lineage. Positions come from layoutTimeline; this only draws them. */
