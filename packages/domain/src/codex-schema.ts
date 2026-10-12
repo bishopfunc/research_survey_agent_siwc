@@ -57,10 +57,11 @@ export function codexPatchSchema(patch: Schema): Schema {
   return out;
 }
 
-/** Trimmed, non-empty, distinct strings, or undefined when the value is not a list of strings. */
-function distinct(value: unknown, limit: number, length = Infinity): string[] | undefined {
+/** Trimmed, non-empty strings, distinct unless `unique` is false, or undefined when the value is not a list of strings. */
+function distinct(value: unknown, limit: number, length = Infinity, unique = true): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  return [...new Set(value.filter((v): v is string => typeof v === 'string').map(v => v.trim().slice(0, length)).filter(Boolean))].slice(0, limit);
+  const items = value.filter((v): v is string => typeof v === 'string').map(v => v.trim().slice(0, length)).filter(Boolean);
+  return (unique ? [...new Set(items)] : items).slice(0, limit);
 }
 /** The definition behind a local $ref, or the non-null branch of a nullable anyOf (Paper.reading, Tutorial sections…). */
 function resolve(schema: Schema | undefined, defs: Record<string, Schema>): Schema | undefined {
@@ -69,7 +70,8 @@ function resolve(schema: Schema | undefined, defs: Record<string, Schema>): Sche
   return schema;
 }
 /** Tidies a value against its app definition at any depth (reading.sources, a tutorial figure's caption_ja…): drops the nulls Codex had
- * to send for optional non-nullable keys, keeps the first distinct strings of a capped list (english_terms, Resource.authors),
+ * to send for optional non-nullable keys, keeps the first strings of a capped list (distinct only where the app sets uniqueItems:
+ * english_terms, while Resource.authors keeps two co-authors with the same name),
  * percent-encodes URLs, cuts a date that carries a time to its day and nulls a nullable date or date-time ajv would reject
  * (a date-time without an offset, 2026/10/13…), as the strict output schema would have required. */
 function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, Schema>): unknown {
@@ -82,7 +84,7 @@ function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, S
     if (day && isDate(day)) return day;
     return allowsNull(schema) || allowsNull(def) ? null : value;
   }
-  if (Array.isArray(value)) return typeof def.maxItems === 'number' && (def.items as Schema | undefined)?.type === 'string' ? distinct(value, def.maxItems) : value.map(item => tidy(item, def.items as Schema | undefined, defs));
+  if (Array.isArray(value)) return typeof def.maxItems === 'number' && (def.items as Schema | undefined)?.type === 'string' ? distinct(value, def.maxItems, Infinity, def.uniqueItems === true) : value.map(item => tidy(item, def.items as Schema | undefined, defs));
   if (value && typeof value === 'object' && def.properties) {
     const object = value as Record<string, unknown>, required = new Set((def.required as string[] | undefined) ?? []), properties = def.properties as Record<string, Schema>;
     for (const [key, child] of Object.entries(object)) if (child === null && !required.has(key) && !allowsNull(properties[key])) delete object[key]; else object[key] = tidy(child, properties[key], defs);

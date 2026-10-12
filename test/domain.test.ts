@@ -404,6 +404,18 @@ test('dates the strict output schema would have rejected are cut to the day or n
   assert.deepEqual([paper.citation_as_of, paper.code_checked_at], ['2026-10-13', null]);
   assert.equal(tidy(find('claim-cbs')).as_of, '2026-10-12');
 });
+test('a capped list keeps two co-authors with the same name; only a uniqueItems list drops repeats', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const head = makeCommit(fixture, [], 'base');
+  const find = (id: string) => structuredClone(fixture.entities.find(e => e.id === id)!) as unknown as Record<string, unknown>;
+  const authors = [' Wei Wang ', 'Li Zhang', '', 'Wei Wang', ...Array.from({ length: 20 }, (_, i) => `Author ${i}`)];
+  const raw = { schema_version: '0.1.0', base_commit_id: head.id, message: 'm', operations: [{ ...find('res-kei18-intro'), authors }, { ...find('cbs'), english_terms: ['CBS', ' CBS', 'ICBS'] }].map(entity => ({ op: 'replace_entity', entity })) };
+  const out = stripCodexNulls(raw, defs) as SurveyPatch;
+  const [r, m] = out.operations.map(op => (op as unknown as { entity: Record<string, unknown> }).entity);
+  assert.deepEqual(r.authors, ['Wei Wang', 'Li Zhang', 'Wei Wang', ...Array.from({ length: 17 }, (_, i) => `Author ${i}`)]);
+  assert.deepEqual(m.english_terms, ['CBS', 'ICBS']);
+  assert.doesNotThrow(() => applyPatch(fixture, out, head.id));
+});
 test('nullable Codex reading arrays are normalized without losing additions or references', () => {
   const paper = structuredClone(fixture.entities.find(e => e.type === 'Paper' && e.id === 'paper-ecbs')!);
   const input = { schema_version: '0.1.0', base_commit_id: 'empty', message: 'reading repair', operations: [
