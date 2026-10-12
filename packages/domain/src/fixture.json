@@ -99,6 +99,12 @@
         "discussion": "開けた地図で衝突が多いと制約木が指数的に大きくなり遅くなる。MA-CBSで緩和するが、統合の閾値の選び方に性能が依存する。評価は4近傍のグリッドが中心。",
         "key_figures": [
           "制約木（CT）の展開例：衝突から2つの子ノードへの分岐"
+        ],
+        "sources": [
+          {
+            "url": "https://doi.org/10.1016/j.artint.2014.11.006",
+            "locator": "Abstract・Section 3"
+          }
         ]
       },
       "citation_count": null,

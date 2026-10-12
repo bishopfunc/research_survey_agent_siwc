@@ -255,6 +255,8 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .paper-reading h3:first-child { margin-top: 0; }
 .paper-reading p, .paper-reading li { font-size: var(--text-caption); line-height: 1.8; color: var(--color-ink); overflow-wrap: anywhere; }
 .paper-reading ul { margin: 0; padding-left: 1.2em; }
+.reading-sources ul { list-style: none; padding: 0; }
+.reading-sources li { font-size: var(--text-small); line-height: 1.7; overflow-wrap: anywhere; }
 .paper-reading .muted-label { margin-top: var(--space-2); font-size: var(--text-small); color: var(--color-faint); }
 .key-figure { margin: 0 0 var(--space-4); }
 .figure-images { display: grid; gap: 6px; }
@@ -286,6 +288,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .family-none { color: var(--color-muted); }
 .family-description { margin-bottom: var(--space-2); font-size: var(--text-caption); line-height: 1.7; color: var(--color-muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 80ch; }
 .family-group ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.family-tree ol { margin: 4px 0 0 26px; padding-left: 14px; border-left: 2px solid var(--color-line); }
 .family-group li button { display: grid; grid-template-columns: 52px minmax(0,1fr); gap: var(--space-3); width: 100%; padding: 10px 14px; border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); text-align: left; color: var(--color-ink); background: var(--color-surface); }
 .family-group li button:hover, .family-group li button.chosen { color: var(--color-ink); background: var(--color-surface); border-color: var(--color-accent); }
 .family-year { font-family: var(--font-display); font-size: var(--text-caption); font-weight: 700; color: var(--color-muted); font-variant-numeric: tabular-nums; }
@@ -405,33 +408,6 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .segmented button[aria-pressed=true] { font-weight: 600; color: var(--color-ink); background: var(--color-turquoise-soft); }
 .evolution-sample { padding: 6px 0; border: 0; font-size: var(--text-small); color: var(--color-accent); background: var(--color-transparent); white-space: nowrap; }
 .evolution-sample:hover { background: var(--color-transparent); text-decoration: underline; }
-.evolution-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--text-small); color: var(--color-muted); }
-.evolution-legend span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.evolution-legend i { display: inline-block; width: 18px; border-top: 1.5px solid var(--color-line-strong); }
-.evolution-legend .dashed { border-top-style: dashed; }
-.evolution-scroll { overflow: auto; background: var(--color-surface); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-large); scrollbar-width: thin; }
-.evolution-graph { position: relative; min-width: 100%; }
-.year-row { position: absolute; display: flex; align-items: center; color: var(--color-muted); pointer-events: none; }
-.year-row>span { min-width: 56px; padding: 0 10px; font-family: var(--font-display); font-size: var(--text-small); font-weight: 700; }
-.year-row>div { flex: 1; margin-right: var(--space-4); border-top: 1px dashed var(--color-line); }
-.year-row.unknown-year>span { font-size: 11px; }
-.evolution-edges { position: absolute; inset: 0; pointer-events: none; }
-.method-node { position: absolute; display: flex; flex-direction: column; overflow: hidden; padding: var(--space-3); background: var(--color-surface); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); box-shadow: var(--shadow-card); }
-.method-node>* { flex-shrink: 0; }
-.method-node.is-selected { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
-.method-node-heading { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: 0; border: 0; border-radius: 0; text-align: left; color: var(--color-ink); background: var(--color-transparent); }
-.method-node-heading:hover { color: var(--color-accent); background: var(--color-transparent); }
-.method-node-heading strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: 15px; font-weight: 700; }
-.method-node-heading>span:last-child { margin-left: auto; color: var(--color-muted); }
-.method-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 6px 0; font-size: var(--text-small); line-height: 1.6; color: var(--color-muted); }
-.method-targets { width: fit-content; max-width: 100%; margin-bottom: var(--space-2); padding: 2px var(--space-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: var(--radius-pill); font-size: 11px; background: var(--color-peach-soft); }
-.representative-paper { display: block; width: 100%; margin-top: auto; padding: var(--space-2) 0 0; text-align: left; border: 0; border-top: var(--rule-width) solid var(--color-line); border-radius: 0; color: var(--color-ink); background: var(--color-transparent); }
-.representative-paper:hover { color: var(--color-accent); background: var(--color-transparent); }
-.rep-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-muted); }
-.rep-meta>b { font-weight: 700; color: var(--color-ink); }
-.rep-meta>em { margin-left: auto; padding: 1px 7px; border-radius: var(--radius-pill); font-size: 10px; font-style: normal; color: var(--color-ink); background: var(--color-lavender-soft); }
-.representative-paper>strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: var(--space-1); font-size: var(--text-small); font-weight: 600; line-height: 1.5; }
-.rep-summary, .representative-paper small { display: block; margin-top: var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.5; color: var(--color-muted); }
 .representative-missing { margin-top: auto; padding-top: 10px; border-top: var(--rule-width) solid var(--color-line); font-size: var(--text-small); color: var(--color-muted); }
 .evolution-warning { padding: var(--space-2) var(--space-3); border-radius: var(--radius-small); font-size: var(--text-small); background: var(--color-yellow-soft); }
 .representative-list { display: grid; gap: var(--space-3); }

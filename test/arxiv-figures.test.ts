@@ -54,3 +54,8 @@ test('arXiv requests are serialized with a minimum gap', async () => {
   assert.deepEqual(order, ['a', 'b', 'c']);
   assert.ok(waits.length >= 2 && waits.every(ms => ms > 0 && ms <= 3000));
 });
+test('appendix figures keep their label without a number that could match a main-text figure', () => {
+  const figures = extractFigures('<figure class="ltx_figure"><img src="x/c1.svg"><figcaption><span class="ltx_tag ltx_tag_figure">Figure C.1: </span>Beam size.</figcaption></figure>', page);
+  assert.deepEqual(figures, [{ number: null, label: 'Figure C.1', caption: 'Beam size.', images: ['https://arxiv.org/html/x/c1.svg'] }]);
+});
+

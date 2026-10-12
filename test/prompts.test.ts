@@ -107,4 +107,9 @@ test('a library paper is re-read only after the user sends the follow-up that as
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When the stored fields are not enough for the request, do not re-read: make one of the follow_ups a request to re-read the named papers/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /so that sending it is the user's approval/);
 });
+test('readings cite their original pages, arXiv papers are read in full text, and missing knowledge layers are reported', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Put in reading\.sources every page the reading is based on, each with its url and a locator/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /open its HTML full text \(https:\/\/arxiv\.org\/html\/<id>, or https:\/\/ar5iv\.labs\.arxiv\.org\/html\/<id> for older papers\)/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /name in the patch message each category you searched for but could not find/);
+});
 

@@ -90,6 +90,10 @@ export interface Reading {
   validation: string;
   discussion: string;
   key_figures: string[];
+  sources?: {
+    url: string;
+    locator: string;
+  }[];
 }
 export interface Figure {
   asset_id: string;

@@ -75,7 +75,15 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
     if (reading && typeof reading === 'object') {
       for (const key of ['contributions', 'key_figures']) { const items = distinct(reading[key], Infinity); if (items) reading[key] = items; }
       for (const key of ['novelty', 'key_idea', 'validation', 'discussion']) if (typeof reading[key] === 'string') reading[key] = (reading[key] as string).trim();
-      if (Object.values(reading).every(v => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
+      if (Array.isArray(reading.sources)) {
+        const seen = new Set<string>();
+        reading.sources = reading.sources.flatMap(source => {
+          const url = typeof source?.url === 'string' ? source.url.trim() : '', locator = typeof source?.locator === 'string' ? source.locator.trim() : '';
+          if (!/^https?:\/\/\S+$/.test(url) || seen.has(`${url} ${locator}`)) return [];
+          seen.add(`${url} ${locator}`); return [{ url, locator: locator || 'Abstract' }];
+        });
+      }
+      if (Object.entries(reading).filter(([key]) => key !== 'sources').every(([, v]) => Array.isArray(v) ? !v.length : !v)) entity.reading = null;
     }
   }
   return clean;

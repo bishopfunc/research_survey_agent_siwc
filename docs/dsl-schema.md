@@ -22,7 +22,7 @@ Paperの任意フィールド `code_availability` はpublic（公開あり）、
 
 Paperの任意 `abstract` はアブストラクトの原文で、要約・翻訳・生成した文を入れない。値があれば `abstract_source_url`（取得元のHTTP(S) URL）が必要で、URLだけの状態は拒否する。省略/nullは未取得。詳細は[0011](design/0011-paper-abstract.md)。
 
-Paperの任意 `reading` は論文の要点で、`$defs.Reading` かnull。contributions（貢献）、novelty（先行研究と比べてどこがすごい？）、key_idea（技術や手法のキモ）、validation（どうやって有効だと検証した？）、discussion（議論：著者の認める限界と批判的な評価）、key_figures（理解に重要なFigの番号と内容）を日本語で持つ。取得した文章で書けない項目は空でよい（アブストラクトだけなら検証・議論・Figは空のことが多い）。key_figuresはその実行でキャプションを読んだFigだけ。読んでいない論文はnull。生成した説明で、確認済みの事実として扱わない。任意の `abstract_ja` は `abstract`（原文）の和訳で、原文が無い和訳は拒否する。
+Paperの任意 `reading` は論文の要点で、`$defs.Reading` かnull。contributions（貢献）、novelty（先行研究と比べてどこがすごい？）、key_idea（技術や手法のキモ）、validation（どうやって有効だと検証した？）、discussion（議論：著者の認める限界と批判的な評価）、key_figures（理解に重要なFigの番号と内容）を日本語で持つ。取得した文章で書けない項目は空でよい（アブストラクトだけなら検証・議論・Figは空のことが多い）。key_figuresはその実行でキャプションを読んだFigだけ。任意の `sources` は読んだ原文のURLと位置（Abstract、Section 4など、http(s)のみ）。読んでいない論文はnull。生成した説明で、確認済みの事実として扱わない。任意の `abstract_ja` は `abstract`（原文）の和訳で、原文が無い和訳は拒否する。
 
 要求とDSLの対応、追加した項目の一覧は[0014](design/0014-expert-catch-up-survey.md)と[ADR 0010](adr/0010-reuse-types-for-expert-survey.md)。新しい型は作らず、既存の型に載せる。
 

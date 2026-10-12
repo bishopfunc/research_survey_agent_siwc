@@ -14,7 +14,7 @@ import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
-import { cacheName, fetchArxivFigures, parseArxivId } from './arxiv-figures';
+import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 
 const port = Number(process.env.POC_PORT ?? 8788);
 const origin = `http://127.0.0.1:${port}`;
@@ -142,7 +142,7 @@ const server = createServer(async (req, res) => {
       const id = parseArxivId(decodeURIComponent(arxiv[1]));
       if (!id) { json(res, { error: 'arXiv IDを確認してください' }, 400); return; }
       const directory = resolve('.poc/arxiv'), file = join(directory, cacheName(id));
-      try { json(res, JSON.parse(readFileSync(file, 'utf8'))); return; } catch { /* not fetched yet */ }
+      try { const saved = JSON.parse(readFileSync(file, 'utf8')); if (saved.parser === FIGURE_PARSER_VERSION) { json(res, saved); return; } } catch { /* not fetched yet */ }
       if (req.method === 'GET') { json(res, { error: 'NOT_FETCHED' }, 404); return; }
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
       try {

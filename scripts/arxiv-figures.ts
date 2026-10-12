@@ -8,7 +8,9 @@ const MAX_IMAGES = 6;
 export const ARXIV_MIN_INTERVAL_MS = 3_000;
 
 export interface ArxivFigure { number: number | null; label: string; caption: string; images: string[] }
-export interface ArxivFigures { arxiv_id: string; source_url: string; retrieved_at: string; figures: ArxivFigure[] }
+/** Bumped when extraction changes, so results saved by an older parser are fetched again. */
+export const FIGURE_PARSER_VERSION = 2;
+export interface ArxivFigures { parser: number; arxiv_id: string; source_url: string; retrieved_at: string; figures: ArxivFigure[] }
 export type PageFetcher = (url: string) => Promise<{ ok: boolean; status: number; url: string; headers: { get(name: string): string | null }; text(): Promise<string> }>;
 
 const ID = /^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?$/i;
@@ -52,13 +54,14 @@ export function extractFigures(html: string, pageUrl: string): ArxivFigure[] {
     if (!/\bltx_figure\b/.test(attribute(openTag, 'class') ?? '')) continue;
     const segment = html.slice(start, m.index);
     const captions = [...segment.matchAll(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/gi)].map(c => plain(c[1]));
-    const main = [...captions].reverse().find(c => /^(Figure|Fig\.?)\s*\d+/i.test(c)) ?? captions.at(-1) ?? '';
-    const tag = main.match(/^(?:Figure|Fig\.?)\s*(\d+)\s*[:.]?\s*/i);
+    const main = [...captions].reverse().find(c => /^(Figure|Fig\.?)\s*[A-Z]?\.?\d+/i.test(c)) ?? captions.at(-1) ?? '';
+    // Appendix figures (Figure C.1) keep their label but have no plain number to match "Fig. N".
+    const tag = main.match(/^(?:Figure|Fig\.?)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)?)\s*[:.]?\s*/i);
     const images = [...segment.matchAll(/<img\b[^>]*>|<object\b[^>]*>/gi)]
       .map(t => t[0].toLowerCase().startsWith('<img') ? attribute(t[0], 'src') : (attribute(t[0], 'type') ?? '').startsWith('image/') ? attribute(t[0], 'data') : null)
       .map(src => src ? imageUrl(src, pageUrl) : null).filter((u): u is string => !!u);
     if (!images.length) continue;
-    figures.push({ number: tag ? Number(tag[1]) : null, label: tag ? `Figure ${tag[1]}` : 'Figure', caption: (tag ? main.slice(tag[0].length) : main).slice(0, 1500), images: [...new Set(images)].slice(0, MAX_IMAGES) });
+    figures.push({ number: tag && /^\d+$/.test(tag[1]) ? Number(tag[1]) : null, label: tag ? `Figure ${tag[1]}` : 'Figure', caption: (tag ? main.slice(tag[0].length) : main).slice(0, 1500), images: [...new Set(images)].slice(0, MAX_IMAGES) });
   }
   return figures;
 }
@@ -85,11 +88,11 @@ export async function fetchArxivFigures(id: string, fetcher: PageFetcher, retrie
     if (!(response.headers.get('content-type') ?? '').includes('text/html')) continue;
     const html = await response.text();
     if (html.length > MAX_HTML_CHARS) throw Error('ページが大きすぎます');
-    const result = { arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href) };
+    const result = { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: final.href, retrieved_at, figures: extractFigures(html, final.href) };
     if (result.figures.length) return result;
     empty ??= result;
   }
-  return empty ?? { arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [] };
+  return empty ?? { parser: FIGURE_PARSER_VERSION, arxiv_id: id, source_url: PAGES(id)[0], retrieved_at, figures: [] };
 }
 /** File name for the cache; old-style IDs contain a slash. */
 export const cacheName = (id: string) => `${id.replace('/', '_')}.json`;

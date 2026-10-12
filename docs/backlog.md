@@ -20,6 +20,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P13 | Done | 調査の目的（参入者が専門家の水準に追いつきテーマを見つける）と重視点をPromptの先頭に置く。課題の英語表現と論文の数値による達成度（Claim）、手法の系統（Concept＋instance_of）と系統表示、論文の貢献と5つの問い・重要なFig・アブストラクトの和訳、学会の略称、キーワード→ナレッジ（SOTA・モデル・ベースライン）、候補3つ。新しい型は作らない。実Codexの新規調査で完了・検証まで確認済み（[0014](design/0014-expert-catch-up-survey.md)、[ADR 0010](adr/0010-reuse-types-for-expert-survey.md)） | P12 |
 | P14 | Done | 引用数の取得（OpenAlex、Google Scholarは公式APIが無く不採用）。論文タブの「引用数を更新」で取得元と取得日つきの新しい版を作る（[0015](design/0015-citation-counts.md)） | P13 |
 | P15 | Done | 論文の理解に重要なFigの画像を論文の詳細に出す。arXivのHTML版（無ければar5iv）から図の番号・キャプション・画像URLを取得し、reading.key_figuresの番号と対応づける。取得はボタンで1論文1回、結果はローカルに保存（[0016](design/0016-paper-key-figures.md)） | P13 |
+| P16 | Done | 要点に原文の出典（URLと位置）、arXivはHTML版の本文を読む、論文を開いたらFigを自動取得、提案の保存直後に引用数を自動取得、手法の系統ツリー、ナレッジの見つからない層の表示 | P15 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験。論文ライブラリ（papers・paper_records・paper_files）とPDF/mdのR2保存（0010） | B02 |

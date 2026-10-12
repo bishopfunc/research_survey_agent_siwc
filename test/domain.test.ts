@@ -299,3 +299,18 @@ test('research output may use only the current knowledge categories; older ones 
   assert.deepEqual(validateSnapshot(input), []);
 });
 
+test('a paper reading names the original pages it is based on; unsafe links are refused and Codex slips are tidied', () => {
+  const input = structuredClone(fixture);
+  const paper = input.entities.find(e => e.id === 'paper-cbs');
+  if (paper?.type !== 'Paper' || !paper.reading) throw Error('fixture changed');
+  assert.ok(paper.reading.sources?.length);
+  paper.reading.sources = [{ url: 'javascript:alert(1)', locator: 'Abstract' }];
+  assert.match(validateSnapshot(input).join(), /要点の出典/);
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const reading = { contributions: ['貢献'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: ' https://arxiv.org/abs/1806.02724 ', locator: ' Abstract ' }, { url: 'https://arxiv.org/abs/1806.02724', locator: 'Abstract' }, { url: 'ftp://x', locator: 'a' }, { url: 'https://arxiv.org/html/1806.02724', locator: '' }] };
+  const out = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: { ...paper, reading } }] }, defs) as { operations: { entity: { reading: { sources: unknown } } }[] };
+  assert.deepEqual(out.operations[0].entity.reading.sources, [{ url: 'https://arxiv.org/abs/1806.02724', locator: 'Abstract' }, { url: 'https://arxiv.org/html/1806.02724', locator: 'Abstract' }]);
+  const onlySources = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: { ...paper, reading: { contributions: [], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: 'https://arxiv.org/abs/1', locator: 'Abstract' }] } } }] }, defs) as { operations: { entity: { reading: unknown } }[] };
+  assert.equal(onlySources.operations[0].entity.reading, null);
+});
+

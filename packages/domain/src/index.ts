@@ -74,6 +74,7 @@ export function validateSnapshot(value: unknown): string[] {
       if (e.abstract_source_url && !e.abstract?.trim()) errors.push(`${e.id}: アブストラクトの原文が無いのに取得元URLがあります`);
       if (e.abstract_source_url && !/^https?:\/\//.test(e.abstract_source_url)) errors.push(`${e.id}: アブストラクトの取得元URLはhttp/httpsのみ対応します`);
       if (e.abstract_ja?.trim() && !e.abstract?.trim()) errors.push(`${e.id}: 和訳には元のアブストラクト（原文）が必要です`);
+      if (e.reading?.sources?.some(s => !/^https?:\/\//.test(s.url))) errors.push(`${e.id}: 要点の出典はhttp/httpsのみ対応します`);
       if (e.code_url && !/^https?:\/\//.test(e.code_url)) errors.push(`${e.id}: コードURLはhttp/httpsのみ対応します`);
       if (code === 'public' && (!e.code_url || !e.code_checked_at)) errors.push(`${e.id}: コード公開ありには公開URLと確認日が必要です`);
       if (code === 'not_found' && (!e.code_checked_at || e.code_url)) errors.push(`${e.id}: コードが見つからずには確認日が必要で、公開URLは空にしてください`);

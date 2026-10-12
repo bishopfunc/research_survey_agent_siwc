@@ -22,23 +22,23 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
   const notes = paper.reading?.key_figures ?? [];
   const [data, setData] = useState<ArxivFigures | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-  useEffect(() => {
-    if (!id || preview) return;
-    let active = true;
-    // Only a cached result is read here; contacting arXiv waits for the button.
-    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (active && value) setData(value); }).catch(() => { /* not fetched yet */ });
-    return () => { active = false; };
-  }, [id, preview]);
-  if (!notes.length && !id) return null;
-  async function load() {
+  async function load(signal?: { active: boolean }) {
     setState('loading');
     try {
       const response = await fetch(`/api/arxiv-figures/${encodeURIComponent(id!)}`, { method: 'POST' });
       const value = await response.json();
       if (!response.ok) throw Error(value.error);
-      setData(value); setState('idle');
-    } catch { setState('error'); }
+      if (signal?.active !== false) { setData(value); setState('idle'); }
+    } catch { if (signal?.active !== false) setState('error'); }
   }
+  useEffect(() => {
+    if (!id || preview) return;
+    const signal = { active: true };
+    // Opening a paper reads the saved result, or fetches its arXiv HTML once; the server spaces requests and keeps the result.
+    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (!signal.active) return; if (value) setData(value); else void load(signal); }).catch(() => { if (signal.active) void load(signal); });
+    return () => { signal.active = false; };
+  }, [id, preview]);
+  if (!notes.length && !id) return null;
   const byNumber = new Map((data?.figures ?? []).filter(f => f.number !== null).map(f => [f.number as number, f]));
   const named = notes.map(note => ({ note, figure: byNumber.get(figureNumber(note)) }));
   const used = new Set(named.flatMap(n => n.figure ? [n.figure] : []));
@@ -48,8 +48,8 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
     {named.map(({ note, figure }, i) => <figure key={i} className="key-figure">{figure && <Images figure={figure}/>}<figcaption><span>{note}</span>{figure && <small>{figure.label}: {figure.caption}</small>}</figcaption></figure>)}
     {data && rest.length > 0 && <details className="more-figures" open={!notes.length}><summary>{notes.length ? 'ほかのFig' : 'arXivのFig'}</summary>{rest.map((figure, i) => <figure key={i} className="key-figure"><Images figure={figure}/><figcaption><small>{figure.label}: {figure.caption}</small></figcaption></figure>)}</details>}
     {data && !data.figures.length && <p className="muted-label">arXivのFigなし</p>}
-    {!data && id && !preview && <button className="toolbar-button" disabled={state === 'loading'} onClick={() => void load()}>{state === 'loading' ? '取得中…' : 'arXivからFigを取得'}</button>}
-    {state === 'error' && <p className="muted-label">取得できませんでした</p>}
+    {!data && id && !preview && state === 'loading' && <p className="muted-label">arXivから取得中…</p>}
+    {state === 'error' && <button className="toolbar-button" onClick={() => void load()}>Figを再取得</button>}
     {data && <a className="figure-source" href={data.source_url} target="_blank" rel="noreferrer">arXiv HTML ↗</a>}
   </section>;
 }
