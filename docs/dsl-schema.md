@@ -39,7 +39,7 @@ Codex向けには[スキーマ変換](../packages/domain/src/codex-schema.ts)で
 ## 調整手順
 
 1. `npm run dev:poc`で起動し、サンプルを見ながらIssue、Matrix、Paper、Inspectorの使い勝手を確認する。
-2. Inspectorの編集フォームや課題・手法の追加ボタンから内容を変更し、保存する。内部で検証し、失敗した入力は履歴に入れない。
+2. Inspectorの編集フォームから内容を変更し、保存する（課題・手法の追加ボタンは2026-10-12に削除。追加はCodexの調査かキーワードの手入力）。内部で検証し、失敗した入力は履歴に入れない。
 3. Codexへの指示で追加・修正を試し、前後値をレビューして新しい版を保存する。
 4. フィールド自体を変える場合はschemaとdesign docを更新し、`npm run schema:types`で型を再生成する。
 5. fixture、validator、UIを揃え、`npm run check`を通す。既存JSONの移行が必要なら別versionと移行処理を設計する。
