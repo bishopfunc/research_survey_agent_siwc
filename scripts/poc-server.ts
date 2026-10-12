@@ -15,6 +15,9 @@ import { deepenInstructions, divergeInstructions, fillInstructions, integrateIns
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
+import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, budgetInstructions, timeBudget } from '../packages/agent/src/time-budget';
+import { attemptSucceeded, attemptError, superviseProcess } from './codex-supervisor';
+import { streamCheckpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch, stageStep, stageTraceText } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
@@ -37,6 +40,7 @@ const MAX_TRACE = 120;
 function addTrace(run: Run, item: TraceItem) { run.trace = [...run.trace, { ...item, at: new Date().toISOString() }].slice(-MAX_TRACE); }
 const runs = new Map<string, Run>();
 const children = new Map<string, ChildProcess>();
+const stopChildren = new Map<string, () => void>();
 function save(run: Run) { writeFileSync(join(storage, run.id, 'status.json'), JSON.stringify(run), { mode: 0o600 }); }
 for (const id of readdirSync(storage)) {
   if (!/^[\da-f-]{36}$/.test(id)) continue;
@@ -113,8 +117,10 @@ async function warmArxiv(ids: string[]) {
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
-function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled' } = {}): Promise<CodexAttempt> {
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; checkpoint?: (line: string) => void } = {}): Promise<CodexAttempt> {
   return new Promise(done => {
+    const startedAt = Date.now();
+    const budget = timeBudget(timeoutSeconds);
     const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
     // Run outside the repository and without project docs or user skills, so the developer AGENTS.md and skills never reach the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
@@ -127,6 +133,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     let state = initialCodexState(); let stderr = ''; const before = run.searches;
     if (child.stdout) createInterface({ input: child.stdout }).on('line', line => {
       if (logged.get(run.id)! < MAX_LOG_BYTES) { appendFileSync(log, redact(line) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + line.length + 1); }
+      if (run.status === 'running' && !supervisor.timedOut) options.checkpoint?.(line);
       const next = readCodexEvent(state, line);
       const item = run.status === 'running' ? traceItem(line) : null;
       if (item) addTrace(run, item);
@@ -135,36 +142,44 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       state = next;
     });
     child.stderr?.on('data', (chunk: Buffer) => { if (stderr.length < MAX_LOG_BYTES) stderr += chunk.toString('utf8'); });
-    const timer = setTimeout(() => {
-      if (options.failRunOnTimeout !== false && run.status === 'running') { run.status = 'failed'; run.message = `${timeoutSeconds / 60}分の実行上限に達しました`; save(run); }
-      if (options.failRunOnTimeout === false) addTrace(run, { kind: 'error', text: `${step}が${timeoutSeconds / 60}分の上限に達しました` });
-      child.kill('SIGTERM');
-    }, timeoutSeconds * 1000);
+    const supervisor = superviseProcess(signal => { child.kill(signal); }, budget.researchSeconds * 1000, timeoutSeconds * 1000, {
+      research: () => {
+        if (run.status === 'running') { addTrace(run, { kind: 'step', text: `${step}：調査期限・書き出し猶予 ${budget.writeSeconds}秒` }); save(run); }
+      },
+      timeout: () => {
+        if (run.status !== 'running') return;
+        const text = `${step}：時間切れ（書き出し猶予を含む上限 ${timeoutSeconds / 60}分）`;
+        addTrace(run, { kind: 'error', text });
+        if (options.failRunOnTimeout !== false) { run.status = 'failed'; run.message = text; }
+        save(run);
+      },
+    });
+    stopChildren.set(`${run.id}:${step}`, supervisor.stop);
     let settled = false;
     const finish = (attempt: CodexAttempt) => {
       if (settled) return; settled = true;
-      clearTimeout(timer); children.delete(`${run.id}:${step}`);
+      supervisor.close(); children.delete(`${run.id}:${step}`); stopChildren.delete(`${run.id}:${step}`);
       appendFileSync(join(directory, 'codex-stderr.log'), `--- ${step}\n${redact(stderr.slice(0, MAX_LOG_BYTES))}\n`, { mode: 0o600 });
       rmSync(workdir, { recursive: true, force: true });
       done(attempt);
     };
-    child.on('error', () => finish({ code: null, state, spawnError: true }));
-    child.on('close', code => finish({ code, state }));
+    child.on('error', () => finish({ code: null, state, spawnError: true, timedOut: supervisor.timedOut }));
+    child.on('close', (code, signal) => finish({ code, signal, state, timedOut: supervisor.timedOut }));
     child.stdin?.on('error', () => {});
-    child.stdin?.end(prompt);
+    child.stdin?.end(`${budgetInstructions(timeoutSeconds, startedAt)}\n\n${prompt}`);
   });
 }
 const outputs = { research: 'patch.json', repair: 'patch-repair.json' } as const;
 /** A finished Codex step and its final message, for steps whose output is not a patch. */
 function stepResult(attempt: CodexAttempt, directory: string, file: string): StepResult {
-  const ok = !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
+  const ok = attemptSucceeded(attempt);
   let output: string | undefined; try { output = readFileSync(join(directory, file), 'utf8'); } catch { /* no output */ }
-  return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches };
+  return { ok: ok && output !== undefined, output, error: ok ? (output === undefined ? 'Codexの出力が見つかりません' : undefined) : attemptError(attempt), searches: attempt.state.searches };
 }
 const logged = new Map<string, number>();
 function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null; useLibrary: boolean; library: LibraryPaper[] }): Run {
   const id = randomUUID(); const directory = join(storage, id); mkdirSync(directory, { mode: 0o700 });
-  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode), searches: 0, message: input.mode === 'new' ? 'Codexが調査しています' : 'Codexが依頼の種類を判定しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length, skill: input.mode === 'new' ? 'survey-new' : undefined };
+  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: `${input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode)} · ${BUDGET_PROMPT_VERSION}`, searches: 0, message: input.mode === 'new' ? 'Codexが調査しています' : 'Codexが依頼の種類を判定しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length, skill: input.mode === 'new' ? 'survey-new' : undefined };
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
   writeFileSync(join(directory, 'router-schema.json'), JSON.stringify(routerSchema), { mode: 0o600 });
@@ -181,16 +196,26 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
     return result.patch;
   };
-  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, instructions });
+  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, instructions: `${instructions}\n\n${CHECKPOINT_INSTRUCTIONS}` });
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
-    run: async (stage, prompt) => {
+    run: async (stage, prompt, snapshot = input.snapshot) => {
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
       const timeout = STAGE_TIMEOUT_SECONDS[stage.replace(/-\d+$/, '') as keyof typeof STAGE_TIMEOUT_SECONDS];
       const started = Date.now();
-      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: `stage-${stage}.json`, failRunOnTimeout: false });
-      const ok = !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
-      let output: string | undefined; try { output = readFileSync(join(directory, `stage-${stage}.json`), 'utf8'); } catch { /* no output */ }
-      return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
+      const attemptId = randomUUID();
+      const chunks = streamCheckpoints(snapshot, input.base_commit_id, normalize, (patch, sequence) => {
+        writeFileSync(join(directory, `checkpoint-${stage}-${attemptId}-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
+        addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存 ${sequence}` }); save(run);
+      }, () => run.status === 'running');
+      // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
+      const outputFile = `stage-${stage}-${attemptId}.json`;
+      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: outputFile, failRunOnTimeout: false, checkpoint: line => {
+        if (chunks.accept(line) === 'rejected') { addTrace(run, { kind: 'error', text: `${stage}：途中保存の変更案が検証に通りませんでした` }); save(run); }
+      } });
+      const ok = attemptSucceeded(attempt);
+      let output: string | undefined; let outputError: string | undefined;
+      if (ok) try { const merged = chunks.finish(readFileSync(join(directory, outputFile), 'utf8')); writeFileSync(join(directory, `stage-${stage}.json`), merged, { mode: 0o600 }); output = merged; } catch (error) { outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
+      return { ok: ok && output !== undefined, output, error: ok ? outputError : attemptError(attempt), searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library),
@@ -228,7 +253,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     active: () => run.status === 'running',
     chosen: (skillId, reason) => {
       const skill = skillById(skillId);
-      run.skill = skillId; run.prompt_version = `${ROUTER_VERSION} · ${skill.version}${skill.output === 'patch' ? ` · ${PROMPT_VERSION}` : ''}`;
+      run.skill = skillId; run.prompt_version = `${ROUTER_VERSION} · ${skill.version}${skill.output === 'patch' ? ` · ${PROMPT_VERSION}` : ''} · ${BUDGET_PROMPT_VERSION}`;
       run.message = skill.output === 'patch' ? `Codexが${skill.label}をしています` : 'Codexが解説を書いています';
       addTrace(run, { kind: 'step', text: `${skill.label}：${reason}` }); save(run);
     },
@@ -324,7 +349,7 @@ const server = createServer(async (req, res) => {
       const run = runs.get(match[1]); if (!run) { json(res, { error: 'RUN_NOT_FOUND' }, 404); return; }
       if (match[2] && req.method === 'POST') {
         if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
-        if (run.status === 'running') { run.status = 'cancelled'; run.message = '実行を取り消しました'; save(run); for (const [key, child] of children) if (key.startsWith(`${run.id}:`)) child.kill('SIGTERM'); }
+        if (run.status === 'running') { run.status = 'cancelled'; run.message = '実行を取り消しました'; save(run); for (const [key, stop] of stopChildren) if (key.startsWith(`${run.id}:`)) stop(); }
         json(res, run); return;
       }
       if (!match[2] && req.method === 'GET') { json(res, run); return; }
@@ -337,6 +362,6 @@ const server = createServer(async (req, res) => {
 });
 server.listen(port, '127.0.0.1', () => console.log(`Survey Studio: ${origin}`));
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
-  for (const [key, child] of children) { const run = runs.get(key.split(':')[0]); if (run) { run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); } child.kill('SIGTERM'); }
-  server.close(); void vite.close().then(() => process.exit(0));
+  for (const key of children.keys()) { const run = runs.get(key.split(':')[0]); if (run) { run.status = 'failed'; run.message = 'サーバー終了で中断しました'; save(run); } stopChildren.get(key)?.(); }
+  server.close(); void vite.close(); // Keep the process alive until children's bounded shutdown finishes.
 });

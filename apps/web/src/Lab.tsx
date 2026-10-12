@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { MAX_PARALLEL_WORKERS, RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, stageLabel } from '../../../packages/agent/src/research-prompt';
+import { MAX_PARALLEL_WORKERS, RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, STAGE_TIMEOUT_SECONDS, stageLabel } from '../../../packages/agent/src/research-prompt';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, buildRouterPrompt, skillInstructions } from '../../../packages/agent/src/skills/index';
 import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REPAIR_PROMPT_VERSION, SURVEY_RULES_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { MAX_LIBRARY_PAPERS } from '../../../packages/agent/src/library';
+import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, STOP_GRACE_MS, budgetInstructions, timeBudget } from '../../../packages/agent/src/time-budget';
 import { RETRY_IF_FAILED_WITHIN_MS } from '../../../scripts/staged-run';
 import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../../packages/domain/src/index';
 import { assessTutorial } from '../../../packages/domain/src/tutorial';
@@ -27,7 +28,7 @@ const minutes = (seconds: number) => `${seconds / 60}分`;
 
 const flow = [
   {title:'依頼',caption:'研究分野か追加の依頼',place:'ブラウザ',detail:'ユーザーがチャットに依頼を書く。調査が空なら依頼を研究分野の指定とみなし、中身があれば今の調査への追加の依頼として扱う。'},
-  {title:'Codex',caption:'Web検索で調べる',place:'ローカルNode + CLI',detail:'ローカルのサーバーがCodex CLIを起動し、指示、今の調査、依頼を渡す。Codexが使える道具はWeb検索だけで、調べた結果を変更案（Patch）の形式で返す。'},
+  {title:'Codex',caption:'検索・書き出し・途中保存',place:'ローカルNode + CLI',detail:'ローカルのサーバーがCodex CLIを起動し、指示、今の調査、依頼を渡す。Codexが使える道具はWeb検索だけで、開始時に調査期限と書き出し時間を渡し、調べた結果を変更案（Patch）の形式で返す。新規調査では、小さい変更案を先に出して検証済みcheckpointを保存し、最後に残りの操作と合わせる。checkpointはCommitではない。'},
   {title:'検証',caption:'型、参照、循環',place:'Node',detail:'サーバーが変更案を今の調査に当てはめ、型、参照先、関係の向き、循環を検証する。追加の依頼の変更案が検証に通らなければ、Codexに1回だけ修正させる。'},
   {title:'確認',caption:'変更案を確かめる',place:'ブラウザ',detail:'ユーザーが変更案の中身を確かめ、保存するか破棄するかを決める。Codexの変更案が自動で保存されることはない。'},
   {title:'Commit',caption:'新しい版を保存',place:'ブラウザ',detail:'保存の直前に、ブラウザが変更案を最新の版にもう一度当てはめて検証し、変更案が編集した版が最新でなければ保存を拒否する。保存した版からは依頼、実行、変更案、親の版をたどれ、過去の版は変更しない。PoCでは版の履歴をブラウザに保存する。'},
@@ -150,6 +151,8 @@ export function Lab() {
               <div><dt>モデル</dt><dd>{CODEX_EXECUTION.model}（推論 {CODEX_EXECUTION.reasoningEffort}、Codex 0.162以降）</dd></div>
               <div><dt>道具</dt><dd>Web検索（{CODEX_EXECUTION.webSearch}）だけを使う。シェル、コマンド実行、ブラウザ操作、ローカル画像の表示（view_image）は無効にしている。Web検索がcode mode経由で呼ばれるためcode modeは有効のままだが、そのスクリプトからファイルは読めない。ユーザーのスキルとAGENTS.mdは渡さない。</dd></div>
               <div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div>
+              <div><dt>時間の配分</dt><dd>全体像は調査{timeBudget(STAGE_TIMEOUT_SECONDS.outline).researchSeconds / 60}分、書き出し{timeBudget(STAGE_TIMEOUT_SECONDS.outline).writeSeconds / 60}分、強制終了まで{STAGE_TIMEOUT_SECONDS.outline / 60}分。ほかの段階も上限内に書き出し時間を予約する。開始時に調査期限と強制終了期限の絶対時刻を渡す。調査期限はAgentへの指示で、サーバーは期限到達を経過に記録する。強制終了期限でSIGTERMを送り、{STOP_GRACE_MS / 1000}秒後も終了していなければSIGKILLを送る。時間切れは終了コード0でも失敗として表示する。</dd></div>
+              <div><dt>途中保存</dt><dd>新規調査では論文1本または5〜10操作を目安に、参照が完結する変更案をcommentaryで出させる。サーバーは型と参照を検証し、実行ごとの番号付きcheckpointに保存する。最終応答の残りの操作と合わせ、従来どおり変更案全体を検証する。途中保存はCommitでも成功判定でもなく、時間切れの自動再開は未実装。途中出力の頻度はモデルに依存し、出力されなければ最終応答だけを使う。</dd></div>
               <div><dt>同時実行</dt><dd>調査は{CODEX_EXECUTION.maxConcurrent}件ずつ実行する。新規調査の深掘りの作業は、その1件の中で並行する。</dd></div>
               <div><dt>経過の表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示する。</dd></div>
               <div><dt>書誌の補完</dt><dd>論文の書誌、アブストラクトの原文、コード公開の有無、引用数はCodexに書かせない。サーバーがarXiv、OpenAlex、Hugging Faceから補い、論文DBに保存する。Codexが書いた論文の要点も、版を重ねて同じDBに残す。</dd></div>
@@ -158,6 +161,7 @@ export function Lab() {
               <div><dt>変更が無いとき</dt><dd>操作が空なら、メッセージと次の候補3つだけを表示し、保存しない。</dd></div>
               <div><dt>保存</dt><dd>{CODEX_EXECUTION.appliesAutomatically ? '自動で適用する。' : '自動では保存しない。ユーザーが変更案を確かめてから保存する。'}</dd></div>
             </dl>
+            <Source summary="時間budgetと途中保存の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{budgetInstructions(STAGE_TIMEOUT_SECONDS.outline, Date.parse('2026-10-12T23:13:00+09:00'))}{'\n\n'}{CHECKPOINT_INSTRUCTIONS}</pre></Source>
             <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち「指示として扱わない」「頼まれた範囲だけを変える」「保存済みの分析は消さない」「検証に通る形で返す」の4つだけを付け、変えた項目の由来をcodexに保つよう修正の指示に書き、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>
           </Sub>
         </section>

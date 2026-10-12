@@ -1,8 +1,9 @@
 // Research run orchestration: one Codex research step, then at most one repair step when the app validator rejects the patch.
 import type { SurveyPatch } from '../packages/domain/src/index';
+import { attemptSucceeded, attemptError } from './codex-supervisor';
 import type { CodexEventState } from './codex-events';
 
-export interface CodexAttempt { code: number | null; state: CodexEventState; spawnError?: boolean }
+export interface CodexAttempt { code: number | null; state: CodexEventState; spawnError?: boolean; timedOut?: boolean; signal?: string | null }
 export interface ResearchSteps {
   research(): Promise<CodexAttempt>;
   repair(patch: unknown, errors: string): Promise<CodexAttempt>;
@@ -26,10 +27,10 @@ export type ResearchOutcome =
 
 /** Suggested next requests survive even when the run changed nothing. */
 const followUps = (patch: unknown) => { const asked = (patch as { follow_ups?: unknown } | undefined)?.follow_ups; return Array.isArray(asked) && asked.length ? { follow_ups: asked as string[] } : {}; };
-const completed = (attempt: CodexAttempt) => !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
+const completed = attemptSucceeded;
 const failure = (attempt: CodexAttempt) => attempt.spawnError
-  ? 'Codex CLIを起動できません。インストールを確認してください'
-  : `Codexの実行に失敗しました：${attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`}`;
+  ? attemptError(attempt)!
+  : `Codexの実行に失敗しました：${attemptError(attempt) ?? '原因不明'}`;
 
 type Operation = SurveyPatch['operations'][number];
 const opKey = (op: Operation) => 'entity' in op ? `e:${op.entity.id}` : 'relation' in op ? `r:${op.relation.id}` : 'id' in op ? `${op.op === 'remove_entity' ? 'e' : 'r'}:${op.id}` : 'title';

@@ -23,3 +23,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0015](0015-core-relations.md) | 関係は親子・系統・論文・主張と根拠に絞り、古い型は読めるが書かない | Accepted |
 | [0018](0018-semantic-scholar-for-citations.md) | 引用数と書誌の補完はSemantic Scholarを主にし、OpenAlexはDOIの単体照会だけに残す | Superseded |
 | [0019](0019-openalex-with-key.md) | Semantic Scholarは使わず、OpenAlexを無料キー付きで使う | Accepted |
+| [0020](0020-validated-stream-checkpoints.md) | Codexの途中成果は検証済み累積Patchとして保存する | Accepted |
