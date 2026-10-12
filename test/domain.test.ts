@@ -315,3 +315,21 @@ test('a paper reading names the original pages it is based on; unsafe links are 
   assert.equal(onlySources.operations[0].entity.reading, null);
 });
 
+test('nullable Codex reading arrays are normalized without losing additions or references', () => {
+  const paper = structuredClone(fixture.entities.find(e => e.type === 'Paper' && e.id === 'paper-ecbs')!);
+  const input = { schema_version: '0.1.0', base_commit_id: 'empty', message: 'reading repair', operations: [
+    { op: 'add_entity', entity: { ...paper, id: 'paper-r2r', proposes: [], addresses: [], claims: [], evidence: [], reading: { contributions: ['貢献'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: null, key_formulas: null } } },
+    { op: 'add_entity', entity: { id: 'kw-r2r', type: 'Keyword', label: 'R2R', provenance: 'codex', aliases: [], category: 'dataset', meaning: 'データセット', papers: ['paper-r2r'], related: [], official_url: null, definition_excerpt: '', source_url: null, locator: null } },
+  ] };
+  const cleaned = stripCodexNulls(input, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as SurveyPatch;
+  assert.equal(cleaned.operations.length, 2);
+  assert.equal(cleaned.operations[0].op, 'add_entity');
+  const next = applyPatch(emptySurvey('VLN'), cleaned, 'empty');
+  const reading = (next.entities.find(e => e.id === 'paper-r2r') as { reading?: { key_formulas?: unknown; key_figures?: unknown } }).reading;
+  assert.deepEqual(reading?.key_formulas, []);
+  assert.deepEqual(reading?.key_figures, []);
+  assert.equal((input.operations[0].entity as { reading: { key_formulas: unknown } }).reading.key_formulas, null);
+  const bad = structuredClone(input) as unknown as { operations: { entity: { reading?: { key_formulas: unknown } } }[] };
+  bad.operations[0].entity.reading!.key_formulas = 'invalid';
+  assert.throws(() => applyPatch(emptySurvey('VLN'), stripCodexNulls(bad, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as SurveyPatch, 'empty'));
+});

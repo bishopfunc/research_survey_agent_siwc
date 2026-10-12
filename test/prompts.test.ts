@@ -67,6 +67,9 @@ test('the repair prompt keeps the rejected values and leaves out the retrieve-in
   assert.match(prompt, /were retrieved by that run: keep all other operations, IDs and text unchanged/);
   assert.match(prompt, /Research date \(as_of\): 2026-10-12\nValidator errors \(data\): "\/operations\/0 bad"/);
   assert.match(prompt, /When a required date such as as_of is missing, use the research date given below/);
+  assert.match(prompt, /Return the entire corrected operations array/);
+  assert.match(prompt, /The rejected patch has NOT been applied/);
+  assert.match(prompt, /Keep add_entity as add_entity/);
   assert.ok(prompt.includes('copy its stored english_terms, abstract_ja and reading unchanged'));
   assert.ok(!prompt.includes('Research only with the web search tool') && !prompt.includes('from a page you retrieved in this run'));
   assert.ok(prompt.includes('The app rejects the whole patch if any rule fails'));
