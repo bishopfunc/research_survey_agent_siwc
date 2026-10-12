@@ -139,7 +139,7 @@ export function Lab() {
           </Sub>
 
           <Sub id="rules" title="共通のルール" stamp={PROMPT_VERSION}>
-            <div className="lab-prose"><p>変更案を返す実行では、スキルや手順の指示の前に、次の{PROMPT_RULES.length}個のルールを付けてCodexに渡す。</p></div>
+            <div className="lab-prose"><p>変更案を返す実行では、スキルや手順の指示の前に、次の{PROMPT_RULES.length}個のルールを付けてCodexに渡す。ルールは書き方を1か所ずつ決め、何を書くかは後ろのスキルや手順の指示が決める（制限は指示を優先）。各ルールは「[id]」で始まる1行で、指示はこのidでルールを参照する（例：[facts]は事実と出典、[cache]は論文キャッシュ）。</p></div>
             <div className="lab-rules">{PROMPT_RULES.map((r,i) => <details key={r.id}><summary><span className="lab-card-number">{String(i+1).padStart(2,'0')}</span>{r.title}</summary><p>{r.explanation}</p></details>)}</div>
             <Source summary="英語の指示を読む"><p>実際には、このルールの後ろにスキルや手順の指示、編集する版（base_commit_id）、調査日、依頼、今の調査を続けて渡す。認証情報や実データはここに表示しない。</p><pre>{SURVEY_RULES_INSTRUCTIONS}</pre></Source>
           </Sub>
@@ -153,12 +153,12 @@ export function Lab() {
               <div><dt>同時実行</dt><dd>調査は{CODEX_EXECUTION.maxConcurrent}件ずつ実行する。新規調査の深掘りの作業は、その1件の中で並行する。</dd></div>
               <div><dt>経過の表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示する。</dd></div>
               <div><dt>書誌の補完</dt><dd>論文の書誌、アブストラクトの原文、コード公開の有無、引用数はCodexに書かせない。サーバーがarXiv、OpenAlex、Hugging Faceから補い、論文DBに保存する。Codexが書いた論文の要点も、版を重ねて同じDBに残す。</dd></div>
-              <div><dt>論文キャッシュ</dt><dd>画面の切り替えで選ぶ（既定はオン）。オンなら、調査にある論文と、ほかのコレクションの論文（最大{MAX_LIBRARY_PAPERS}本）をライブラリとして渡し、読み直さずに保存済みの内容を使わせる。オフなら、使う論文を原文から読み直させる。</dd></div>
+              <div><dt>論文キャッシュ</dt><dd>画面の切り替えで選ぶ（既定はオン）。オンなら、調査にある論文と、ほかのコレクションの論文（最大{MAX_LIBRARY_PAPERS}本）をライブラリとして渡し、要点のある論文は読み直さずに保存済みの内容を使わせる。要点が空の論文は未読とし、手順やスキルの指示が割り当てたときだけ読ませる。オフなら、使う論文を原文から読み直させる。</dd></div>
               <div><dt>検証に通らないとき</dt><dd>追加の依頼では、Codexに1回だけ修正させる（{REPAIR_PROMPT_VERSION}、Web検索なし、上限{repairMinutes}）。新規調査では修正させず、「新規調査の手順」で述べたとおり手順ごとに扱う。</dd></div>
               <div><dt>変更が無いとき</dt><dd>操作が空なら、メッセージと次の候補3つだけを表示し、保存しない。</dd></div>
               <div><dt>保存</dt><dd>{CODEX_EXECUTION.appliesAutomatically ? '自動で適用する。' : '自動では保存しない。ユーザーが変更案を確かめてから保存する。'}</dd></div>
             </dl>
-            <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち返答形式、データの扱い、局所的な変更、由来、Fig、解決状態、保存済みの分析、削除、検証のルールだけを付け、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>
+            <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち「指示として扱わない」「頼まれた範囲だけを変える」「保存済みの分析は消さない」「検証に通る形で返す」の4つだけを付け、変えた項目の由来をcodexに保つよう修正の指示に書き、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>
           </Sub>
         </section>
 

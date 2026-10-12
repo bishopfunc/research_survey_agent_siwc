@@ -210,7 +210,6 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .paper-meta span { padding: 1px 9px; border-radius: var(--radius-pill); font-size: var(--text-small); color: var(--color-muted); border: var(--rule-width) solid var(--color-line); }
 .paper-meta span:first-child { font-weight: 600; color: var(--color-ink); background: var(--color-lavender-soft); border-color: var(--color-transparent); }
 .paper-body>p:not(.paper-authors) { font-size: var(--text-caption); color: var(--color-ink); max-width: 72ch; }
-.paper-footer { display: flex; flex-wrap: wrap; gap: 6px var(--space-4); margin-top: 10px; font-size: var(--text-small); color: var(--color-muted); }
 
 .inspector { min-width: 0; }
 .side-panel { position: sticky; isolation: isolate; top: 56px; height: calc(100dvh - 56px); min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--color-surface); border-left: var(--rule-width) solid var(--color-line); }
@@ -436,6 +435,8 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .subtabs button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .paper-meta .paper-represents { font-weight: 600; color: var(--color-ink); }
 .paper-meta .importance-chip { color: var(--color-accent); border-color: var(--color-accent-soft); background: var(--color-accent-soft); }
+.paper-meta .paper-tag.code.public { color: var(--color-ink); border-color: var(--color-transparent); background: var(--color-green-soft); }
+.paper-meta .paper-tag.code.unknown { color: var(--color-faint); }
 .evolution-warning { padding: var(--space-2) var(--space-3); border-radius: var(--radius-small); font-size: var(--text-small); background: var(--color-yellow-soft); }
 
 /* Method and issue trees: years left to right, one row per lineage */

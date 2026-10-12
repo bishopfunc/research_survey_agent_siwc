@@ -36,6 +36,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P29 | Done | 精読の系統ごとのラウンドロビン、論文ごとの課題の候補（出典つき）と統合での3階層以上の木、網羅の批評の段階は未着手（[0027](design/0027-issue-extraction-and-deep-read-allocation.md)） | P28 |
 | P30 | Doing | 新規調査を8つの手順に（2を事実と出典に、4の発散と7のスキーマ点検を別Agent、8で補完、検索のメモリ、経過に手順の並び）。残り：実Codexでの所要時間と抜け漏れの改善、画面の手順の並びの確認（[0028](design/0028-eight-step-survey.md)） |
 | P31 | Doing | 新規調査の8つの手順を4つの波で並行に（1 → 2×Nと4→5 → 3+6とチュートリアル → サーバーの点検、補完は抜けがあり8分以内のときだけ）。残り：実Codexで10分以内か確かめる（[0029](design/0029-four-wave-survey.md)） | P30 |
+| P32 | Done | Promptの統合とスリム化（共通ルール32→21、[id]で参照、使われない指示の削除、基準のチュートリアルは書く指示だけに）（[0030](design/0030-prompt-consolidation.md)） | P31 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験。論文ライブラリ（papers・paper_records・paper_files）とPDF/mdのR2保存（0010） | B02 |

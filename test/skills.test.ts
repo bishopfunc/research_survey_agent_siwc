@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildRouterPrompt, explanationSchema, guessSkill, parseExplanation, parseRoute, ROUTED_SKILLS, routerSchema, SKILLS, skillInstructions } from '../packages/agent/src/skills/index';
-import { EXHAUSTIVE_SCOPE, NEW_SURVEY_INSTRUCTIONS, OUTLINE_INSTRUCTIONS } from '../packages/agent/src/research-prompt';
+import { EXHAUSTIVE_SCOPE, MISSING_PERSPECTIVES, OUTLINE_INSTRUCTIONS, RESEARCH_STEPS } from '../packages/agent/src/research-prompt';
 import { buildExplainPrompt, SURVEY_RULES_INSTRUCTIONS } from '../packages/agent/src/prompt';
 import { executeSkillRun, type SkillRunSteps } from '../scripts/skill-run';
 import { fixture } from '../packages/domain/src/index';
@@ -20,7 +20,9 @@ test('skills are unique, versioned as JST timestamps, and have steps; the router
 
 test('every new survey covers the whole field from the tutorial to the knowledge', () => {
   assert.match(EXHAUSTIVE_SCOPE, /the tutorial, the issues, the method families and methods, the papers and the knowledge/);
-  assert.ok(NEW_SURVEY_INSTRUCTIONS.includes(EXHAUSTIVE_SCOPE) && OUTLINE_INSTRUCTIONS.includes(EXHAUSTIVE_SCOPE));
+  assert.ok(OUTLINE_INSTRUCTIONS.includes(EXHAUSTIVE_SCOPE));
+  // The divergent search and the perspective skill look for the same missing perspectives.
+  assert.ok(RESEARCH_STEPS[3].instruction.includes(MISSING_PERSPECTIVES) && skillInstructions(ROUTED_SKILLS.find(s => s.id === 'perspective')!).includes(MISSING_PERSPECTIVES));
 });
 
 test('the words of a request pick a skill when the router fails', () => {
