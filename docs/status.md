@@ -20,6 +20,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: V01でログインを1つにまとめた版をデプロイ（`survey-app:d7a5897c7084`、[0032](design/0032-self-hosted-vps.md)）。デプロイ前に3つの観点（セキュリティ・正しさ・運用）で検査し、指摘ごとに反証を試みて5件を確定・修正：429/5xxで保存したトークンを消していた、gateがappのネットワークを共有する構成ではappの再起動で入口が落ちる、本人確認の鍵の取得失敗で更新済みのトークンを失う、起動前の確認と実行で求める残り時間が違う、モデル一覧を毎回GitHubから取得する（記録のみ）。`npm run check` 成功（15＋169件）。VPSで確認：`codex` は包み（本物は0.162.1）、未ログインで `codex login status` は「Not logged in (NOT_CONNECTED)」、一覧は11モデルでlite 0、8090・1456・8080は外から閉じ8090はVPS本体からも届かない、鍵 `GATE_TOKEN_KEY` はgateのプロセスだけに入りPoCのサーバーには無い、`.env` は0600。未確認：本人のSIWCログイン後のトークンの保管と更新、VPSでの調査1回（Web検索を含む）。
 
+2026-10-12 JST: VPSで本人がSIWCでログイン（所有者とトークンを保存、`codex login status` はログイン済み）。最初の新規調査が「Reconnecting... waiting for network (Connection failed: error sending request)」で進まなかった。原因はslimイメージに `ca-certificates` が無く、Codex（Rust）がTLSを検証できないこと（Node.jsは証明書を内蔵するため入口とアプリは通っていた。手元のmacOSでの検証では気づけない）。Dockerfileで導入し `survey-app:f0485cbe4277` を再デプロイ（実行中だった調査は再起動で失敗扱い）。VPSのコンテナ内で、包み経由の `codex exec`（gpt-6.1-sol、SIWCのトークンのみ）がWeb検索1回と `turn.completed` で正しい答えを返した。同日、手元のシンボリックリンク `apps/web/node_modules` を誤ってコミットし、コンテナのViteが壊れたため、管理から外し `.gitignore` に追加した。未確認：VPSでの新規調査1回の完了。
+
 ## 検証記録
 
 | 日付 | 対象 | 種別 | 結果と限界 |
