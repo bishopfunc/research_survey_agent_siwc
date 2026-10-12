@@ -801,7 +801,7 @@
       "type": "Method",
       "description": "強化学習と、エキスパートのプランナの模倣学習を組み合わせて、局所観測で動く完全分散の方策を学ぶ。",
       "english_terms": [
-        "PRIMAL",
+        "PRIMAL (Pathfinding via Reinforcement and Imitation Multi-Agent Learning)",
         "reinforcement and imitation learning",
         "fully decentralized policies"
       ]
@@ -813,8 +813,8 @@
       "type": "Method",
       "description": "CNNで局所観測の特徴を取り出し、GNNで近くのロボットと共有して行動を決める分散方策を、エキスパートの模倣で学ぶ。",
       "english_terms": [
+        "GNN-based decentralized multi-robot path planning",
         "graph neural networks (GNN)",
-        "decentralized multi-robot path planning",
         "learned communication"
       ]
     },
@@ -825,9 +825,9 @@
       "type": "Method",
       "description": "CBSで次に解消する衝突の選び方を、遅いオラクルの判断を模倣する線形ランキング関数で学ぶ。",
       "english_terms": [
-        "learning to resolve conflicts",
-        "conflict selection",
-        "imitation of an oracle"
+        "ML-guided conflict selection for CBS (ML-S, ML-O)",
+        "machine-learning framework for conflict selection",
+        "linear ranking function"
       ]
     },
     {
