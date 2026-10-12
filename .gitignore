@@ -17,3 +17,6 @@ credentials*.json
 *.pem
 *.key
 .poc/
+
+# Symlinked dependencies (e.g. in a git worktree) are not tracked either.
+node_modules
