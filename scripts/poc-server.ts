@@ -8,12 +8,14 @@ import { createInterface } from 'node:readline';
 import { createServer as createVite } from 'vite';
 import { applyPatch, snapshotSchema, validateSnapshot, type SurveySnapshot, type SurveyPatch } from '../packages/domain/src/index';
 import { patchSchema } from '../packages/domain/src/index';
-import { buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, promptVersion, REPAIR_PROMPT_VERSION, RESEARCH_MODES, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
+import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
+import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
+import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
 import { deepenInstructions, INTEGRATE_INSTRUCTIONS, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
-import { executeResearch, type CodexAttempt, type ResearchOutcome } from './research-run';
+import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
@@ -29,7 +31,7 @@ const origin = `http://127.0.0.1:${port}`;
 const storage = resolve('.poc/runs');
 const MAX_LOG_BYTES = 2_000_000;
 mkdirSync(storage, { recursive: true, mode: 0o700 });
-type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[]; use_library?: boolean; library_papers?: number };
+type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[]; use_library?: boolean; library_papers?: number; skill?: SkillId; explanation?: Explanation };
 const MAX_TRACE = 120;
 function addTrace(run: Run, item: TraceItem) { run.trace = [...run.trace, { ...item, at: new Date().toISOString() }].slice(-MAX_TRACE); }
 const runs = new Map<string, Run>();
@@ -100,14 +102,14 @@ function warmFigures(patch: SurveyPatch) {
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
-function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean } = {}): Promise<CodexAttempt> {
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled' } = {}): Promise<CodexAttempt> {
   return new Promise(done => {
     const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY;
     // Run outside the repository and without project docs, so the developer AGENTS.md never reaches the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
-    const webSearch = step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch;
+    const webSearch = options.webSearch ?? (step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch);
     const output = options.output ?? outputs[step as keyof typeof outputs] ?? `stage-${step}.json`;
-    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, 'output-schema.json'), '--output-last-message', join(directory, output), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, options.schema ?? 'output-schema.json'), '--output-last-message', join(directory, output), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
     children.set(`${run.id}:${step}`, child);
     const log = join(directory, 'events.jsonl');
     appendFileSync(log, JSON.stringify({ type: 'app.step', step }) + '\n', { mode: 0o600 });
@@ -142,12 +144,20 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
   });
 }
 const outputs = { research: 'patch.json', repair: 'patch-repair.json' } as const;
+/** A finished Codex step and its final message, for steps whose output is not a patch. */
+function stepResult(attempt: CodexAttempt, directory: string, file: string): StepResult {
+  const ok = !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
+  let output: string | undefined; try { output = readFileSync(join(directory, file), 'utf8'); } catch { /* no output */ }
+  return { ok: ok && output !== undefined, output, error: ok ? undefined : attempt.state.error ?? `終了コード ${attempt.code ?? '不明'}`, searches: attempt.state.searches };
+}
 const logged = new Map<string, number>();
 function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null; useLibrary: boolean; library: LibraryPaper[] }): Run {
   const id = randomUUID(); const directory = join(storage, id); mkdirSync(directory, { mode: 0o700 });
-  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode), searches: 0, message: 'Codexが調査しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length };
+  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode), searches: 0, message: input.mode === 'new' ? 'Codexが調査しています' : 'Codexが依頼の種類を判定しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length, skill: input.mode === 'new' ? 'survey-new' : undefined };
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
+  writeFileSync(join(directory, 'router-schema.json'), JSON.stringify(routerSchema), { mode: 0o600 });
+  writeFileSync(join(directory, 'explanation-schema.json'), JSON.stringify(explanationSchema), { mode: 0o600 });
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
   const normalize = (patch: unknown) => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
@@ -161,7 +171,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     return result.patch;
   };
   const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, instructions });
-  const research: Promise<ResearchOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
+  const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
     run: async (stage, prompt) => {
       addTrace(run, { kind: 'step', text: stage === 'outline' ? '1/3 全体像' : stage === 'integrate' ? '3/3 統合' : `2/3 深掘り（${stage.replace('deepen-', '作業')}）` }); save(run);
       const timeout = STAGE_TIMEOUT_SECONDS[stage === 'outline' || stage === 'integrate' ? stage : 'deepen'];
@@ -180,19 +190,35 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),
     active: () => run.status === 'running',
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
-  }, MAX_PARALLEL_WORKERS) : executeResearch({
-    research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library }), RESEARCH_MODES[input.mode].timeoutSeconds),
-    repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), RESEARCH_MODES[input.mode].repairTimeoutSeconds); },
-    output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
-    normalize,
-    // Bibliography and abstracts come from arXiv and OpenAlex instead of Codex's output; a failure keeps Codex's values.
-    prepare,
-    validate: patch => { const next = applyPatch(input.snapshot, patch, input.base_commit_id); assertFigureAssets(next, resolve('.poc/figures')); },
+  }, MAX_PARALLEL_WORKERS) : executeSkillRun(input.instruction, {
+    route: async () => {
+      addTrace(run, { kind: 'step', text: '依頼の種類を判定' }); save(run);
+      return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false }), directory, 'route.json');
+    },
+    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library }), skillById('explain').timeoutSeconds, { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
+    research: skillId => { const skill = skillById(skillId); return executeResearch({
+      research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, instructions: skillInstructions(skill) }), skill.timeoutSeconds),
+      repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), skill.repairTimeoutSeconds); },
+      output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
+      normalize,
+      // Bibliography and abstracts come from arXiv and OpenAlex instead of Codex's output; a failure keeps Codex's values.
+      prepare,
+      validate: patch => { const next = applyPatch(input.snapshot, patch, input.base_commit_id); assertFigureAssets(next, resolve('.poc/figures')); },
+      active: () => run.status === 'running',
+      progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
+    }); },
     active: () => run.status === 'running',
-    progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
+    chosen: (skillId, reason) => {
+      const skill = skillById(skillId);
+      run.skill = skillId; run.prompt_version = `${ROUTER_VERSION} · ${skill.version}${skill.output === 'patch' ? ` · ${PROMPT_VERSION}` : ''}`;
+      run.message = skill.output === 'patch' ? `Codexが${skill.label}をしています` : 'Codexが解説を書いています';
+      addTrace(run, { kind: 'step', text: `${skill.label}：${reason}` }); save(run);
+    },
+    note: text => { addTrace(run, { kind: 'error', text }); save(run); },
   });
   void research.then(outcome => {
     if (outcome.status === 'stopped' || run.status !== 'running') return;
+    if (outcome.status === 'explained') { run.explanation = outcome.explanation; run.follow_ups = outcome.explanation.follow_ups; run.status = 'succeeded'; run.message = `解説しました（Web検索 ${outcome.searches}回）`; save(run); return; }
     if (outcome.status === 'succeeded') { warmFigures(outcome.patch); void saveReadings(outcome.patch, run.id, run.prompt_version); run.patch = outcome.patch; run.follow_ups = outcome.patch.follow_ups; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
     else if (outcome.status === 'unchanged') { run.status = 'succeeded'; run.follow_ups = outcome.follow_ups; run.message = `変更はありません：${outcome.message}`.slice(0, 1600); }
     else { run.status = 'failed'; run.message = outcome.message.slice(0, 1600); }

@@ -99,6 +99,16 @@ export interface Method {
   provenance: "fixture" | "user" | "codex";
   type: "Method";
   description: string;
+  /**
+   * @maxItems 5
+   */
+  english_terms?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
 }
 export interface Paper {
   id: string;

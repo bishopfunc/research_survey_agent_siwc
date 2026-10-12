@@ -29,9 +29,10 @@ function issuesOfPaper(snapshot: SurveySnapshot, paper: Paper, ids: Set<string>)
   return snapshot.relations.filter(r => r.type === 'addresses' && methods.has(r.from) && ids.has(r.to)).map(r => r.to);
 }
 
-/** The issue tree: only issues. Generations left to right (no years), one row per root issue and its descendants,
- * arrows from parent to sub-issue. Rows are ordered by the earliest paper working on the root issue or its descendants
- * (directly or through a method's representative paper); `years` keeps that year for each issue. */
+/** The issue tree, drawn like the method tree: each root issue (one with no parent issue) is a row heading in the
+ * leftmost column, and its sub-issues are the items of that row, generation by generation, with arrows from parent to
+ * sub-issue. A sub-issue under several roots sits in the first and is linked to the others. Rows are ordered by the
+ * earliest paper working on the root or its descendants (directly or through a method's representative paper). */
 export function buildIssueTree(snapshot: SurveySnapshot): IssueTree {
   const { issues, ids, hierarchy } = issueHierarchy(snapshot);
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
@@ -49,18 +50,26 @@ export function buildIssueTree(snapshot: SurveySnapshot): IssueTree {
     return [issue.id, found.length ? Math.min(...found) : null] as const;
   }));
   const parentsOf = (id: string) => hierarchy.filter(r => r.from === id).map(r => r.to);
-  // The first root reached through first parents; an issue caught in a cycle is its own row.
-  function rootOf(id: string) {
-    const seen = new Set<string>();
-    let current = id;
-    while (parentsOf(current).length) { if (seen.has(current)) return id; seen.add(current); current = parentsOf(current)[0]; }
-    return current;
+  // Every root above an issue, first parents first; an issue caught in a cycle without a root is a root itself.
+  function rootsOf(id: string): string[] {
+    const found: string[] = [], seen = new Set<string>(), stack = [id];
+    while (stack.length) {
+      const current = stack.shift()!; if (seen.has(current)) continue; seen.add(current);
+      const parents = parentsOf(current);
+      if (!parents.length && current !== id) found.push(current);
+      stack.push(...parents);
+    }
+    return found.length || parentsOf(id).length === 0 ? found : [id];
   }
-  const byYear = issues.map((issue, index) => ({ issue, index })).sort((a, b) => (years.get(a.issue.id) ?? Infinity) - (years.get(b.issue.id) ?? Infinity) || a.index - b.index).map(x => x.issue);
-  const roots = [...new Set(byYear.map(i => rootOf(i.id)))];
-  const generation = generations(issues.map(i => i.id), parentsOf);
-  const items = issues.map(i => ({ id: i.id, year: generation.get(i.id)!, rows: [rootOf(i.id)] }));
-  return { layout: layoutTimeline(items, roots, hierarchy.map(r => ({ from: r.to, to: r.from }))), issues: new Map(issues.map(i => [i.id, i])), years };
+  const roots = issues.filter(i => rootsOf(i.id).length === 0 || rootsOf(i.id)[0] === i.id);
+  const isRoot = new Set(roots.map(r => r.id));
+  const byYear = roots.map((issue, index) => ({ issue, index })).sort((a, b) => (years.get(a.issue.id) ?? Infinity) - (years.get(b.issue.id) ?? Infinity) || a.index - b.index).map(x => x.issue.id);
+  const below = issues.filter(i => !isRoot.has(i.id));
+  // Generations below the root: a root's children are in the leftmost column.
+  const generation = generations(below.map(i => i.id), id => parentsOf(id).filter(p => !isRoot.has(p)));
+  const items = below.map(i => ({ id: i.id, year: generation.get(i.id)!, rows: rootsOf(i.id) }));
+  const links = hierarchy.filter(r => !isRoot.has(r.to) && !isRoot.has(r.from)).map(r => ({ from: r.to, to: r.from }));
+  return { layout: layoutTimeline(items, byYear, links, true), issues: new Map(issues.map(i => [i.id, i])), years };
 }
 
 /** The paper tree of the issues tab: one row per issue (parents first), one item per paper, placed in the most specific

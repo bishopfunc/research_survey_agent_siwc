@@ -2,7 +2,7 @@ import React, { useId } from 'react';
 import type { TimelineLayout } from '../../../packages/domain/src/timeline';
 import type { Entity } from '../../../packages/domain/src/index';
 
-const COLUMN = 180, NODE_W = 156, NODE_H = 64, LANE = NODE_H + 10, ROW_PAD = 14, INSET = 16;
+const COLUMN = 180, NODE_W = 156, NODE_H = 72, LANE = NODE_H + 10, ROW_PAD = 14, INSET = 16;
 
 export interface TimelineCard { title: string; meta?: string; dot?: string; hint?: string }
 /** A paper item in every paper tree: its title, then year and venue, nothing else. */

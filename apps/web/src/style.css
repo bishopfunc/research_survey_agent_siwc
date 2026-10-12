@@ -227,6 +227,10 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .chat-msg.codex { background: var(--color-paper); }
 .chat-msg.codex small { display: block; margin-bottom: 4px; color: var(--color-muted); }
 .chat-msg.codex p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.explanation-body { white-space: pre-wrap; }
+.explanation-sources { margin: var(--space-2) 0 0; padding-left: 1.2em; font-size: var(--text-small); }
+.explanation-sources a { color: var(--color-accent); }
+.run-skill { margin-right: 6px; padding: 1px 8px; border-radius: var(--radius-pill); font-weight: 600; color: var(--color-ink); background: var(--color-accent-soft); }
 .chat .run-result { margin-top: 0; padding: var(--space-3); background: var(--color-paper); border-color: var(--color-transparent); }
 .entity-type { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 10px; font-size: var(--text-small); color: var(--color-muted); }
 .entity-heading { display: flex; gap: 10px; align-items: start; margin-bottom: var(--space-2); }

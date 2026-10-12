@@ -29,6 +29,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P22 | Doing | 論文DB（SQLite/D1互換）と、3段階・並行の新規調査。表の抽出とキャプションの和訳。残り：実Codexでの所要時間と採点（[0021](design/0021-paper-db-and-staged-runs.md)） | P21 |
 | P23 | Done | 手法ツリーと課題ツリー（年を左から右、行ごとに系統、複数の系統・行をまたぐ派生は曲線）。課題ツリーを詳細欄から中央へ。代表論文を論文タブへ移し「すべて」と分ける（[0022](design/0022-timeline-trees.md)） | P22 |
 | P24 | Done | 課題タブを課題ツリー・論文ツリー・一覧に、手法タブを手法ツリー・論文ツリーに分割（1つの項目に1種類、論文の項目は題・年・会議名）。失敗した実行の閉じる・再実行。論文カードの図を右端に（[0022](design/0022-timeline-trees.md)） | P23 |
+| P25 | Doing | 調査のスキル（網羅的な新規調査・深掘り・違う視点・解説・修正と補完）と追加の依頼の判定。残り：実Codexで判定と解説を確かめ、判定の時間を測る（[0023](design/0023-skills-and-routing.md)、[ADR 0014](adr/0014-skills-as-modules-with-router.md)） | P24 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験。論文ライブラリ（papers・paper_records・paper_files）とPDF/mdのR2保存（0010） | B02 |

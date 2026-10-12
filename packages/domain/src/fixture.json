@@ -61,14 +61,24 @@
       "label": "CBS",
       "provenance": "fixture",
       "type": "Method",
-      "description": "競合を検出し、高レベルの制約木で解消する探索手法。"
+      "description": "競合を検出し、高レベルの制約木で解消する探索手法。",
+      "english_terms": [
+        "Conflict-Based Search (CBS)",
+        "constraint tree",
+        "two-level search"
+      ]
     },
     {
       "id": "ecbs",
       "label": "ECBS",
       "provenance": "fixture",
       "type": "Method",
-      "description": "bounded-suboptimalな探索を用いるCBSの系統。表示確認用。"
+      "description": "bounded-suboptimalな探索を用いるCBSの系統。表示確認用。",
+      "english_terms": [
+        "Enhanced CBS (ECBS)",
+        "bounded-suboptimal search",
+        "focal search"
+      ]
     },
     {
       "id": "family-cbs",
@@ -173,14 +183,24 @@
       "type": "Method",
       "label": "ICBS",
       "description": "競合の優先順位づけなどの改良を組み合わせたCBS。",
-      "provenance": "fixture"
+      "provenance": "fixture",
+      "english_terms": [
+        "Improved CBS (ICBS)",
+        "prioritizing conflicts",
+        "merge and restart"
+      ]
     },
     {
       "id": "eecbs",
       "type": "Method",
       "label": "EECBS",
       "description": "オンラインで得たコスト見積もりを用いて探索するbounded-suboptimalなCBS。",
-      "provenance": "fixture"
+      "provenance": "fixture",
+      "english_terms": [
+        "Explicit Estimation CBS (EECBS)",
+        "explicit estimation search",
+        "inadmissible heuristics"
+      ]
     },
     {
       "id": "paper-cbs-2012",
@@ -743,42 +763,72 @@
       "label": "PIBT",
       "provenance": "fixture",
       "type": "Method",
-      "description": "各時刻に優先度の高いエージェントから行き先を決め、ふさがっていれば相手に優先度を継承させて退かせる（優先度継承とバックトラック）。"
+      "description": "各時刻に優先度の高いエージェントから行き先を決め、ふさがっていれば相手に優先度を継承させて退かせる（優先度継承とバックトラック）。",
+      "english_terms": [
+        "Priority Inheritance with Backtracking (PIBT)",
+        "priority inheritance",
+        "iterative MAPF"
+      ]
     },
     {
       "id": "lacam",
       "label": "LaCAM",
       "provenance": "fixture",
       "type": "Method",
-      "description": "全員の位置の組を上の段で探索し、下の段では位置の制約を必要なときだけ遅延して加える2段階の探索。次の位置の組はPIBTで作る。完全で、数百台以上でも速い。"
+      "description": "全員の位置の組を上の段で探索し、下の段では位置の制約を必要なときだけ遅延して加える2段階の探索。次の位置の組はPIBTで作る。完全で、数百台以上でも速い。",
+      "english_terms": [
+        "Lazy Constraints Addition search for MAPF (LaCAM)",
+        "lazy successor generation",
+        "configuration generator"
+      ]
     },
     {
       "id": "lacam-star",
       "label": "LaCAM*",
       "provenance": "fixture",
       "type": "Method",
-      "description": "LaCAMを任意時間アルゴリズムにし、初期解を素早く出したあと、時間をかけると最適解に収束する。"
+      "description": "LaCAMを任意時間アルゴリズムにし、初期解を素早く出したあと、時間をかけると最適解に収束する。",
+      "english_terms": [
+        "LaCAM*",
+        "anytime MAPF",
+        "eventually optimal"
+      ]
     },
     {
       "id": "primal",
       "label": "PRIMAL",
       "provenance": "fixture",
       "type": "Method",
-      "description": "強化学習と、エキスパートのプランナの模倣学習を組み合わせて、局所観測で動く完全分散の方策を学ぶ。"
+      "description": "強化学習と、エキスパートのプランナの模倣学習を組み合わせて、局所観測で動く完全分散の方策を学ぶ。",
+      "english_terms": [
+        "PRIMAL",
+        "reinforcement and imitation learning",
+        "fully decentralized policies"
+      ]
     },
     {
       "id": "gnn-mapf",
       "label": "GNN通信方策",
       "provenance": "fixture",
       "type": "Method",
-      "description": "CNNで局所観測の特徴を取り出し、GNNで近くのロボットと共有して行動を決める分散方策を、エキスパートの模倣で学ぶ。"
+      "description": "CNNで局所観測の特徴を取り出し、GNNで近くのロボットと共有して行動を決める分散方策を、エキスパートの模倣で学ぶ。",
+      "english_terms": [
+        "graph neural networks (GNN)",
+        "decentralized multi-robot path planning",
+        "learned communication"
+      ]
     },
     {
       "id": "ml-cbs",
       "label": "ML-CBS",
       "provenance": "fixture",
       "type": "Method",
-      "description": "CBSで次に解消する衝突の選び方を、遅いオラクルの判断を模倣する線形ランキング関数で学ぶ。"
+      "description": "CBSで次に解消する衝突の選び方を、遅いオラクルの判断を模倣する線形ランキング関数で学ぶ。",
+      "english_terms": [
+        "learning to resolve conflicts",
+        "conflict selection",
+        "imitation of an oracle"
+      ]
     },
     {
       "id": "paper-pibt-2019",
