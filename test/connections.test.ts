@@ -7,7 +7,7 @@ test('connections merge a reference array and the same typed relation into one l
   const paper = cbs.find(c => c.entity.id === 'paper-cbs')!;
   assert.deepEqual(paper.links, [{ type: 'proposes', outgoing: false }]);
   assert.deepEqual(cbs.find(c => c.entity.id === 'ecbs')!.links, [{ type: 'extends', outgoing: false }]);
-  assert.deepEqual(cbs.find(c => c.entity.id === 'tree')!.links, [{ type: 'introduces_issue', outgoing: true }]);
+  assert.ok(!cbs.some(c => c.entity.id === 'tree'), 'introduces_issue is an older relation and is not listed');
   const order = cbs.map(c => ['Issue', 'Method', 'Paper', 'Keyword'].indexOf(c.entity.type));
   assert.deepEqual(order, [...order].sort((a, b) => a - b));
   assert.ok(!cbs.some(c => c.entity.id === 'cbs'));
@@ -23,9 +23,11 @@ test('connections follow paper claims and evidence, skip dangling ids, and retur
   assert.ok(buildConnections(input, 'claim-cbs').some(c => c.entity.id === 'paper-cbs-2012' && c.links.some(l => l.type === 'claims' && !l.outgoing)));
   assert.deepEqual(buildConnections(input, 'no-such-entity'), []);
 });
-test('a keyword merged from several papers connects to each of them and to the issues it relates to', () => {
-  const soc = buildConnections(fixture, 'kw-soc');
-  assert.deepEqual(soc.map(c => c.entity.id).sort(), ['optimality', 'paper-cbs', 'paper-ecbs', 'paper-eecbs']);
-  assert.ok(soc.find(c => c.entity.id === 'paper-ecbs')!.links.some(l => l.type === 'papers' && l.outgoing));
-  assert.ok(buildConnections(fixture, 'paper-eecbs').some(c => c.entity.id === 'kw-soc' && c.links.some(l => l.type === 'papers' && !l.outgoing)));
+test('the detail lists only parents and children, families, papers to methods and issues, and claims with evidence', () => {
+  assert.deepEqual(buildConnections(fixture, 'kw-soc'), [], 'knowledge links are shown in the knowledge sections, not as relations');
+  assert.ok(!buildConnections(fixture, 'paper-eecbs').some(c => c.entity.type === 'Keyword'));
+  const input = structuredClone(fixture);
+  input.relations.push({ id: 'old', type: 'related_to', from: 'cbs', to: 'decentralized' });
+  assert.ok(!buildConnections(input, 'cbs').some(c => c.entity.id === 'decentralized'), 'an older relation type stays valid but is not listed');
+  assert.deepEqual(buildConnections(fixture, 'ml-cbs').map(c => c.entity.id).sort(), ['cbs', 'family-cbs', 'family-learned', 'paper-ml-cbs', 'tree']);
 });

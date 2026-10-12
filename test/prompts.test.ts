@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_STEPS, stageLabel } from '../packages/agent/src/research-prompt';
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, RESEARCH_MODES, SURVEY_RULES_INSTRUCTIONS, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
-import { RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
+import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
 test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract without a separate venue step', () => {
   assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['integrate', 3, '抽象'], ['diverge', 4, '発散'], ['primary2', 5, '具体'], ['integrate2', 6, '抽象']]);
   assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6']);
@@ -52,9 +52,11 @@ test('shared rules limit tools to web search and keep sources verbatim, linked a
   assert.ok(CODEX_DISABLED_FEATURES.includes('shell_tool') && CODEX_DISABLED_FEATURES.includes('browser_use') && CODEX_DISABLED_FEATURES.includes('computer_use'));
 });
 test('the validator rule in the prompt is generated from the domain relation constraints', () => {
-  for (const [type, [from, to]] of Object.entries(RELATION_ENDPOINTS)) assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(`${type} goes from ${from.join('/')} to ${to.join('/')}`), type);
+  for (const [type, [from, to]] of Object.entries(RELATION_ENDPOINTS)) if ((CORE_RELATION_TYPES as readonly string[]).includes(type)) assert.ok(SURVEY_RULES_INSTRUCTIONS.includes(`${type} goes from ${from.join('/')} to ${to.join('/')}`), type);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /about goes from Claim to Issue\/Method\/Concept\/Domain/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /related_to.* may join any entities/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /use only these relation types/);
+  for (const old of ['introduces_issue goes', 'related_to may', 'depends_on may']) assert.ok(!SURVEY_RULES_INSTRUCTIONS.includes(old), old);
+  assert.ok(!/related_to|introduces_issue/.test(NEW_SURVEY_INSTRUCTIONS));
 });
 test('rules define a no-change answer, method derivation cycles, and research keeps source text', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /If nothing needs to change, return an empty operations array/);

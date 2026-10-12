@@ -1,11 +1,16 @@
 import type { Entity, Relation, SurveySnapshot } from './snapshot.types';
 
+import { CORE_RELATION_TYPES } from './index';
+
 export type LinkType = Relation['type'] | 'claims' | 'evidence' | 'papers' | 'related';
+/** The links the detail panel lists: core relations and a paper's claims and evidence. */
+const SHOWN = new Set<LinkType>([...CORE_RELATION_TYPES, 'proposes', 'addresses', 'claims', 'evidence']);
 export interface Connection { entity: Entity; links: { type: LinkType; outgoing: boolean }[] }
-const fields = ['proposes', 'addresses', 'claims', 'evidence', 'papers', 'related'] as const;
+const fields = ['proposes', 'addresses', 'claims', 'evidence'] as const;
 const typeOrder: Entity['type'][] = ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Evidence', 'Keyword'];
 
-/** Direct neighbours of one entity, merging reference arrays and typed relations without duplicates. */
+/** Direct neighbours of one entity through the core links (parents and children of issues and methods, families,
+ * papers to methods and issues, claims and evidence), merging reference arrays and relations without duplicates. */
 export function buildConnections(snapshot: SurveySnapshot, id: string): Connection[] {
   const byId = new Map(snapshot.entities.map(e => [e.id, e]));
   if (!byId.has(id)) return [];
@@ -24,6 +29,7 @@ export function buildConnections(snapshot: SurveySnapshot, id: string): Connecti
     else if (refs.includes(id)) add(e.id, field, false);
   }
   for (const r of snapshot.relations) {
+    if (!SHOWN.has(r.type)) continue;
     if (r.from === id) add(r.to, r.type, true);
     else if (r.to === id) add(r.from, r.type, false);
   }

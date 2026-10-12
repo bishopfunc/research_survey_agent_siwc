@@ -39,6 +39,10 @@ function formatErrors(errors: typeof shape.errors, value: unknown, kind: 'snapsh
   return [...new Set([...precise, ...generic])].slice(0, 12);
 }
 
+/** The relations the app shows and Codex writes (user instruction 2026-10-12, ADR 0015): parents and children of issues
+ * and methods, families, papers to their methods and issues, and claims with their evidence. Older surveys may hold
+ * other relation types; they stay valid but are no longer written or shown. */
+export const CORE_RELATION_TYPES = ['part_of', 'specializes', 'extends', 'builds_on', 'instance_of', 'proposes', 'addresses', 'about', 'supports', 'contradicts'] as const;
 /** Allowed entity types at each end of a typed relation (from, to). Relations not listed accept any entity. Shared with the agent prompt. */
 export const RELATION_ENDPOINTS: Partial<Record<Relation['type'], [string[], string[]]>> = {
   part_of: [['Issue', 'Domain'], ['Issue', 'Domain']], specializes: [['Issue', 'Method'], ['Issue', 'Method']],

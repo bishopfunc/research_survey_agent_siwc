@@ -51,3 +51,7 @@ Codex向けには[スキーマ変換](../packages/domain/src/codex-schema.ts)で
 5. fixture、validator、UIを揃え、`npm run check`を通す。既存JSONの移行が必要なら別versionと移行処理を設計する。
 
 localStorageや`.poc/`は個人PoC用の保存先であり、クラウドバックアップではない。データ構造の変更や入出力は開発者向けの内部機能とし、UIにはJSONを表示しない。
+
+## 使う関係（2026-10-12、[ADR 0015](adr/0015-core-relations.md)）
+
+新しく書く関係は part_of・specializes・extends・builds_on・instance_of・proposes・addresses・about・supports・contradicts に限る。depends_on・related_to・caused_by・tradeoff_with・assumes・refines・introduces_issue は、保存済みの調査を読むためにスキーマに残すが、Codexは書かず、画面にも出さない。

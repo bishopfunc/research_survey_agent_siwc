@@ -1,4 +1,4 @@
-import { RELATION_ENDPOINTS, snapshotSchema, type SurveySnapshot } from '../../domain/src/index';
+import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, snapshotSchema, type SurveySnapshot } from '../../domain/src/index';
 import { referenceOutline } from '../../domain/src/tutorial-reference';
 import { ADDITIONAL_PROMPT_VERSION, ADDITIONAL_RESEARCH_INSTRUCTIONS, NEW_SURVEY_INSTRUCTIONS, NEW_SURVEY_PROMPT_VERSION, RESEARCH_PROMPT_VERSION, STAGED_PROMPT_VERSION } from './research-prompt';
 
@@ -6,7 +6,7 @@ export type ResearchMode = 'new' | 'additional';
 /** Rules shared by new and additional research. */
 /** Prompt versions are the JST time the text last changed. */
 /** Prompt versions are the JST time the text last changed; the tutorial rule embeds the sample tutorial's outline, so a change to the sample changes the prompt too. */
-export const PROMPT_VERSION = 'survey-rules@2026-10-12T18:08+09:00';
+export const PROMPT_VERSION = 'survey-rules@2026-10-12T18:10+09:00';
 export const PROMPT_RULES = [
   { id:'role', title:'結果は変更案（Patch）で返す', explanation:'調査の結果を、決められた変更案の形式だけで返す。調べた内容と未確認の点の要約は、日本語でPatchのmessageに書く。変える必要が無ければ、操作を空にして理由をmessageに書く。', text:'You are the Codex survey research agent. Return only a SurveyPatch conforming to the supplied output schema. Write a concise Japanese summary of what you researched and what remains unverified in the patch message. If nothing needs to change, return an empty operations array and explain why in the message.' },
   { id:'purpose', title:'目的：参入した研究者が専門家の水準に追いつき、テーマを見つける', explanation:'研究者が新しい分野に参入したとき、課題と既存研究を素早くキャッチアップし、ドメインの専門家に近い知識を得て、研究テーマを見つけるための調査にする。どの分野にも当てはまる一般論より、専門家が知っていて重視すること（分野固有の用語、実際に効いている難しさ、評価の慣習、論争、古典と最新の研究）を優先する。', text:'Purpose of every survey: help a researcher who is entering a new field catch up quickly on its problems and prior work, reach roughly the working knowledge of a domain expert, and find research themes worth pursuing. Write for that reader. Prefer what domain experts know and care about (the field\'s own terminology, the difficulties that actually limit progress, evaluation conventions and their pitfalls, open controversies, seminal and latest work) over generic statements that would fit any field, such as "computational cost", "generalization" or "data scarcity" without the field-specific mechanism.' },
@@ -41,9 +41,9 @@ export const PROMPT_RULES = [
 ] as const;
 function relationRules() {
   const relationTypes = (snapshotSchema.$defs.Relation.properties.type as { enum: string[] }).enum;
-  const typed = Object.entries(RELATION_ENDPOINTS).map(([type, [from, to]]) => `${type} goes from ${from.join('/')} to ${to.join('/')}`);
-  const free = relationTypes.filter(type => !(type in RELATION_ENDPOINTS));
-  return `relation endpoints: ${typed.join('; ')}${free.length ? `; ${free.join(', ')} may join any entities` : ''}`;
+  const core = relationTypes.filter(type => (CORE_RELATION_TYPES as readonly string[]).includes(type));
+  const typed = core.map(type => RELATION_ENDPOINTS[type as keyof typeof RELATION_ENDPOINTS] ? `${type} goes from ${RELATION_ENDPOINTS[type as keyof typeof RELATION_ENDPOINTS]![0].join('/')} to ${RELATION_ENDPOINTS[type as keyof typeof RELATION_ENDPOINTS]![1].join('/')}` : `${type} may join any entities`);
+  return `use only these relation types (others exist only in older surveys; never add them): ${typed.join('; ')}`;
 }
 export const SURVEY_RULES_INSTRUCTIONS = PROMPT_RULES.map(rule => rule.text).join(' ');
 export const RESEARCH_MODES = {
