@@ -19,7 +19,7 @@ PoCの正本は [snapshot.schema.json](../packages/domain/schema/snapshot.schema
 | Resource | 文献ガイドの1件（サーベイ・入門記事・ブログ・スライド・講演・リポジトリ・サイトなど）。kind・title・url・authors・published・language・summary・issues・methods・paper（サーベイ論文として登録したPaper）・checked_at（2026-10-12追加、[ADR 0016](adr/0016-resource-entity.md)） |
 | Tutorial | 参入者向けの読み物（1つの調査に1つ）。sections：role（問題設定〜おわりに）、heading、body（[@ID]で引用、$…$・$$…$$で数式）、refs、media（論文の図・アルゴリズム・数式）、links。試験要件は[0018](design/0018-tutorial.md)。mediaの任意の`caption_ja`は論文のキャプションの和訳（2026-10-12追加） |
 
-Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す。取得済み引用数にはcitation_sourceとcitation_as_of（日付）が必要。PoCでは現在表示値をsnapshotに保存し、更新時は新Commitにする（論文タブの「引用数を更新」でSemantic Scholarから取得、[0015](design/0015-citation-counts.md)）。MVPで最新値の別保存を追加する。
+Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す。取得済み引用数にはcitation_sourceとcitation_as_of（日付）が必要。PoCでは現在表示値をsnapshotに保存し、更新時は新Commitにする（論文タブの「引用数を更新」でOpenAlexから取得、[0015](design/0015-citation-counts.md)）。MVPで最新値の別保存を追加する。
 
 Paperの任意フィールド `code_availability` はpublic（公開あり）、not_found（見つからず）、unknown（未確認）。省略も未確認として表示する。publicはHTTP(S)の `code_url` と日付 `code_checked_at`、not_foundは確認日が必要。未確認のURL・確認日は空にする。見つからずは非公開の断定ではない。既存Commitは補完せず保持し、更新は新Commitになる。
 

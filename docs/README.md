@@ -18,7 +18,7 @@
 | [Codexの新規調査と追加調査](design/0012-codex-research-modes.md) | 「調査」ボタン、Web検索、Promptの分離、実行の安全策 |
 | [ナレッジと分野の既存ソース](design/0013-keywords-and-field-sources.md) | 参入者向けのナレッジタブ（旧キーワード）、ブログ・記事を含む調べ先 |
 | [専門家水準へのキャッチアップ調査](design/0014-expert-catch-up-survey.md) | 調査の目的と重視点、課題の英語表現と達成度、手法の系統、論文の要点と和訳、候補3つ |
-| [引用数の取得](design/0015-citation-counts.md) | Semantic Scholarからの引用数・取得元・取得日 |
+| [引用数の取得](design/0015-citation-counts.md) | OpenAlexからの引用数・取得元・取得日 |
 | [論文の理解に重要なFig](design/0016-paper-key-figures.md) | arXiv HTML版から図を取得し、要点のFigと並べる |
 | [調査の6段階と論文キャッシュ](design/0017-research-flow-and-paper-cache.md) | 抽象→具体→抽象→発散→具体→抽象、全課題の達成度、ほかの調査の論文を使うトグル |
 | [チュートリアルタブ](design/0018-tutorial.md) | 参入者向けの読み物と試験要件（採点表） |

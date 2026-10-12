@@ -1,7 +1,7 @@
 # 0015: 引用数の取得
 
 状態: Implemented
-日付: 2026-10-12 JST（Semantic Scholarへの変更も同日、[ADR 0018](../adr/0018-semantic-scholar-for-citations.md)）
+日付: 2026-10-12 JST
 対象タスク: P14
 関連: [DSL調整ガイド](../dsl-schema.md)（citation_count・citation_source・citation_as_of）、[MVP設計](0001-mvp.md)
 
@@ -15,7 +15,7 @@
 | --- | --- |
 | Google Scholar | 公式APIが無い。画面の自動取得は利用規約で禁じられている。SerpApiなどの代行は有料・要APIキーで、規約上の扱いも不明確。採用しない |
 | OpenAlex | 無料、キーなしで使える（無料キーで上限10倍）、`cited_by_count` を返す。DOIは1回の絞り込みで最大100件をまとめて問い合わせられる。毎秒100件を超えると429。第一候補 |
-| Semantic Scholar | 無料、`citationCount`、一括取得あり。キーなしは全利用者で共有の上限で、混雑時に絞られる。OpenAlexで見つからない論文（arXivのみ等）の補完候補 |
+| Semantic Scholar | 無料、`citationCount`、一括取得あり。キーなしは全利用者で共有の上限で、混雑時に絞られる。使用しない（ユーザー指示、2026-10-12） |
 
 引用数は取得元ごとに違う（Google Scholarは一般に多く数える）。値には必ず取得元（`citation_source`）と取得日（`citation_as_of`）を付け、取得元をまたいで比べない。
 
@@ -33,13 +33,7 @@
 
 - 2026-10-12追記（ユーザー報告「OpenAlexに接続できませんでした（429）」）：OpenAlexはキーなしでも使えるが、1日の利用枠（キーなしは$0.10、無料キーで$1。UTC 0時＝日本時間9時に回復）がある。費用は単体の作品（IDやDOIで1件）が無料、一覧と絞り込みが1,000回で$0.10、検索が1,000回で$1。実測では、キーなしの枠1000クレジットのうち残り8で429になっていた。タイトル検索（`title.search`）は検索として数えられるとみられ（1回10クレジット。未確認の推定）、新規調査の補完（最大40回）と引用数の更新（最大30回）を何回か行うと枠を使い切る。対策：DOIは一覧の絞り込み（`filter=doi:a|b`）をやめて単体の作品（`/works/doi:…`、費用0を実測）で照会する。照合の各段階は前の段階が失敗しても続け、検索の枠切れでもDOIの照会は行う。429の通知は「1日の無料枠を使い切りました。日本時間9時に回復します。OPENALEX_API_KEYで枠が10倍になります」とする。書誌の補完（[0020](0020-paper-enrichment-and-parallel-runs.md)）にも `OPENALEX_API_KEY` を渡す。
 
-- 2026-10-12変更（ユーザー指示「OpenAlexのAPIエラーが多そう」→「Semantic Scholar Graph APIでok」）：取得元をSemantic Scholarにした（[ADR 0018](../adr/0018-semantic-scholar-for-citations.md)）。上のOpenAlexの照合の順と、固定のホスト・キーの記述は置き換える。
-  1. arXiv ID（arXiv DOIからも取り出す）と出版社のDOIを、1回の一括取得（`POST https://api.semanticscholar.org/graph/v1/paper/batch`、最大500件）で照会する。Semantic ScholarはarXiv版と出版版を1件にまとめるので、arXiv IDを先に採る。返った記録のarXiv IDかDOIが、照会したものと同じときだけ採る。
-  2. 見つからず、出版年が分かり、3語以上のタイトルの論文だけを、題の照合（`/paper/search/match`、最大30件）で探す。正規化した題が完全に一致し、年が3年前から1年後までのときだけ採る。Semantic Scholarの年は最も早い版の年になるため。
-  - 要求はプロセス全体で直列にし、1.1秒の間隔を空ける。429と5xxは2・4・8秒待って3回まで再試行する。キーなしの429の通知は「Semantic Scholarが混み合っています（429）。少し待って再度お試しください。SEMANTIC_SCHOLAR_API_KEYで専用の枠になります」とする。
-  - 任意の環境変数 `SEMANTIC_SCHOLAR_API_KEY` があれば `x-api-key` ヘッダーで送る（URL・ログ・Gitには出さない）。メールアドレスなど利用者の情報は送らない。
-  - 既存の版にあるOpenAlexの引用数は書き換えない。取得元と取得日は値と一緒に表示する。
-  - キー（`OPENALEX_API_KEY`・`SEMANTIC_SCHOLAR_API_KEY`）は、リポジトリ直下のGit管理外の `.env`（権限0600）に置く。`npm run dev:poc` は `--env-file-if-exists=.env` で読む。キーはCodexの子プロセスの環境変数から外す。
+- 2026-10-12追記：取得元を一度Semantic Scholarに移したが、ユーザー指示「Semantic Scholarは使用しない」で取りやめ、OpenAlexに戻した（[ADR 0019](../adr/0019-openalex-with-key.md)、[ADR 0018](../adr/0018-semantic-scholar-for-citations.md)はSuperseded）。代わりに無料キーで枠を10倍（1日$1）にする。キーはリポジトリ直下のGit管理外の `.env`（権限0600）に置き、`npm run dev:poc` が `--env-file-if-exists=.env` で読む。キーはCodexの子プロセスの環境変数から外す。
 
 ## 契約とデータ
 
@@ -51,15 +45,15 @@ DSLは変えない（citation_count・citation_source・citation_as_ofは既存�
 
 ## 検証と完了条件
 
-単体試験（`test/citations.test.ts`、偽のSemantic Scholar `test/s2-fake.ts`）：DOI・arXiv ID・タイトルの正規化、arXiv DOIからarXiv IDを取り出すこと、全識別子を1回の一括取得にまとめること、DOIの完全一致、題の照合の年の幅、違うタイトル・短いタイトル・年の無い論文を採らないこと、429の再試行と待ち時間、キーをヘッダーで送ること、要求の間隔、エラー時に取れた分を残すこと、入力の検証。実際のOpenAlexでの確認は状態・実測に記録する。
+単体試験（`test/citations.test.ts`）：DOI・arXiv ID・タイトルの正規化、出版DOIの一括照会、arXivだけの論文がタイトルで出版版を見つけること、プレプリントDOIが最後であること、違うタイトル・短いタイトルを採らないこと、エラー時に取れた分を残すこと、入力の検証。実際のOpenAlexでの確認は状態・実測に記録する。
 
 ## 未解決事項
 
-- Semantic Scholarのキーの申請（申請はユーザーが行う）。キーなしでは共有の枠のため混雑時に429になる。
+- キー付きでも1日の枠を使い切るか（タイトル検索1回$0.001として、1日約1,000回）。
 - 引用数の定期更新（今は手動）。
 - 取得元の利用規約・上限の再確認（実装時）。
 
 ## 根拠
 
 - OpenAlex：キーなしで利用でき無料キーで上限10倍（キーありは1日$1）、1日の枠を超えるか毎秒100件超で429、UTC 0時に回復、単体の作品は無料・一覧と絞り込みは1,000回$0.10・検索は1,000回$1（help.openalex.org の Pricing・Example costs、2026-10-12確認）、1つの絞り込みに最大100件のOR、`cited_by_count` による絞り込みと値（help.openalex.org の Rate limits and authentication・Filter works、2026-10-12確認）。
-- Semantic Scholar：キーなしの利用は全利用者で共有の上限、キーありは初期1 RPS（semanticscholar.org/product/api、2026-10-12確認）。batchは500件・10MBまで、題の照合は一致が無ければ404（api.semanticscholar.org/graph/v1/swagger.json、2026-10-12確認）。利用規約は「Semantic Scholar」の帰属表示を求める（semanticscholar.org/product/api/license、2026-10-12確認）。
+- Semantic Scholar：キーなしの利用は全利用者で共有の上限、キーありは初期1 RPS（semanticscholar.org/product/api、2026-10-12確認）。

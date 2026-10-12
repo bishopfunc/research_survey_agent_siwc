@@ -1,8 +1,9 @@
 # ADR 0018: 引用数と書誌の補完はSemantic Scholarを主にし、OpenAlexはDOIの単体照会だけに残す
 
-状態: Accepted
+状態: Superseded
 日付: 2026-10-12 JST
 関連design doc: [0015](../design/0015-citation-counts.md)、[0020](../design/0020-paper-enrichment-and-parallel-runs.md)
+superseded by: [ADR 0019](0019-openalex-with-key.md)
 
 ## 背景
 

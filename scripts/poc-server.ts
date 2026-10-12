@@ -108,7 +108,7 @@ const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tok
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
 function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled' } = {}): Promise<CodexAttempt> {
   return new Promise(done => {
-    const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY; delete env.SEMANTIC_SCHOLAR_API_KEY;
+    const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
     // Run outside the repository and without project docs or user skills, so the developer AGENTS.md and skills never reach the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
     const webSearch = options.webSearch ?? (step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch);
@@ -168,7 +168,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   const prepare = async (patch: unknown) => {
     if (!(patch as SurveyPatch)?.operations) return patch;
     if (run.status === 'running') { run.message = 'Codexの結果に書誌とアブストラクトを補完しています'; save(run); }
-    const result = await enrichPatch(patch as SurveyPatch, (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(30_000) }), asOf, arxivApi, { s2: { apiKey: process.env.SEMANTIC_SCHOLAR_API_KEY }, openAlexKey: process.env.OPENALEX_API_KEY });
+    const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi, process.env.OPENALEX_API_KEY);
     if (result.error) addTrace(run, { kind: 'error', text: result.error });
     const now = new Date().toISOString();
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
@@ -263,7 +263,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/citations' && req.method === 'POST') {
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
       const papers = parseCitationRequest(await body(req));
-      const lookup = await lookupCitations(papers, (target, init) => fetch(target, { ...init, signal: AbortSignal.timeout(20_000) }), { apiKey: process.env.SEMANTIC_SCHOLAR_API_KEY });
+      const lookup = await lookupCitations(papers, target => fetch(target, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json' } }), process.env.OPENALEX_API_KEY);
       json(res, { source: CITATION_SOURCE, as_of: today(), ...lookup }); return;
     }
     const arxiv = url.pathname.match(/^\/api\/arxiv-figures\/([^/]+)$/);
@@ -281,7 +281,7 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === '/api/codex/status' && req.method === 'GET') {
-      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY; delete env.SEMANTIC_SCHOLAR_API_KEY;
+      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });
       const installed = !status.error;
       const chatgpt = status.status === 0 && /ChatGPT/i.test(status.stdout + status.stderr);
@@ -297,7 +297,7 @@ const server = createServer(async (req, res) => {
       const useLibrary = input.use_library ?? true, library = useLibrary ? await libraryForRun(input.snapshot as SurveySnapshot, sanitizeLibrary(input.library)) : [];
       // One 調査 button for both cases: an empty survey gets the new-survey prompt, otherwise additional research.
       const mode: ResearchMode = (input.snapshot as SurveySnapshot).entities.length ? 'additional' : 'new';
-      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY; delete env.SEMANTIC_SCHOLAR_API_KEY;
+      const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });
       if (status.status !== 0 || !/ChatGPT/i.test(status.stdout + status.stderr)) { json(res, { error: 'CodexをChatGPTでログインしてから実行してください' }, 503); return; }
       json(res, startRun({ mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, title: null, useLibrary, library }), 202); return;

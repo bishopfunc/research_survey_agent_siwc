@@ -394,7 +394,7 @@ function App() {
     // Keep a follow-up the user picked or typed while reviewing; only the request that produced this run is cleared.
     if (instruction.trim() === (run.instruction ?? '').trim()) setInstruction('');
   }
-  /** Fetches current citation counts from Semantic Scholar and saves them, with their source and date, as a new version. */
+  /** Fetches current citation counts from OpenAlex and saves them, with their source and date, as a new version. */
   async function updateCitations(pick: (paper: Paper) => boolean = () => true) {
     if (reviewPreview || historical || citing) return;
     const base = head, before = workspace;
@@ -405,7 +405,7 @@ function App() {
       const found: { source: string; as_of: string; results: { id: string; citation_count: number }[]; not_found: string[]; error: string | null } = await request('/api/citations', { papers: list.map(p => ({ id: p.id, doi: p.doi, arxiv_id: p.arxiv_id, title: p.title, year: p.year })) });
       let saved = false;
       if (found.results.length) guard(() => {
-        // newCommit works on the workspace of this render, so nothing may have changed while Semantic Scholar answered.
+        // newCommit works on the workspace of this render, so nothing may have changed while OpenAlex answered.
         if (latestWorkspace.current !== before) { setUndo(null); throw Error('調査が変わったため引用数を保存しませんでした'); }
         const next = structuredClone(base.snapshot);
         for (const r of found.results) { const paper = next.entities.find(e => e.id === r.id); if (paper?.type === 'Paper') Object.assign(paper, { citation_count: r.citation_count, citation_source: found.source, citation_as_of: found.as_of }); }

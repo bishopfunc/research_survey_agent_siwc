@@ -152,7 +152,7 @@ export function Lab() {
               <div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div>
               <div><dt>同時実行</dt><dd>調査は{CODEX_EXECUTION.maxConcurrent}件ずつ実行する。新規調査の深掘りの作業は、その1件の中で並行する。</dd></div>
               <div><dt>経過の表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示する。</dd></div>
-              <div><dt>書誌の補完</dt><dd>論文の書誌、アブストラクトの原文、コード公開の有無、引用数はCodexに書かせない。サーバーがarXiv、Semantic Scholar、OpenAlex、Hugging Faceから補い、論文DBに保存する。Codexが書いた論文の要点も、版を重ねて同じDBに残す。</dd></div>
+              <div><dt>書誌の補完</dt><dd>論文の書誌、アブストラクトの原文、コード公開の有無、引用数はCodexに書かせない。サーバーがarXiv、OpenAlex、Hugging Faceから補い、論文DBに保存する。Codexが書いた論文の要点も、版を重ねて同じDBに残す。</dd></div>
               <div><dt>論文キャッシュ</dt><dd>画面の切り替えで選ぶ（既定はオン）。オンなら、調査にある論文と、ほかのコレクションの論文（最大{MAX_LIBRARY_PAPERS}本）をライブラリとして渡し、読み直さずに保存済みの内容を使わせる。オフなら、使う論文を原文から読み直させる。</dd></div>
               <div><dt>検証に通らないとき</dt><dd>追加の依頼では、Codexに1回だけ修正させる（{REPAIR_PROMPT_VERSION}、Web検索なし、上限{repairMinutes}）。新規調査では修正させず、「新規調査の手順」で述べたとおり手順ごとに扱う。</dd></div>
               <div><dt>変更が無いとき</dt><dd>操作が空なら、メッセージと次の候補3つだけを表示し、保存しない。</dd></div>
