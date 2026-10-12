@@ -827,6 +827,47 @@
         "locator"
       ]
     },
+    "Tutorial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "user",
+            "codex"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Tutorial"
+          ]
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TutorialSection"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "provenance",
+        "type",
+        "sections"
+      ]
+    },
     "Entity": {
       "anyOf": [
         {
@@ -852,6 +893,9 @@
         },
         {
           "$ref": "#/$defs/Keyword"
+        },
+        {
+          "$ref": "#/$defs/Tutorial"
         }
       ]
     },
@@ -1046,6 +1090,90 @@
         "validation",
         "discussion",
         "key_figures"
+      ]
+    },
+    "TutorialSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "definition",
+            "motivation",
+            "methods",
+            "summary",
+            "variants",
+            "hands_on",
+            "further_reading",
+            "conclusion"
+          ]
+        },
+        "heading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "media": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "paper": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "paper",
+              "label"
+            ]
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "url",
+              "title"
+            ]
+          }
+        }
+      },
+      "required": [
+        "role",
+        "heading",
+        "body",
+        "refs",
+        "media",
+        "links"
       ]
     }
   }

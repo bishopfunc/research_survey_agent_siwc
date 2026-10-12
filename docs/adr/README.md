@@ -15,3 +15,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0009](0009-paper-library.md) | 論文ライブラリで抽出を再利用し、PDFとmdを保存 | Accepted |
 | [0010](0010-reuse-types-for-expert-survey.md) | 参入者向けの調査は既存の型に載せ、型名を変えない | Accepted |
 | [0011](0011-katex-math-rendering.md) | 論文の数式はKaTeXで描画する | Accepted |
+| [0012](0012-tutorial-entity.md) | チュートリアルは調査のEntityとして持つ | Accepted |

@@ -134,4 +134,13 @@ test('readings cite their original pages, arXiv papers are read in full text, an
 test('readings name the algorithms and equations needed to understand the paper, with the paper\'s numbering', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /key_formulas lists the algorithms and equations needed to understand the paper, each as "Algorithm N: what it does" or "Eq\. \(N\): what it expresses"/);
 });
+test('a new survey ends with a newcomer tutorial modeled on a good field tutorial', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Write one Tutorial entity per survey/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /definition \(a formal problem statement with notation and at least one display equation/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /every section after the first opens with the limitation of the previous approach/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Cite entities in the body as \[@ID\]/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /write the Tutorial from the integrated survey/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /Add the Tutorial \(one entity, id tutorial\)/);
+  assert.match(ADDITIONAL_RESEARCH_INSTRUCTIONS, /update the matching tutorial sections and citations/);
+});
 

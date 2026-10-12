@@ -99,7 +99,17 @@ export function validateSnapshot(value: unknown): string[] {
       if (e.official_url && !/^https?:\/\//.test(e.official_url)) errors.push(`${e.id}: 公式ページはhttp/httpsのみ対応します`);
       if (e.category === 'sota' && (!e.as_of || !e.papers.length)) errors.push(`${e.id}: SOTAには時点（as_of）と根拠の論文が必要です`);
     }
+    if (e.type === 'Tutorial') {
+      e.sections.forEach((section, i) => {
+        const owner = `${e.id}の節${i + 1}`;
+        const cited = [...section.body.matchAll(/\[@([^\]\s]+)\]/g)].map(m => m[1]);
+        for (const id of [...section.refs, ...cited]) reference(owner, id, ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Keyword']);
+        for (const m of section.media) reference(owner, m.paper, ['Paper']);
+        if (section.links.some(l => !/^https?:\/\//.test(l.url))) errors.push(`${owner}: リンクはhttp/httpsのみ対応します`);
+      });
+    }
   }
+  if (value.entities.filter(e => e.type === 'Tutorial').length > 1) errors.push('チュートリアルは1つの調査に1つだけです');
   const typed = RELATION_ENDPOINTS;
   const triples = new Set<string>();
   for (const r of value.relations) {

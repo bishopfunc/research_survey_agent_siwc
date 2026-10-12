@@ -21,6 +21,7 @@
 | [引用数の取得](design/0015-citation-counts.md) | OpenAlexからの引用数・取得元・取得日 |
 | [論文の理解に重要なFig](design/0016-paper-key-figures.md) | arXiv HTML版から図を取得し、要点のFigと並べる |
 | [調査の6段階と論文キャッシュ](design/0017-research-flow-and-paper-cache.md) | 抽象→具体→抽象→発散→具体→抽象、全課題の達成度、ほかの調査の論文を使うトグル |
+| [チュートリアルタブ](design/0018-tutorial.md) | 参入者向けの読み物と試験要件（採点表） |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

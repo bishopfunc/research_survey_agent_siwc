@@ -3,10 +3,10 @@ import type { Entity } from '../../../packages/domain/src/index';
 import { MathText, Tex } from './Tex';
 
 type Paper = Extract<Entity, { type: 'Paper' }>;
-type ArxivFigure = { number: number | null; label: string; caption: string; images: string[] };
-type ArxivAlgorithm = { number: number | null; label: string; caption: string; lines: string[] };
-type ArxivEquation = { number: number | null; label: string | null; tex: string };
-type ArxivFigures = { source_url: string; figures: ArxivFigure[]; algorithms?: ArxivAlgorithm[]; equations?: ArxivEquation[] };
+export type ArxivFigure = { number: number | null; label: string; caption: string; images: string[] };
+export type ArxivAlgorithm = { number: number | null; label: string; caption: string; lines: string[] };
+export type ArxivEquation = { number: number | null; label: string | null; tex: string };
+export type ArxivFigures = { source_url: string; figures: ArxivFigure[]; algorithms?: ArxivAlgorithm[]; equations?: ArxivEquation[] };
 
 /** The arXiv identifier from the paper's field or its arxiv.org link (the server checks it again). */
 export function arxivIdOf(paper: Paper): string | null {
@@ -15,25 +15,22 @@ export function arxivIdOf(paper: Paper): string | null {
 }
 /** "Fig. 2.1", "Figure C.1", "図3" → "2.1", "c.1", "3"; matched against the label of each arXiv figure. */
 /** "Algorithm 2" → 2, "Eq. (3)" / "式(3)" / "Equation 3" → 3. */
-const algorithmNumber = (text: string) => Number(text.match(/algorithm\s*(\d+)/i)?.[1] ?? NaN);
-const equationNumber = (text: string) => Number(text.match(/(?:eq(?:uation)?\.?|式)\s*\(?(\d+)\)?/i)?.[1] ?? NaN);
-function Algorithm({ algorithm }: { algorithm: ArxivAlgorithm }) {
+export const algorithmNumber = (text: string) => Number(text.match(/algorithm\s*(\d+)/i)?.[1] ?? NaN);
+export const equationNumber = (text: string) => Number(text.match(/(?:eq(?:uation)?\.?|式)\s*\(?(\d+)\)?/i)?.[1] ?? NaN);
+export function Algorithm({ algorithm }: { algorithm: ArxivAlgorithm }) {
   return <div className="algorithm"><div className="algorithm-title"><b>{algorithm.label}</b> {algorithm.caption}</div><ol>{algorithm.lines.map((line, i) => <li key={i}><MathText text={line}/></li>)}</ol></div>;
 }
-function Equation({ equation }: { equation: ArxivEquation }) {
+export function Equation({ equation }: { equation: ArxivEquation }) {
   return <div className="equation"><Tex tex={equation.tex} display/>{equation.label && <span className="equation-label">{equation.label}</span>}</div>;
 }
-const figureKey = (text: string) => text.match(/(?:fig(?:ure)?\.?|図)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)/i)?.[1].toLowerCase().replace(/^([a-z])(\d)/, '$1.$2') ?? null;
+export const figureKey = (text: string) => text.match(/(?:fig(?:ure)?\.?|図)\s*((?:[A-Z]\.?)?\d+(?:\.\d+)*)/i)?.[1].toLowerCase().replace(/^([a-z])(\d)/, '$1.$2') ?? null;
 
-function Images({ figure }: { figure: ArxivFigure }) {
+export function Images({ figure }: { figure: ArxivFigure }) {
   return <div className={figure.images.length > 1 ? 'figure-images many' : 'figure-images'}>{figure.images.map(src => <a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${figure.label} ${figure.caption}`} loading="lazy" referrerPolicy="no-referrer"/></a>)}</div>;
 }
 
-/** The figures Codex named as needed to understand the paper, with their images from the arXiv HTML version when fetched. */
-export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean }) {
-  const id = arxivIdOf(paper);
-  const notes = paper.reading?.key_figures ?? [];
-  const formulaNotes = paper.reading?.key_formulas ?? [];
+/** The paper's arXiv figures, algorithms and equations: the saved result, or one fetch when the paper is opened. */
+export function useArxivData(id: string | null, preview: boolean) {
   const [data, setData] = useState<ArxivFigures | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   async function load(signal?: { active: boolean }) {
@@ -54,6 +51,15 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
     fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then(value => { if (!signal.active) return; if (value) setData(value); else void load(signal); }).catch(() => { if (signal.active) void load(signal); });
     return () => { signal.active = false; };
   }, [id, preview]);
+  return { data, state, load };
+}
+
+/** The figures Codex named as needed to understand the paper, with their images from the arXiv HTML version when fetched. */
+export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean }) {
+  const id = arxivIdOf(paper);
+  const notes = paper.reading?.key_figures ?? [];
+  const formulaNotes = paper.reading?.key_formulas ?? [];
+  const { data, state, load } = useArxivData(id, preview);
   if (!notes.length && !id) return null;
   const byKey = new Map<string, ArxivFigure[]>();
   for (const f of data?.figures ?? []) { const key = figureKey(f.label); if (key) byKey.set(key, [...(byKey.get(key) ?? []), f]); }

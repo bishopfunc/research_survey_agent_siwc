@@ -15,6 +15,7 @@ PoCの正本は [snapshot.schema.json](../packages/domain/schema/snapshot.schema
 | Claim | statement、status、scope、as_of、evidence。aboutで対象Issue/Methodへ接続。課題の達成度（数値・条件・時点・論文の結果の原文）と批判的評価（disputed）もClaimで表す |
 | Evidence | source_url、locator、excerpt、verification、retrieved_at、content_hash |
 | Keyword | 画面では「ナレッジ」（参入者がキャッチアップすべき知識）。用語（label）、aliases、category（dataset/benchmark/hardware/simulator/metric/sota/model/baseline。task/concept/method/otherは過去データ用）、初心者向けのmeaning、papers（Paper）、related（Issue/Method/Concept/Domain）、任意のofficial_url・as_of（SOTAは必須）、definition_excerpt・source_url・locator。原文があればURLが必要（[0013](design/0013-keywords-and-field-sources.md)） |
+| Tutorial | 参入者向けの読み物（1つの調査に1つ）。sections：role（問題設定〜おわりに）、heading、body（[@ID]で引用、$…$・$$…$$で数式）、refs、media（論文の図・アルゴリズム・数式）、links。試験要件は[0018](design/0018-tutorial.md) |
 
 Paperのcitation_countは未取得ならnull。0は取得済みの0件を表す。取得済み引用数にはcitation_sourceとcitation_as_of（日付）が必要。PoCでは現在表示値をsnapshotに保存し、更新時は新Commitにする（論文タブの「引用数を更新」でOpenAlexから取得、[0015](design/0015-citation-counts.md)）。MVPで最新値の別保存を追加する。
 

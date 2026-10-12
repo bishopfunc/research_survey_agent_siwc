@@ -178,7 +178,8 @@ test('validator errors point at the field of the declared entity type instead of
 
 test('keywords keep beginner meanings with typed references, and a definition excerpt needs its link', () => {
   assert.deepEqual(validateSnapshot(fixture), []);
-  const legacy = { ...structuredClone(fixture), entities: fixture.entities.filter(e => e.type !== 'Keyword') };
+  // Data saved before knowledge existed had no tutorial either.
+  const legacy = { ...structuredClone(fixture), entities: fixture.entities.filter(e => e.type !== 'Keyword' && e.type !== 'Tutorial') };
   assert.deepEqual(validateSnapshot(legacy), []);
   const input = structuredClone(fixture);
   const keyword = input.entities.find(e => e.type === 'Keyword')!;

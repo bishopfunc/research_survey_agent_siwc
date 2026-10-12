@@ -42,6 +42,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .t-Claim { --type: var(--color-green); --type-soft: var(--color-green-soft); }
 .t-Evidence { --type: var(--color-yellow); --type-soft: var(--color-yellow-soft); }
 .t-Keyword { --type: var(--color-rose); --type-soft: var(--color-rose-soft); }
+.t-Tutorial { --type: var(--color-sky); --type-soft: var(--color-sky-soft); }
 
 .app { display: grid; grid-template-columns: min(var(--sidebar-width, 248px), 36vw) minmax(0,1fr); min-height: 100dvh; background: var(--color-paper); }
 .sidebar { position: sticky; top: 0; height: 100dvh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); padding: 18px 14px; background: var(--color-surface); border-right: var(--rule-width) solid var(--color-line); scrollbar-width: thin; }
@@ -152,6 +153,24 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .keyword-card .card-bottom span { background: var(--color-lavender-soft); }
 .keyword-aliases { color: var(--color-muted); }
 .kind-filter { margin-bottom: var(--space-3); flex-wrap: wrap; }
+.tutorial { max-width: 760px; }
+.tutorial>h2 { margin-bottom: var(--space-3); font-family: var(--font-display); font-size: var(--text-heading); font-weight: 700; }
+.tutorial-toc { margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); }
+.tutorial-toc ol { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.tutorial-toc a { font-size: var(--text-caption); color: var(--color-ink); }
+.tutorial-toc small { margin-right: var(--space-2); font-size: 11px; color: var(--color-faint); }
+.tutorial-section { margin-bottom: var(--space-6); scroll-margin-top: 72px; }
+.tutorial-section>h3 { margin-bottom: var(--space-2); padding-bottom: 6px; border-bottom: var(--rule-width) solid var(--color-line); font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.tutorial-section p, .tutorial-section li { font-size: var(--text-body); line-height: 1.95; color: var(--color-ink); overflow-wrap: anywhere; }
+.tutorial-section p { margin: var(--space-2) 0; }
+.tutorial-section ul { margin: var(--space-2) 0; padding-left: 1.3em; }
+.tutorial-equation { margin: var(--space-3) 0; }
+.cite { display: inline; margin: 0 2px; padding: 0 6px; border: 0; border-radius: var(--radius-small); font-size: var(--text-small); line-height: 1.7; vertical-align: baseline; color: var(--color-accent); background: var(--color-accent-soft); }
+.cite:hover { color: var(--color-accent-hover); background: var(--color-accent-soft); text-decoration: underline; }
+.tutorial-media { margin: var(--space-3) 0; }
+.tutorial-media figcaption { margin-top: 6px; font-size: var(--text-small); color: var(--color-muted); overflow-wrap: anywhere; }
+.tutorial-links { list-style: none; padding: 0; }
+.tutorial-refs { font-size: var(--text-small); }
 .view-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
 .toolbar-button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: var(--text-small); white-space: nowrap; }
 .toolbar-button .icon { width: 15px; height: 15px; }

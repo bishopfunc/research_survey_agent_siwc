@@ -1,0 +1,69 @@
+import React from 'react';
+import type { Entity, SurveySnapshot } from '../../../packages/domain/src/index';
+import { TUTORIAL_ROLE_LABELS } from '../../../packages/domain/src/tutorial';
+import { Algorithm, Equation, Images, algorithmNumber, arxivIdOf, equationNumber, figureKey, useArxivData } from './KeyFigures';
+import { MathText, Tex } from './Tex';
+
+type Paper = Extract<Entity, { type: 'Paper' }>;
+type Tutorial = Extract<Entity, { type: 'Tutorial' }>;
+type Section = Tutorial['sections'][number];
+
+/** "Sharon+ AIJ 2015" style short citation; other entities show their label. */
+function citeLabel(entity: Entity | undefined, id: string) {
+  if (!entity) return id;
+  if (entity.type !== 'Paper') return entity.label;
+  const surname = entity.authors[0]?.split(/\s+/).at(-1);
+  return [surname ? `${surname}${entity.authors.length > 1 ? '+' : ''}` : entity.label, entity.venue, entity.year].filter(Boolean).join(' ');
+}
+/** Inline text: [@ID] citations become buttons, $…$ math is rendered. */
+function Inline({ text, find, onSelect }: { text: string; find: (id: string) => Entity | undefined; onSelect: (id: string) => void }) {
+  return <>{text.split(/(\[@[^\]\s]+\])/).map((part, i) => {
+    const id = part.match(/^\[@([^\]\s]+)\]$/)?.[1];
+    return id ? <button key={i} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button> : <MathText key={i} text={part}/>;
+  })}</>;
+}
+/** Paragraphs separated by blank lines; "- " lines form a list; a $$…$$ paragraph is a display equation. */
+function Body({ body, find, onSelect }: { body: string; find: (id: string) => Entity | undefined; onSelect: (id: string) => void }) {
+  return <>{body.split(/\n\s*\n/).map((block, i) => {
+    const text = block.trim();
+    const display = text.match(/^\$\$([\s\S]+)\$\$$/);
+    if (display) return <div key={i} className="equation tutorial-equation"><Tex tex={display[1].trim()} display/></div>;
+    const lines = text.split('\n');
+    if (lines.every(l => /^\s*[-・]\s+/.test(l))) return <ul key={i}>{lines.map((l, j) => <li key={j}><Inline text={l.replace(/^\s*[-・]\s+/, '')} find={find} onSelect={onSelect}/></li>)}</ul>;
+    return <p key={i}><Inline text={text} find={find} onSelect={onSelect}/></p>;
+  })}</>;
+}
+/** A figure, algorithm or equation of a cited paper, looked up in its arXiv HTML version by label. */
+function Media({ paper, label, preview, onSelect }: { paper: Paper | undefined; label: string; preview: boolean; onSelect: (id: string) => void }) {
+  const { data, state } = useArxivData(paper ? arxivIdOf(paper) : null, preview);
+  const figure = (() => { const key = figureKey(label); const found = key ? (data?.figures ?? []).filter(f => figureKey(f.label) === key) : []; return found.length === 1 ? found[0] : undefined; })();
+  const algorithm = /algorithm/i.test(label) ? (data?.algorithms ?? []).filter(a => a.number === algorithmNumber(label)) : [];
+  const equation = /eq|式/i.test(label) ? (data?.equations ?? []).filter(e => e.number === equationNumber(label)) : [];
+  const source = paper ? <button className="cite" onClick={() => onSelect(paper.id)}>{citeLabel(paper, paper.id)}</button> : null;
+  return <figure className="tutorial-media">
+    {figure && <Images figure={figure}/>}{algorithm.length === 1 && <Algorithm algorithm={algorithm[0]}/>}{equation.length === 1 && <Equation equation={equation[0]}/>}
+    <figcaption>{label}{figure && `: ${figure.caption}`}{source && <> · {source}</>}{!data && state === 'loading' && <span className="muted-label"> arXivから取得中…</span>}</figcaption>
+  </figure>;
+}
+
+export function TutorialView({ snapshot, preview, onSelect }: { snapshot: SurveySnapshot; preview: boolean; onSelect: (id: string) => void }) {
+  const tutorial = snapshot.entities.find((e): e is Tutorial => e.type === 'Tutorial');
+  if (!tutorial?.sections.length) return <div className="empty">チュートリアル未作成</div>;
+  const find = (id: string) => snapshot.entities.find(e => e.id === id);
+  const anchor = (i: number) => `tutorial-${i}`;
+  const cited = (section: Section) => new Set([...section.body.matchAll(/\[@([^\]\s]+)\]/g)].map(m => m[1]));
+  return <article className="tutorial">
+    <h2>{tutorial.label}</h2>
+    <nav className="tutorial-toc" aria-label="目次"><ol>{tutorial.sections.map((s, i) => <li key={i}><a href={`#${anchor(i)}`} onClick={e => { e.preventDefault(); document.getElementById(anchor(i))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><small>{TUTORIAL_ROLE_LABELS[s.role]}</small>{s.heading}</a></li>)}</ol></nav>
+    {tutorial.sections.map((section, i) => {
+      const extra = section.refs.filter(id => !cited(section).has(id));
+      return <section key={i} id={anchor(i)} className="tutorial-section">
+        <h3>{section.heading}</h3>
+        <Body body={section.body} find={find} onSelect={onSelect}/>
+        {section.media.map((m, j) => { const paper = find(m.paper); return <Media key={`${m.paper}-${m.label}-${j}`} paper={paper?.type === 'Paper' ? paper : undefined} label={m.label} preview={preview} onSelect={onSelect}/>; })}
+        {section.links.length > 0 && <ul className="tutorial-links">{section.links.map((l, j) => <li key={j}><a href={l.url} target="_blank" rel="noreferrer">{l.title} ↗</a></li>)}</ul>}
+        {extra.length > 0 && <p className="tutorial-refs">{extra.map(id => <button key={id} className="cite" onClick={() => onSelect(id)}>{citeLabel(find(id), id)}</button>)}</p>}
+      </section>;
+    })}
+  </article>;
+}
