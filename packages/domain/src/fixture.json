@@ -21,6 +21,7 @@
         "collision-free paths"
       ],
       "evidence": [
+        "ft-mapf-benchmark-fact-collision",
         "src-collision"
       ]
     },
@@ -51,6 +52,7 @@
         "bounded suboptimality"
       ],
       "evidence": [
+        "ft-eecbs-fact-optimality",
         "src-optimality"
       ]
     },
@@ -65,6 +67,7 @@
         "constraint tree (CT)"
       ],
       "evidence": [
+        "ft-ml-cbs-fact-tree",
         "src-tree"
       ]
     },
@@ -80,6 +83,8 @@
         "two-level search"
       ],
       "evidence": [
+        "ft-cbs-2012-key-idea",
+        "ft-cbs-2012-summary",
         "src-cbs"
       ]
     },
@@ -95,6 +100,8 @@
         "Enhanced CBS (ECBS)"
       ],
       "evidence": [
+        "ft-ecbs-key-idea",
+        "ft-ecbs-summary",
         "src-ecbs"
       ]
     },
@@ -110,6 +117,7 @@
         "optimal and bounded-suboptimal MAPF"
       ],
       "evidence": [
+        "ft-ml-cbs-fact-family-cbs",
         "src-cbs",
         "src-tree"
       ]
@@ -261,6 +269,14 @@
         "claim-cbs"
       ],
       "evidence": [
+        "ft-cbs-2012-summary",
+        "ft-cbs-2012-novelty",
+        "ft-cbs-2012-key-idea",
+        "ft-cbs-2012-example",
+        "ft-cbs-2012-speedup",
+        "ft-cbs-2012-dao",
+        "ft-cbs-2012-bottleneck",
+        "ft-cbs-2012-structure",
         "evidence-cbs",
         "src-cbs",
         "src-cbs-analysis",
@@ -281,10 +297,18 @@
         ],
         "novelty": "全員の位置の組を1つの状態として探す従来のA*系の探索と違い、衝突が起きたところだけを上の段で扱う。",
         "key_idea": "衝突を1つ見つけたら、どちらかのエージェントに「その時刻にその場所にいてはならない」制約を課す2つの子に分け、制約を受けた側だけが単独で経路を探し直す。",
-        "validation": "様々な問題で従来の最適ソルバと比べ、最大で1桁速いことを示した（アブストラクトより）。",
-        "discussion": "アブストラクトは利点と欠点の両方を解析したと述べる。衝突が多い場合に上の段の木が大きくなる点は、後続のECBS・ICBSなどが扱った。",
+        "validation": "4近傍の8×8グリッドとゲーム（Dragon Age: Origins）の3つの地図で、A*+OD・ICTS+3Eなどの最適ソルバと比べた。DAOの地図では展開した状態数がA*より少なく、多くの場合に最大で1桁速い。",
+        "discussion": "性能は問題の構造で変わり、ボトルネックが多いとCBSがA*系より有利、開けた空間が多いとA*系が有利と分析した。衝突が多いと上の段の木が大きくなる点は、後続のECBS・ICBSなどが扱った。",
         "key_figures": [],
         "evidence": [
+          "ft-cbs-2012-summary",
+          "ft-cbs-2012-novelty",
+          "ft-cbs-2012-key-idea",
+          "ft-cbs-2012-example",
+          "ft-cbs-2012-speedup",
+          "ft-cbs-2012-dao",
+          "ft-cbs-2012-bottleneck",
+          "ft-cbs-2012-structure",
           "evidence-cbs",
           "src-cbs",
           "src-cbs-analysis",
@@ -294,23 +318,33 @@
         ],
         "cites": {
           "summary": [
+            "ft-cbs-2012-summary",
             "src-cbs"
           ],
           "contributions": [
+            "ft-cbs-2012-summary",
+            "ft-cbs-2012-bottleneck",
             "src-cbs",
             "src-cbs-analysis"
           ],
           "novelty": [
+            "ft-cbs-2012-novelty",
             "src-cbs-prior",
             "evidence-cbs"
           ],
           "key_idea": [
+            "ft-cbs-2012-key-idea",
+            "ft-cbs-2012-example",
             "src-cbs-levels"
           ],
           "validation": [
+            "ft-cbs-2012-speedup",
+            "ft-cbs-2012-dao",
             "src-cbs-speedup"
           ],
           "discussion": [
+            "ft-cbs-2012-bottleneck",
+            "ft-cbs-2012-structure",
             "src-cbs-analysis"
           ]
         }
@@ -349,6 +383,12 @@
         "claim-cbs"
       ],
       "evidence": [
+        "ft-ecbs-summary",
+        "ft-ecbs-key-idea",
+        "ft-ecbs-novelty",
+        "ft-ecbs-validation",
+        "ft-ecbs-speedup",
+        "ft-ecbs-w-domain",
         "evidence-ecbs-np",
         "src-ecbs",
         "src-ecbs-results",
@@ -365,12 +405,18 @@
           "CBSの最適性の条件を緩めて解の質と実行時間を交換する方法を提案",
           "解のコストが最適値の定数倍以内であることを保証する有界準最適の変種（ECBSなど）を提案"
         ],
-        "novelty": "最適ソルバはNP困難ゆえに規模を大きくできないという前提から、保証つきで最適性を譲る方向を示した。",
+        "novelty": "CBSの最適性の条件を緩め、上の段と下の段でフォーカル探索を使って解のコストの上限を保証する。ECBSは、2つの段への倍率の配分を固定するBCBSと違い、1つの上限を両方の段で共有する。",
         "key_idea": "CBSの上の段と下の段で、コストの上限を満たす候補の中から衝突の少ないものを優先して広げる（フォーカル探索）。",
-        "validation": "解の質をわずかに犠牲にして実行時間を大幅に減らし、ほとんどの場合で既存手法を上回った（アブストラクトより）。",
-        "discussion": "最適解が必要な場面には使えない。上限の倍率の選び方で速さと質が変わる。",
+        "validation": "3つの領域（DAOの地図など）で、CBS、倍率の配分を変えたBCBSの変種とECBSの成功率を比べ、ECBSがすべての変種を上回った。解の質の上限を保ったまま数桁の高速化を示した。",
+        "discussion": "最適解が必要な場面には使えない。上限の倍率の効き方は領域によって大きく違い、倍率の選び方で速さと質が変わる。",
         "key_figures": [],
         "evidence": [
+          "ft-ecbs-summary",
+          "ft-ecbs-key-idea",
+          "ft-ecbs-novelty",
+          "ft-ecbs-validation",
+          "ft-ecbs-speedup",
+          "ft-ecbs-w-domain",
           "evidence-ecbs-np",
           "src-ecbs",
           "src-ecbs-results",
@@ -378,20 +424,29 @@
         ],
         "cites": {
           "summary": [
+            "ft-ecbs-summary",
             "src-ecbs"
           ],
           "contributions": [
+            "ft-ecbs-summary",
             "src-ecbs"
           ],
           "novelty": [
+            "ft-ecbs-novelty",
             "evidence-ecbs-np"
           ],
           "validation": [
+            "ft-ecbs-validation",
+            "ft-ecbs-speedup",
             "src-ecbs-results",
             "src-ecbs-outperform"
           ],
           "discussion": [
+            "ft-ecbs-w-domain",
             "src-ecbs-results"
+          ],
+          "key_idea": [
+            "ft-ecbs-key-idea"
           ]
         }
       }
@@ -464,6 +519,18 @@
       ],
       "claims": [],
       "evidence": [
+        "ft-eecbs-summary-1",
+        "ft-eecbs-contributions-1",
+        "ft-eecbs-contributions-2",
+        "ft-eecbs-novelty-2",
+        "ft-eecbs-key-idea-1",
+        "ft-eecbs-key-idea-2",
+        "ft-eecbs-validation-1",
+        "ft-eecbs-validation-2",
+        "ft-eecbs-discussion-1",
+        "ft-eecbs-discussion-2",
+        "ft-eecbs-fact-optimality",
+        "ft-eecbs-fact-ecbs-baseline",
         "src-ecbs-baseline",
         "src-eecbs",
         "src-optimality",
@@ -481,10 +548,10 @@
           "上の段の各ノードの解のコストをオンライン学習で見積もる",
           "CBSの最近の改良をEECBSに適用した"
         ],
-        "novelty": "ECBSと同じ準最適の保証のもとで、許容的でない見積もりを使って展開するノードを選び、ECBS・BCP-7・eMDD-SATより大幅に速い。",
+        "novelty": "ECBSと同じく、解のコストが最適のw倍以内に収まる保証を保ったまま、許容的でない見積もりを使って上の段で展開するノードを選ぶ。4つの改良を加えたEECBS+は、ECBS・BCP-7・eMDD-SATを大きく上回る。",
         "key_idea": "下界・見積もり・衝突の数の3つを使い分けるEESの規則で、上の段で次に広げるノードを選ぶ。",
-        "validation": "様々なMAPFの問題で、ECBS・BCP-7・eMDD-SATと実行時間を比較した。",
-        "discussion": "最適解は保証しない（有界準最適）。見積もりの学習がうまくいかない問題での振る舞いは、アブストラクトからはわからない。",
+        "validation": "MAPFベンチマークの6つのマップ（マップごとにエージェント数8通り、各25問題、制限時間1分）で、ECBS・BCP-7・eMDD-SATと実行時間と成功率を比べた。4つの改良を加えたEECBS+は、6つのマップすべてで両方の指標で他の手法を上回った。",
+        "discussion": "最適解は保証せず、解のコストが最適のw倍以内に収まることを保証する。改良なしのEECBSは一部のマップでECBSを上回るが、他のマップでは同等かわずかに劣り、大きな差は4つの改良を加えたEECBS+で生じる。コストの見積もりは、1ステップの誤差の分布が探索空間全体で一様と仮定し、観測した誤差の平均から求める。",
         "key_figures": [
           "Figure 2: 実行時間と成功率の比較"
         ],
@@ -494,6 +561,18 @@
           "Table 3: 下界の改善量 Δlb。すなわち、EECBSが終了したときのCLEANUP中で最良のCTノードの lb+h の値から、根のCTノードの lb の値を引いたもの。WDG timeは、WDGヒューリスティックの計算に使った実行時間の割合である。"
         ],
         "evidence": [
+          "ft-eecbs-summary-1",
+          "ft-eecbs-contributions-1",
+          "ft-eecbs-contributions-2",
+          "ft-eecbs-novelty-2",
+          "ft-eecbs-key-idea-1",
+          "ft-eecbs-key-idea-2",
+          "ft-eecbs-validation-1",
+          "ft-eecbs-validation-2",
+          "ft-eecbs-discussion-1",
+          "ft-eecbs-discussion-2",
+          "ft-eecbs-fact-optimality",
+          "ft-eecbs-fact-ecbs-baseline",
           "src-optimality",
           "src-eecbs",
           "src-ecbs-baseline",
@@ -501,23 +580,33 @@
         ],
         "cites": {
           "summary": [
+            "ft-eecbs-summary-1",
             "src-eecbs"
           ],
           "contributions": [
+            "ft-eecbs-contributions-1",
+            "ft-eecbs-contributions-2",
             "src-eecbs",
             "src-eecbs-improvements"
           ],
           "novelty": [
+            "ft-eecbs-novelty-2",
             "src-optimality",
             "src-ecbs-baseline"
           ],
           "key_idea": [
+            "ft-eecbs-key-idea-1",
+            "ft-eecbs-key-idea-2",
             "src-eecbs"
           ],
           "validation": [
+            "ft-eecbs-validation-1",
+            "ft-eecbs-validation-2",
             "src-ecbs-baseline"
           ],
           "discussion": [
+            "ft-eecbs-discussion-1",
+            "ft-eecbs-discussion-2",
             "src-eecbs"
           ]
         }
@@ -545,6 +634,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-mapf-benchmark-fact-soc",
         "src-objectives"
       ]
     },
@@ -590,6 +680,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-mapf-benchmark-fact-makespan",
         "src-objectives"
       ]
     },
@@ -611,6 +702,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-gnn-fact-success-rate",
         "src-success-rate"
       ]
     },
@@ -634,6 +726,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-ml-cbs-fact-cbs-baseline",
         "evidence-ml-cbs"
       ]
     },
@@ -928,6 +1021,7 @@
         "rule-based MAPF solvers"
       ],
       "evidence": [
+        "ft-pibt-fact-family-prioritized",
         "src-family-prioritized"
       ]
     },
@@ -943,6 +1037,8 @@
         "imitation learning"
       ],
       "evidence": [
+        "ft-gnn-fact-family-learned",
+        "ft-primal-fact-family-learned",
         "src-primal",
         "src-gnn-mapf"
       ]
@@ -974,6 +1070,7 @@
         "learned communication policy"
       ],
       "evidence": [
+        "ft-gnn-fact-communication",
         "src-communication"
       ]
     },
@@ -990,6 +1087,7 @@
         "multi-agent pickup and delivery (MAPD)"
       ],
       "evidence": [
+        "ft-rhcr-fact-lifelong",
         "src-lifelong"
       ]
     },
@@ -1005,6 +1103,7 @@
         "Priority Inheritance with Backtracking (PIBT)"
       ],
       "evidence": [
+        "ft-pibt-fact-pibt",
         "src-pibt"
       ]
     },
@@ -1020,6 +1119,7 @@
         "Lazy Constraints Addition search for MAPF (LaCAM)"
       ],
       "evidence": [
+        "ft-lacam-fact-lacam-completeness",
         "src-lacam"
       ]
     },
@@ -1035,6 +1135,7 @@
         "LaCAM*"
       ],
       "evidence": [
+        "ft-lacam-star-fact-lacam-star",
         "evidence-lacam-star-optimal"
       ]
     },
@@ -1050,6 +1151,7 @@
         "PRIMAL (Pathfinding via Reinforcement and Imitation Multi-Agent Learning)"
       ],
       "evidence": [
+        "ft-primal-fact-primal",
         "src-primal"
       ]
     },
@@ -1065,6 +1167,7 @@
         "GNN-based decentralized multi-robot path planning"
       ],
       "evidence": [
+        "ft-gnn-fact-gnn-mapf",
         "src-gnn-mapf"
       ]
     },
@@ -1080,6 +1183,7 @@
         "ML-guided conflict selection for CBS (ML-S, ML-O)"
       ],
       "evidence": [
+        "ft-ml-cbs-fact-ml-cbs",
         "src-ml-cbs"
       ]
     },
@@ -1165,6 +1269,20 @@
           "Algorithm 3: MAPDのためのPIBT"
         ],
         "evidence": [
+          "ft-pibt-summary-journal",
+          "ft-pibt-summary-additions",
+          "ft-pibt-contrib-algorithm",
+          "ft-pibt-contrib-experiments",
+          "ft-pibt-novelty-speed",
+          "ft-pibt-novelty-adjacent",
+          "ft-pibt-key-idea-inheritance",
+          "ft-pibt-key-idea-backtracking",
+          "ft-pibt-validation-mapf",
+          "ft-pibt-validation-mapd",
+          "ft-pibt-discussion-quality",
+          "ft-pibt-discussion-graph-condition",
+          "ft-pibt-fact-family-prioritized",
+          "ft-pibt-fact-pibt",
           "src-pibt",
           "src-family-prioritized",
           "src-pibt-reach",
@@ -1175,25 +1293,37 @@
         ],
         "cites": {
           "summary": [
+            "ft-pibt-summary-journal",
+            "ft-pibt-summary-additions",
             "src-pibt"
           ],
           "contributions": [
+            "ft-pibt-contrib-algorithm",
+            "ft-pibt-contrib-experiments",
             "src-pibt",
             "src-pibt-reach",
             "src-pibt-experiments"
           ],
           "novelty": [
+            "ft-pibt-novelty-speed",
+            "ft-pibt-novelty-adjacent",
             "src-pibt-scalable",
             "src-pibt-immediate"
           ],
           "key_idea": [
+            "ft-pibt-key-idea-inheritance",
+            "ft-pibt-key-idea-backtracking",
             "src-family-prioritized"
           ],
           "validation": [
+            "ft-pibt-validation-mapf",
+            "ft-pibt-validation-mapd",
             "src-pibt-experiments",
             "src-pibt-warehouse"
           ],
           "discussion": [
+            "ft-pibt-discussion-quality",
+            "ft-pibt-discussion-graph-condition",
             "src-pibt-reach"
           ]
         }
@@ -1219,6 +1349,20 @@
       ],
       "claims": [],
       "evidence": [
+        "ft-pibt-summary-journal",
+        "ft-pibt-summary-additions",
+        "ft-pibt-contrib-algorithm",
+        "ft-pibt-contrib-experiments",
+        "ft-pibt-novelty-speed",
+        "ft-pibt-novelty-adjacent",
+        "ft-pibt-key-idea-inheritance",
+        "ft-pibt-key-idea-backtracking",
+        "ft-pibt-validation-mapf",
+        "ft-pibt-validation-mapd",
+        "ft-pibt-discussion-quality",
+        "ft-pibt-discussion-graph-condition",
+        "ft-pibt-fact-family-prioritized",
+        "ft-pibt-fact-pibt",
         "src-family-prioritized",
         "src-pibt",
         "src-pibt-reach",
@@ -1248,12 +1392,12 @@
         "contributions": [
           "完全なMAPFアルゴリズムLaCAMを提案",
           "位置の制約を下の段で必要なときだけ加える（遅延）2段階の探索",
-          "成功率・計画時間・和コストで最先端の準最適手法と同等以上"
+          "多くの場面でPP・OD・EECBS・LNS2より成功率と計画時間で優れ、10,000台でも解く（解の質はPP・EECBS・LNS2に劣る）"
         ],
         "novelty": "全員の位置の組を探索するのに、次の位置の組をすべて列挙せず、制約を遅延して加えながら1つずつ作るため、数百台以上でも探索が速い。",
         "key_idea": "上の段のノードは全員の位置の組。下の段で「エージェントiは次にvへ行く」という制約を少しずつ増やし、その制約に従う次の位置の組を作る。",
         "validation": "様々な場面で、最先端の準最適MAPFアルゴリズムと成功率・計画時間・和コストを比較した。",
-        "discussion": "和コストの最適性は保証しない（後続のLaCAM*が任意時間で最適へ収束させた）。",
+        "discussion": "和コストの最適性は扱わず、漸近最適版は今後の課題とした。狭い通路で入れ替わりが要る配置では台数とともに探索量が急増し、一部のマップで性能が落ちる。",
         "key_figures": [
           "Figure 1: LaCAMの動作例",
           "Figure 3: 大量のエージェントでの結果"
@@ -1268,6 +1412,18 @@
           "Algorithm 1: LaCAM"
         ],
         "evidence": [
+          "ft-lacam-summary-complete-quick",
+          "ft-lacam-summary-400-agents",
+          "ft-lacam-contrib-complete",
+          "ft-lacam-contrib-lazy-two-level",
+          "ft-lacam-novelty-one-successor",
+          "ft-lacam-key-idea-constraint",
+          "ft-lacam-key-idea-config-generation",
+          "ft-lacam-validation-benchmark",
+          "ft-lacam-validation-scalability",
+          "ft-lacam-discussion-optimality",
+          "ft-lacam-discussion-adversarial",
+          "ft-lacam-fact-lacam-completeness",
           "src-lacam",
           "src-lacam-complete",
           "src-lacam-levels",
@@ -1275,21 +1431,34 @@
         ],
         "cites": {
           "summary": [
+            "ft-lacam-summary-complete-quick",
+            "ft-lacam-summary-400-agents",
             "src-lacam"
           ],
           "contributions": [
+            "ft-lacam-contrib-complete",
+            "ft-lacam-contrib-lazy-two-level",
             "src-lacam-complete",
             "src-lacam-levels",
             "src-lacam-results"
           ],
           "novelty": [
+            "ft-lacam-novelty-one-successor",
             "src-lacam"
           ],
           "key_idea": [
+            "ft-lacam-key-idea-constraint",
+            "ft-lacam-key-idea-config-generation",
             "src-lacam-levels"
           ],
           "validation": [
+            "ft-lacam-validation-benchmark",
+            "ft-lacam-validation-scalability",
             "src-lacam-results"
+          ],
+          "discussion": [
+            "ft-lacam-discussion-optimality",
+            "ft-lacam-discussion-adversarial"
           ]
         },
         "key_sections": [
@@ -1314,6 +1483,18 @@
       ],
       "claims": [],
       "evidence": [
+        "ft-lacam-summary-complete-quick",
+        "ft-lacam-summary-400-agents",
+        "ft-lacam-contrib-complete",
+        "ft-lacam-contrib-lazy-two-level",
+        "ft-lacam-novelty-one-successor",
+        "ft-lacam-key-idea-constraint",
+        "ft-lacam-key-idea-config-generation",
+        "ft-lacam-validation-benchmark",
+        "ft-lacam-validation-scalability",
+        "ft-lacam-discussion-optimality",
+        "ft-lacam-discussion-adversarial",
+        "ft-lacam-fact-lacam-completeness",
         "src-lacam",
         "src-lacam-complete",
         "src-lacam-levels",
@@ -1343,7 +1524,7 @@
         ],
         "novelty": "大規模でも素早く解を出す準最適の探索に、時間をかければ最適解へ収束する保証を加えた。",
         "key_idea": "LaCAMの探索を初期解で止めずに続け、より良い位置の組の列が見つかるたびに解を更新する。",
-        "validation": "MAPFベンチマーク（エージェント最大1000）の問題の99%を、標準的なデスクトップPCで10秒以内に準最適に解いた（アブストラクトより）。",
+        "validation": "MAPFベンチマーク（エージェント最大1000）の問題の99%を、デスクトップPCで10秒以内に準最適に解いた。swap付きPIBTを配置生成に使うと、warehouse-20-40-10-2-1の500エージェントで探索反復の中央値が181459から410に減った。",
         "discussion": "最適解への収束は、解のコストが遷移コストの累積である場合に限る。収束までの時間は問題による。",
         "key_figures": [
           "Figure 1: MAPFベンチマークでの性能",
@@ -1372,6 +1553,20 @@
           "Algorithm 5: LaCAM"
         ],
         "evidence": [
+          "ft-lacam-star-summary-1",
+          "ft-lacam-star-contrib-1",
+          "ft-lacam-star-contrib-2",
+          "ft-lacam-star-novelty-1",
+          "ft-lacam-star-novelty-2",
+          "ft-lacam-star-key-idea-1",
+          "ft-lacam-star-key-idea-2",
+          "ft-lacam-star-validation-1",
+          "ft-lacam-star-validation-2",
+          "ft-lacam-star-discussion-1",
+          "ft-lacam-star-fact-lacam-star",
+          "ft-lacam-star-fact-claim-optimal",
+          "ft-lacam-star-fact-claim-scale",
+          "ft-lacam-star-fact-kw-sota-large",
           "evidence-lacam-star-scale",
           "evidence-lacam-star-optimal",
           "src-lacam-star-initial",
@@ -1379,24 +1574,34 @@
         ],
         "cites": {
           "summary": [
+            "ft-lacam-star-summary-1",
             "evidence-lacam-star-optimal",
             "src-lacam-star-initial"
           ],
           "contributions": [
+            "ft-lacam-star-contrib-1",
+            "ft-lacam-star-contrib-2",
             "evidence-lacam-star-optimal",
             "src-lacam-star-initial"
           ],
           "novelty": [
+            "ft-lacam-star-novelty-1",
+            "ft-lacam-star-novelty-2",
             "src-lacam-lazy",
             "evidence-lacam-star-optimal"
           ],
           "key_idea": [
+            "ft-lacam-star-key-idea-1",
+            "ft-lacam-star-key-idea-2",
             "evidence-lacam-star-optimal"
           ],
           "validation": [
+            "ft-lacam-star-validation-1",
+            "ft-lacam-star-validation-2",
             "evidence-lacam-star-scale"
           ],
           "discussion": [
+            "ft-lacam-star-discussion-1",
             "evidence-lacam-star-optimal"
           ]
         }
@@ -1422,6 +1627,20 @@
         "claim-lacam-star-scale"
       ],
       "evidence": [
+        "ft-lacam-star-summary-1",
+        "ft-lacam-star-contrib-1",
+        "ft-lacam-star-contrib-2",
+        "ft-lacam-star-novelty-1",
+        "ft-lacam-star-novelty-2",
+        "ft-lacam-star-key-idea-1",
+        "ft-lacam-star-key-idea-2",
+        "ft-lacam-star-validation-1",
+        "ft-lacam-star-validation-2",
+        "ft-lacam-star-discussion-1",
+        "ft-lacam-star-fact-lacam-star",
+        "ft-lacam-star-fact-claim-optimal",
+        "ft-lacam-star-fact-claim-scale",
+        "ft-lacam-star-fact-kw-sota-large",
         "evidence-lacam-star-optimal",
         "evidence-lacam-star-scale",
         "src-lacam-star-initial",
@@ -1453,7 +1672,7 @@
         "novelty": "集中型のプランナが数百台を超えると規模を大きくできないのに対し、学習した方策を各エージェントにコピーして部分観測でオンラインに動かす。",
         "key_idea": "各エージェントは自分の周りの観測から行動を出すニューラルネットの方策に従う。学習では強化学習に、エキスパートの計画を真似る模倣学習を混ぜる。",
         "validation": "最大1024エージェントのランダムな世界で、最先端のMAPFプランナと成功率を比較した。実機と模擬ロボットを含む工場の模型で検証した。",
-        "discussion": "学習した方策は衝突のない解や目標への到達を保証しない。成功率は集中型のプランナとの比較で評価している。",
+        "discussion": "障害物の密な小さい世界では、ODrM*が64エージェントまで解くのに対し、PRIMALは8エージェントを超えると苦戦する。完全性を保証するために、完全なプランナと組み合わせることを今後の課題としている。",
         "key_figures": [
           "Figure 2: 各エージェントの観測空間",
           "Figure 4: 強化学習と模倣学習を組み合わせた学習の構成"
@@ -1468,6 +1687,19 @@
           "Figure 7: 工場の模型の中で動く実機と模擬のロボットの様子。左：模型とロボットの上（上段）と横（下段）からの眺め。右：障害物（黒）、ロボット（青い円）、その目標（青い正方形）、現在の移動（緑の正方形）を示す可視化。"
         ],
         "evidence": [
+          "ft-primal-summary-conclusion",
+          "ft-primal-contrib-main",
+          "ft-primal-contrib-training",
+          "ft-primal-novelty-copy",
+          "ft-primal-key-idea-network",
+          "ft-primal-key-idea-rl-il",
+          "ft-primal-validation-1024",
+          "ft-primal-validation-hybrid",
+          "ft-primal-discussion-dense",
+          "ft-primal-discussion-completeness",
+          "ft-primal-fact-family-learned",
+          "ft-primal-fact-primal",
+          "ft-primal-fact-real-robots",
           "evidence-primal",
           "src-decentralized",
           "src-primal",
@@ -1477,26 +1709,36 @@
         ],
         "cites": {
           "summary": [
+            "ft-primal-summary-conclusion",
             "src-primal"
           ],
           "contributions": [
+            "ft-primal-contrib-main",
+            "ft-primal-contrib-training",
             "src-primal",
             "src-primal-training",
             "evidence-primal",
             "src-real-robots"
           ],
           "novelty": [
+            "ft-primal-novelty-copy",
             "src-decentralized",
             "src-primal-copy"
           ],
           "key_idea": [
+            "ft-primal-key-idea-network",
+            "ft-primal-key-idea-rl-il",
             "src-primal"
           ],
           "validation": [
+            "ft-primal-validation-1024",
+            "ft-primal-validation-hybrid",
             "evidence-primal",
             "src-real-robots"
           ],
           "discussion": [
+            "ft-primal-discussion-dense",
+            "ft-primal-discussion-completeness",
             "evidence-primal"
           ]
         }
@@ -1526,6 +1768,19 @@
         "claim-primal"
       ],
       "evidence": [
+        "ft-primal-summary-conclusion",
+        "ft-primal-contrib-main",
+        "ft-primal-contrib-training",
+        "ft-primal-novelty-copy",
+        "ft-primal-key-idea-network",
+        "ft-primal-key-idea-rl-il",
+        "ft-primal-validation-1024",
+        "ft-primal-validation-hybrid",
+        "ft-primal-discussion-dense",
+        "ft-primal-discussion-completeness",
+        "ft-primal-fact-family-learned",
+        "ft-primal-fact-primal",
+        "ft-primal-fact-real-robots",
         "evidence-primal",
         "src-decentralized",
         "src-primal",
@@ -1558,8 +1813,8 @@
         ],
         "novelty": "どの情報をいつ共有するかを手作りの規則で決めず、通信の内容と行動の方策を一緒に学ぶ。",
         "key_idea": "各ロボットの観測をCNNで特徴に変え、通信できる範囲のロボットどうしをグラフで結んでGNNで特徴を集約し、行動を出す。",
-        "validation": "障害物の多い2次元の作業空間のシミュレーションで、成功率と経路のコストの和を測り、エキスパートと比較した。",
-        "discussion": "性能はエキスパートに近いが、上回ってはいない。保証のある手法ではない。",
+        "validation": "障害物密度10%の20×20の地図で、4〜12台のチームと通信ホップ数K（1〜3）を変え、成功率と、エキスパート（CBS）の経路長の和に対するflowtimeの増加を測って、Discrete-ORCAと比べた。10台で学習したモデルを、50×50の地図の60台でも試した。",
+        "discussion": "性能はエキスパートに近いが、上回ってはいない。衝突はcollision shieldingで防ぐが、ロボット間のライブロックと位置の入れ替わりが残り、成功率100%には届かない。ロボット間の通信は遅延なしと仮定している。",
         "key_figures": [
           "Figure 1: 提案する枠組み",
           "Figure 2: 推論の段階"
@@ -1573,6 +1828,24 @@
           "Figure 6: 目標に着いたロボットの数ごとの問題の割合のヒストグラム。ホップ数 K∈[2,3] のネットワークを10台で学習し、60台で試験した（OEありとなし）。"
         ],
         "evidence": [
+          "ft-gnn-summary-1",
+          "ft-gnn-summary-2",
+          "ft-gnn-contrib-1",
+          "ft-gnn-contrib-2",
+          "ft-gnn-novelty-1",
+          "ft-gnn-novelty-2",
+          "ft-gnn-key-idea-1",
+          "ft-gnn-key-idea-2",
+          "ft-gnn-validation-1",
+          "ft-gnn-validation-2",
+          "ft-gnn-discussion-1",
+          "ft-gnn-discussion-2",
+          "ft-gnn-fact-success-rate",
+          "ft-gnn-fact-family-learned",
+          "ft-gnn-fact-communication",
+          "ft-gnn-fact-gnn-mapf",
+          "ft-gnn-fact-claim-gnn",
+          "ft-gnn-fact-kw-gnn",
           "evidence-gnn",
           "src-communication",
           "src-gnn-mapf",
@@ -1584,26 +1857,38 @@
         ],
         "cites": {
           "summary": [
+            "ft-gnn-summary-1",
+            "ft-gnn-summary-2",
             "src-gnn-mapf",
             "src-gnn-imitation"
           ],
           "contributions": [
+            "ft-gnn-contrib-1",
+            "ft-gnn-contrib-2",
             "src-gnn-mapf",
             "src-gnn-imitation",
             "src-gnn-generalize"
           ],
           "novelty": [
+            "ft-gnn-novelty-1",
+            "ft-gnn-novelty-2",
             "src-communication",
             "src-gnn-synthesize"
           ],
           "key_idea": [
+            "ft-gnn-key-idea-1",
+            "ft-gnn-key-idea-2",
             "src-gnn-mapf"
           ],
           "validation": [
+            "ft-gnn-validation-1",
+            "ft-gnn-validation-2",
             "src-gnn-simulation",
             "src-success-rate"
           ],
           "discussion": [
+            "ft-gnn-discussion-1",
+            "ft-gnn-discussion-2",
             "evidence-gnn"
           ]
         }
@@ -1630,6 +1915,24 @@
         "claim-gnn"
       ],
       "evidence": [
+        "ft-gnn-summary-1",
+        "ft-gnn-summary-2",
+        "ft-gnn-contrib-1",
+        "ft-gnn-contrib-2",
+        "ft-gnn-novelty-1",
+        "ft-gnn-novelty-2",
+        "ft-gnn-key-idea-1",
+        "ft-gnn-key-idea-2",
+        "ft-gnn-validation-1",
+        "ft-gnn-validation-2",
+        "ft-gnn-discussion-1",
+        "ft-gnn-discussion-2",
+        "ft-gnn-fact-success-rate",
+        "ft-gnn-fact-family-learned",
+        "ft-gnn-fact-communication",
+        "ft-gnn-fact-gnn-mapf",
+        "ft-gnn-fact-claim-gnn",
+        "ft-gnn-fact-kw-gnn",
         "evidence-gnn",
         "src-communication",
         "src-gnn-mapf",
@@ -1664,7 +1967,7 @@
         "novelty": "衝突を3クラスに分けて最優先のクラスから選ぶ従来の規則を、学習した選び方に置き換えた。",
         "key_idea": "遅いが良い選択をするオラクルの判断を記録し、衝突の特徴量から順位を出す線形関数を学んで、探索中は学習した関数で選ぶ。",
         "validation": "ベンチマークの地図で、最先端のCBSソルバと成功率・探索木の大きさ・実行時間を比較した。",
-        "discussion": "学習した選び方は最適性を変えない（CBSの枠組みのまま）が、学習した地図と違う地図での効き方は検証の範囲に依存する。",
+        "discussion": "学習した順位関数は、同じ地図でのエージェント数の違いにも、学習で見ていない地図にも汎化したと結論する。より良いオラクルの発見と、対称性の打破などの新しい技法を学習した衝突選択と組み合わせることを今後の課題とする。",
         "key_figures": [
           "Figure 1: 制限時間内の成功率"
         ],
@@ -1689,6 +1992,22 @@
           "Table 6: 特徴量とその番号。"
         ],
         "evidence": [
+          "ft-ml-cbs-summary-1",
+          "ft-ml-cbs-summary-2",
+          "ft-ml-cbs-contrib-oracle",
+          "ft-ml-cbs-novelty-prior",
+          "ft-ml-cbs-novelty-learned",
+          "ft-ml-cbs-key-idea-imitate",
+          "ft-ml-cbs-key-idea-replace",
+          "ft-ml-cbs-validation-setup",
+          "ft-ml-cbs-validation-result",
+          "ft-ml-cbs-discussion-generalize",
+          "ft-ml-cbs-discussion-future",
+          "ft-ml-cbs-fact-tree",
+          "ft-ml-cbs-fact-family-cbs",
+          "ft-ml-cbs-fact-cbs-baseline",
+          "ft-ml-cbs-fact-ml-cbs",
+          "ft-ml-cbs-fact-claim-ml-cbs",
           "evidence-ml-cbs",
           "src-tree",
           "src-ml-cbs",
@@ -1698,21 +2017,34 @@
         ],
         "cites": {
           "summary": [
+            "ft-ml-cbs-summary-1",
+            "ft-ml-cbs-summary-2",
             "src-ml-cbs"
           ],
           "contributions": [
+            "ft-ml-cbs-contrib-oracle",
             "src-ml-cbs-oracle",
             "src-ml-cbs"
           ],
           "novelty": [
+            "ft-ml-cbs-novelty-prior",
+            "ft-ml-cbs-novelty-learned",
             "src-ml-cbs-classes"
           ],
           "key_idea": [
+            "ft-ml-cbs-key-idea-imitate",
+            "ft-ml-cbs-key-idea-replace",
             "src-ml-cbs-slow",
             "src-ml-cbs"
           ],
           "validation": [
+            "ft-ml-cbs-validation-setup",
+            "ft-ml-cbs-validation-result",
             "evidence-ml-cbs"
+          ],
+          "discussion": [
+            "ft-ml-cbs-discussion-generalize",
+            "ft-ml-cbs-discussion-future"
           ]
         }
       },
@@ -1737,6 +2069,22 @@
         "claim-ml-cbs"
       ],
       "evidence": [
+        "ft-ml-cbs-summary-1",
+        "ft-ml-cbs-summary-2",
+        "ft-ml-cbs-contrib-oracle",
+        "ft-ml-cbs-novelty-prior",
+        "ft-ml-cbs-novelty-learned",
+        "ft-ml-cbs-key-idea-imitate",
+        "ft-ml-cbs-key-idea-replace",
+        "ft-ml-cbs-validation-setup",
+        "ft-ml-cbs-validation-result",
+        "ft-ml-cbs-discussion-generalize",
+        "ft-ml-cbs-discussion-future",
+        "ft-ml-cbs-fact-tree",
+        "ft-ml-cbs-fact-family-cbs",
+        "ft-ml-cbs-fact-cbs-baseline",
+        "ft-ml-cbs-fact-ml-cbs",
+        "ft-ml-cbs-fact-claim-ml-cbs",
         "evidence-ml-cbs",
         "src-ml-cbs",
         "src-tree",
@@ -1768,7 +2116,7 @@
         ],
         "novelty": "論文ごとに暗黙に違っていた前提と目的をそろえて書けるようにし、比較の基準を定めやすくした。",
         "key_idea": "頂点衝突・辺衝突・追従などの衝突の種類と、目的関数の違いを名前で区別する。",
-        "validation": "新しいベンチマークで現在のMAPFアルゴリズムを実験した。",
+        "validation": "格子ベンチマークの各地図（25シナリオ）で、ベースラインとしてICBSだけを30秒の制限で動かした。台数を1台ずつ増やして解けた問題数と、シナリオごとの最大台数の最小・最大を報告し、時間内に解けない問題が多く残ることを示した。",
         "discussion": "手法の提案ではなく、定義とベンチマークの論文。",
         "key_figures": [
           "Figure 1: よくある衝突の種類"
@@ -1782,6 +2130,20 @@
           "Table 1: 格子MAPFベンチマークで、時間制限30秒でICBSを実行した結果。"
         ],
         "evidence": [
+          "ft-mapf-benchmark-summary-aim",
+          "ft-mapf-benchmark-contrib-terminology",
+          "ft-mapf-benchmark-contrib-grid-benchmark",
+          "ft-mapf-benchmark-novelty-terminology-gap",
+          "ft-mapf-benchmark-novelty-common-ground",
+          "ft-mapf-benchmark-key-idea-conflicts",
+          "ft-mapf-benchmark-key-idea-objectives",
+          "ft-mapf-benchmark-validation-icbs-30s",
+          "ft-mapf-benchmark-validation-unsolved",
+          "ft-mapf-benchmark-discussion-scope",
+          "ft-mapf-benchmark-fact-collision",
+          "ft-mapf-benchmark-fact-soc",
+          "ft-mapf-benchmark-fact-makespan",
+          "ft-mapf-benchmark-fact-grid-procedure",
           "src-collision",
           "src-objectives",
           "src-grid-benchmark",
@@ -1791,22 +2153,32 @@
         ],
         "cites": {
           "summary": [
+            "ft-mapf-benchmark-summary-aim",
             "src-benchmark-terminology"
           ],
           "contributions": [
+            "ft-mapf-benchmark-contrib-terminology",
+            "ft-mapf-benchmark-contrib-grid-benchmark",
             "src-benchmark-terminology",
             "src-grid-benchmark"
           ],
           "novelty": [
+            "ft-mapf-benchmark-novelty-terminology-gap",
+            "ft-mapf-benchmark-novelty-common-ground",
             "src-benchmark-baselines"
           ],
           "key_idea": [
+            "ft-mapf-benchmark-key-idea-conflicts",
+            "ft-mapf-benchmark-key-idea-objectives",
             "src-benchmark-assumptions"
           ],
           "validation": [
+            "ft-mapf-benchmark-validation-icbs-30s",
+            "ft-mapf-benchmark-validation-unsolved",
             "src-grid-benchmark"
           ],
           "discussion": [
+            "ft-mapf-benchmark-discussion-scope",
             "src-benchmark-terminology"
           ]
         }
@@ -1837,6 +2209,20 @@
       ],
       "claims": [],
       "evidence": [
+        "ft-mapf-benchmark-summary-aim",
+        "ft-mapf-benchmark-contrib-terminology",
+        "ft-mapf-benchmark-contrib-grid-benchmark",
+        "ft-mapf-benchmark-novelty-terminology-gap",
+        "ft-mapf-benchmark-novelty-common-ground",
+        "ft-mapf-benchmark-key-idea-conflicts",
+        "ft-mapf-benchmark-key-idea-objectives",
+        "ft-mapf-benchmark-validation-icbs-30s",
+        "ft-mapf-benchmark-validation-unsolved",
+        "ft-mapf-benchmark-discussion-scope",
+        "ft-mapf-benchmark-fact-collision",
+        "ft-mapf-benchmark-fact-soc",
+        "ft-mapf-benchmark-fact-makespan",
+        "ft-mapf-benchmark-fact-grid-procedure",
         "src-collision",
         "src-grid-benchmark",
         "src-objectives",
@@ -1866,12 +2252,25 @@
           "lifelong MAPFを時間窓つきMAPFの列に分解する枠組みRHCRを提案",
           "様々なMAPFソルバと組み合わせて評価"
         ],
-        "novelty": "先の衝突まで解かず、限られた時間の範囲の衝突だけを解消して計画を繰り返すため、新しい目標が次々に来ても計画を作り直しやすい。",
+        "novelty": "時間窓の中だけ衝突を解消する考えは通常のMAPF向けのWHCA*にすでにあるが、それを次々に目標が来るlifelong MAPFと複数のMAPFソルバに広げた。先の衝突まで解かないため、新しい目標に合わせて計画を作り直しやすく、WHCA*と違って解の質の低下もわずかにとどまる。",
         "key_idea": "一定の間隔ごとに、時間窓の中だけ衝突を解消した経路を計画し、エージェントを動かし、また計画する。",
-        "validation": "模擬した倉庫の問題で、最大1,000エージェントまで既存の研究と比較した（アブストラクトより）。",
-        "discussion": "時間窓の外の衝突は無視するため、窓の長さの選び方で解の質と計算時間が変わる。",
+        "validation": "フルフィルメント倉庫の地図では、60〜140台でMethod (3)の2つの実現（holding endpoints、reserving dummy paths）より高いスループットを得たが、1回あたりの計算時間は長い。仕分けセンターの地図ではPBS・ECBS・CA*・CBSで時間窓wを変えて比べ、小さいwはスループットをほとんどの場合1%未満しか変えずに最大6倍速く、PBSはw=∞で700台まで、w=5で少なくとも1,000台まで解けた。",
+        "discussion": "長い時間窓が良い解を生むとは限らない一方、短すぎる窓はデッドロックを起こしうる。デッドロック回避の仕組みを加えてもRHCRは完全性も最適性も保証せず、窓の長さを混雑と計画時間の予算に応じて自動で決めることは今後の課題とした。",
         "key_figures": [],
         "evidence": [
+          "ft-rhcr-summary-conclusion",
+          "ft-rhcr-contrib-framework",
+          "ft-rhcr-contrib-solvers",
+          "ft-rhcr-novelty-whca",
+          "ft-rhcr-novelty-pliable",
+          "ft-rhcr-key-idea-params",
+          "ft-rhcr-key-idea-episode",
+          "ft-rhcr-validation-fulfillment",
+          "ft-rhcr-validation-sorting",
+          "ft-rhcr-discussion-deadlock",
+          "ft-rhcr-discussion-completeness",
+          "ft-rhcr-fact-lifelong",
+          "ft-rhcr-fact-claim-rhcr",
           "evidence-rhcr",
           "src-lifelong",
           "src-rhcr-framework",
@@ -1879,20 +2278,33 @@
         ],
         "cites": {
           "summary": [
+            "ft-rhcr-summary-conclusion",
             "src-rhcr-framework"
           ],
           "contributions": [
+            "ft-rhcr-contrib-framework",
+            "ft-rhcr-contrib-solvers",
             "src-rhcr-framework",
             "evidence-rhcr"
           ],
           "novelty": [
+            "ft-rhcr-novelty-whca",
+            "ft-rhcr-novelty-pliable",
             "src-rhcr-pliable"
           ],
           "key_idea": [
+            "ft-rhcr-key-idea-params",
+            "ft-rhcr-key-idea-episode",
             "src-rhcr-framework"
           ],
           "validation": [
+            "ft-rhcr-validation-fulfillment",
+            "ft-rhcr-validation-sorting",
             "evidence-rhcr"
+          ],
+          "discussion": [
+            "ft-rhcr-discussion-deadlock",
+            "ft-rhcr-discussion-completeness"
           ]
         }
       },
@@ -1918,6 +2330,19 @@
         "claim-rhcr"
       ],
       "evidence": [
+        "ft-rhcr-summary-conclusion",
+        "ft-rhcr-contrib-framework",
+        "ft-rhcr-contrib-solvers",
+        "ft-rhcr-novelty-whca",
+        "ft-rhcr-novelty-pliable",
+        "ft-rhcr-key-idea-params",
+        "ft-rhcr-key-idea-episode",
+        "ft-rhcr-validation-fulfillment",
+        "ft-rhcr-validation-sorting",
+        "ft-rhcr-discussion-deadlock",
+        "ft-rhcr-discussion-completeness",
+        "ft-rhcr-fact-lifelong",
+        "ft-rhcr-fact-claim-rhcr",
         "evidence-rhcr",
         "src-lifelong",
         "src-rhcr-framework",
@@ -2039,6 +2464,7 @@
       },
       "as_of": "2023-05-05",
       "evidence": [
+        "ft-lacam-star-fact-claim-optimal",
         "evidence-lacam-star-optimal"
       ]
     },
@@ -2061,6 +2487,7 @@
       },
       "as_of": "2023-05-05",
       "evidence": [
+        "ft-lacam-star-fact-claim-scale",
         "evidence-lacam-star-scale"
       ]
     },
@@ -2105,6 +2532,7 @@
       },
       "as_of": "2020-05-15",
       "evidence": [
+        "ft-rhcr-fact-claim-rhcr",
         "evidence-rhcr"
       ]
     },
@@ -2127,6 +2555,7 @@
       },
       "as_of": "2019-12-12",
       "evidence": [
+        "ft-gnn-fact-claim-gnn",
         "evidence-gnn"
       ]
     },
@@ -2148,6 +2577,7 @@
       },
       "as_of": "2020-12-10",
       "evidence": [
+        "ft-ml-cbs-fact-claim-ml-cbs",
         "evidence-ml-cbs"
       ]
     },
@@ -2175,6 +2605,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-primal-fact-real-robots",
         "src-real-robots"
       ]
     },
@@ -2224,6 +2655,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-gnn-fact-kw-gnn",
         "src-gnn-mapf"
       ]
     },
@@ -2248,6 +2680,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-eecbs-fact-ecbs-baseline",
         "src-ecbs-baseline"
       ]
     },
@@ -2272,6 +2705,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-lacam-star-fact-kw-sota-large",
         "evidence-lacam-star-scale"
       ]
     },
@@ -2297,6 +2731,7 @@
       "source_url": null,
       "locator": null,
       "evidence": [
+        "ft-mapf-benchmark-fact-grid-procedure",
         "src-grid-benchmark"
       ]
     },
@@ -3175,6 +3610,1826 @@
       "retrieved_at": "2026-10-12T00:00:00+09:00",
       "content_hash": null,
       "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-eecbs-summary-1",
+      "label": "結論でのEECBSの要約",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S6",
+      "locator": "Section 6",
+      "excerpt": "We proposed a new bounded-suboptimal MAPF algorithm EECBS that uses online learning to estimate the cost of the solution below each high-level node and uses EES to select high-level nodes for expansion.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-contributions-1",
+      "label": "EECBSの提案（序論）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S1",
+      "locator": "Section 1",
+      "excerpt": "In this paper, we propose a new bounded-suboptimal variant of CBS, called Explicit Estimation CBS (EECBS). EECBS replaces focal search with Explicit Estimation Search (Thayer and Ruml 2011) on the high level and uses online learning (Thayer, Dionne, and Ruml 2011) to learn an informed but potentially inadmissible heuristic to guide the high-level search.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-contributions-2",
+      "label": "CBSの改良をEECBSへ適用",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S1",
+      "locator": "Section 1",
+      "excerpt": "Hence, the ideas behind many improvements of CBS, such as bypassing conflicts (Boyarski et al. 2015a), prioritizing conflicts (Boyarski et al. 2015b), symmetry reasoning (Li et al. 2019c; Li et al. 2020a), and focusing the high-level search with admissible heuristics (Li et al. 2019a), might improve ECBS and EECBS as well, and we show how they can be adapted to them.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-novelty-2",
+      "label": "改良版が既存手法を上回る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S6",
+      "locator": "Section 6",
+      "excerpt": "With these improvements, EECBS significantly outperforms the state-of-the-art bounded-suboptimal MAPF algorithms ECBS, BCP-7, and eMDD-SAT. Within one minute, it is able to find solutions that are provably at most 2% worse than optimal for large MAPF instances with up to 1,000 agents, while, on the same map, state-of-the-art optimal algorithms can handle at most 200 agents (Lam and Le Bodic 2020).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-key-idea-1",
+      "label": "上の段で3つのリストを保持",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S3.SS3",
+      "locator": "Section 3.3",
+      "excerpt": "We form EECBS by replacing focal search with EES on the high level of ECBS. Formally, the high level of EECBS maintains three lists of CT nodes: CLEANUP, OPEN, and FOCAL.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-key-idea-2",
+      "label": "ECBSの2つの欠点への対処",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S3.SS3",
+      "locator": "Section 3.3",
+      "excerpt": "EECBS overcomes the first drawback from Section 3.1 by taking the potential cost increment below a CT node into consideration in Steps 1 and 2 and selecting a CT node $N$ whose estimated cost $\\hat{f}(N)$ is within estimated suboptimality bound $w\\cdot\\hat{f}(best_{\\hat{f}})$. It overcomes the second drawback by selecting the CT node with the minimum $lb$ value in Step 3 to raise the lower bound.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-validation-1",
+      "label": "6マップ・エージェント数8通り",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S5",
+      "locator": "Section 5",
+      "excerpt": "We evaluate the algorithms on 6 maps of different sizes and structures from the MAPF benchmark suite (Stern et al. 2019) with 8 different numbers of agents per map. We use the “random” scenarios, yielding 25 instances for each map and number of agents.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-validation-2",
+      "label": "EECBS+が全6マップで上回る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S5",
+      "locator": "Section 5",
+      "excerpt": "As a result, EECBS+ (EECBS with all improvements, purple lines) significantly outperforms the other algorithms on all six maps in terms of both runtime and success rate.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-discussion-1",
+      "label": "改良なしは一部マップで同等以下",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S5",
+      "locator": "Section 5",
+      "excerpt": "As shown in Figure 5, EECBS (green lines) outperforms ECBS (red lines) on some maps but shows a similar or even slightly worse performance on other maps. The four improvements improve the performance of both ECBS and EECBS, but EECBS benefits more from them.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-discussion-2",
+      "label": "誤差が一様という仮定",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S3.SS4",
+      "locator": "Section 3.4",
+      "excerpt": "They use a global error model that assumes that the distribution of one-step errors across the entire search space is uniform and can be estimated as an average of all observed one-step errors.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-fact-optimality",
+      "label": "NP困難ゆえ有界準最適を狙う",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S1",
+      "locator": "Section 1",
+      "excerpt": "However, for many applications, we need to coordinate hundreds of agents with limited computational resources. The fact that MAPF is NP-hard to solve optimally (Yu and LaValle 2013) motivates finding bounded-suboptimal solutions in order to reduce the runtime of the search.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-eecbs-fact-ecbs-baseline",
+      "label": "ECBSに劣る手法は比較を省略",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2010.01367#S5",
+      "locator": "Section 5",
+      "excerpt": "We omit comparisons with the many search-based bounded-suboptimal MAPF algorithms that have already been shown to perform worse than ECBS (Aljalaud and Sturtevant 2013; Barer et al. 2014; Wagner 2015).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:24:49.957Z",
+      "content_hash": "sha256:8e86adeefaa75c85c2795806c552b17789edd929194125bfc5f89534748fc3dc",
+      "origin": "paper-eecbs"
+    },
+    {
+      "id": "ft-pibt-summary-journal",
+      "label": "会議版の拡張であること",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1.SS0.SSS0.Px1",
+      "locator": "Section 1 (Difference from Conference Versions)",
+      "excerpt": "The PIBT algorithm was initially presented in our preliminary paper [ 21 ].",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-summary-additions",
+      "label": "到達性の解析と実機デモを追加",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1.SS0.SSS0.Px1",
+      "locator": "Section 1 (Difference from Conference Versions)",
+      "excerpt": "(2) Further theoretical analyses were conducted on PIBT, for instance, on reachability considering rotation conflicts. (3) A stress test for the number of agents and the robot demonstration of PIBT in an iterative scenario were added.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-contrib-algorithm",
+      "label": "貢献1: PIBTと到達性保証",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1",
+      "locator": "Section 1 (contribution list)",
+      "excerpt": "We propose the PIBT algorithm, which solves MAPF iteratively and guarantees reachability.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-contrib-experiments",
+      "label": "貢献2: 実機デモと倉庫搬送",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1",
+      "locator": "Section 1 (contribution list)",
+      "excerpt": "In particular, experimental results analyzing various scenarios, including robot demonstration, confirm the adequacy of the algorithm both in finding paths in large environments with many agents as well as in conveying packages in an automated warehouse.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-novelty-speed",
+      "label": "数百台でも桁違いに速い",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1",
+      "locator": "Section 1",
+      "excerpt": "From the empirical end, PIBT immediately returns acceptable solutions despite hundreds or more agents in running times that are orders of magnitudes faster than other established MAPF approaches, such as sub-optimal priority-based [ 4 ], rule-based [ 14 ], and search-based [ 15 ] algorithms, as well as state-of-the-art optimal search-based [ 16 ] and compiling-based [ 17 ] algorithms.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-novelty-adjacent",
+      "label": "隣接移動だけを優先度で計画",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1",
+      "locator": "Section 1",
+      "excerpt": "The algorithm focuses on the adjacent movements of multiple agents based on prioritized planning [ 19 ] in a unit-length time window.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-key-idea-inheritance",
+      "label": "占有者へ継承し失敗なら再計画",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S4.SS2.SSS0.Px2",
+      "locator": "Section 4.2 (Recursive Procedure)",
+      "excerpt": "After reserving $v$ for $a_{i}$ [Line 18 ], the priority inheritance occurs from $a_{i}$ to $a_{k}$ when another agent $a_{k}$, which has not yet determined the next location, occupies $v$ [Lines 19 – 21 ]. If $a_{k}$ returns invalid, the next location for $a_{i}$ is replanned [Line 20 ], or else, $a_{i}$ finishes the planning and returns valid, as well as that $v$ is unoccupied by others [Line 22 ].",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-key-idea-backtracking",
+      "label": "バックトラックの規則",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S4.SS1.SSS2",
+      "locator": "Section 4.1.2",
+      "excerpt": "Otherwise, it must request a different node, excluding: (1) nodes requested by a higher priority agent, and (2) nodes having already returned an invalid outcome. Upon finding no valid or unoccupied nodes, $a_{i}$ sends back an invalid outcome to the agent from which it inherited its priority.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-validation-mapf",
+      "label": "MAPF: 千台で5秒以内",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S5.SS1.SSS2",
+      "locator": "Section 5.1.2",
+      "excerpt": "Overall, PIBT outputs solutions immediately ($\\leq$ 5 seconds in large maps) even with a thousand agents, with a slight decline in the solution quality (sum-of-costs).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-validation-mapd",
+      "label": "MAPD: TPより速く質も同等以上",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S5.SS2.SSS2",
+      "locator": "Section 5.2.2",
+      "excerpt": "Figure 8 summarizes the results. PIBT significantly outperforms TP in runtime and is comparable to or better than TP in solution quality, characterized by service time and makespan.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-discussion-quality",
+      "label": "解の質は保証しない",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S5.SS1.SSS2.Px2",
+      "locator": "Section 5.1.2",
+      "excerpt": "In general, PIBT does not guarantee solution quality. However, both sum-of-costs and makespan are adequate compared to others in sparse settings.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-discussion-graph-condition",
+      "label": "グラフ条件なしでは到達しない",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S4.SS3.SSS1",
+      "locator": "Section 4.3.1",
+      "excerpt": "Without the graph condition in Theorem 1, several agents may remain in the same vertices permanently and may not reach their goals.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-fact-family-prioritized",
+      "label": "毎時刻優先度順に1歩を決める",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S4.SS1",
+      "locator": "Section 4.1",
+      "excerpt": "At every timestep, each agent first updates its unique priority. Then, the agents sequentially determine their next location in decreasing order of priorities while avoiding nodes that have been requested by higher-priority agents.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-pibt-fact-pibt",
+      "label": "優先度継承とバックトラック",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1901.11282#S1",
+      "locator": "Section 1",
+      "excerpt": "When a low-priority agent–X impedes the movement of a higher-priority agent–Y, agent–X temporarily inherits the higher-priority of agent–Y. To avoid agents getting stuck waiting, priority inheritance is executed in combination with a backtracking protocol.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:05.018Z",
+      "content_hash": "sha256:2452a86c72aa234d2a5817cf414e5eb6a99701c3830109cbad04dc253ef379be",
+      "origin": "paper-pibt"
+    },
+    {
+      "id": "ft-lacam-summary-complete-quick",
+      "label": "完全かつ高速な探索型MAPF",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S6",
+      "locator": "Section 6",
+      "excerpt": "This paper introduced LaCAM, a novel, complete, and quick search-based MAPF algorithm.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-summary-400-agents",
+      "label": "400台を中央値1秒で全問解決",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S1",
+      "locator": "Section 1",
+      "excerpt": "For instance, LaCAM solved all instances with 400 agents on a $32\\times 32$ grid with 20% obstacles from the MAPF benchmark (Stern et al. 2019), with a median runtime of $1\\text{\\,}\\mathrm{s}$.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-contrib-complete",
+      "label": "完全性（解なしも報告）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S1",
+      "locator": "Section 1",
+      "excerpt": "From the theoretical side, LaCAM is complete. It returns a solution for solvable instances, otherwise reports the non-existence.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-contrib-lazy-two-level",
+      "label": "下段の制約に従う遅延生成",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S1",
+      "locator": "Section 1",
+      "excerpt": "Successors at the high-level (i.e., configurations) are generated in a lazy manner while following constraints from the low-level, leading to a dramatic reduction of the search effort.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-novelty-one-successor",
+      "label": "後続を1つずつ作り分岐を抑制",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S6.SS0.SSS0.Px1",
+      "locator": "Section 6 (Why is LaCAM quick?)",
+      "excerpt": "In contrast, each high-level node of LaCAM initially generates only one successor (i.e., configuration), and if necessary, gradually generates other successors in a lazy manner. This scheme virtually suppresses the branching factor of LaCAM.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-key-idea-constraint",
+      "label": "制約は次の位置を指定し遅延追加",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S3.SS1",
+      "locator": "Section 3.1",
+      "excerpt": "A constraint specifies which agent is where in the next configuration. The low-level search proceeds lazily, creating a minimal successor each time the corresponding high-level node is invoked.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-key-idea-config-generation",
+      "label": "制約を満たす次の配置を生成",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S3.SS1.SSS0.Px3",
+      "locator": "Section 3.1 (Configuration Generation)",
+      "excerpt": "Once both the high- and low-level nodes are specified, a new configuration is generated. The new one must satisfy the constraints of the low-level node, which are specified by a path to the root node.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-validation-benchmark",
+      "label": "成功率と時間で上回り質は劣る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S4.SS3",
+      "locator": "Section 4.3",
+      "excerpt": "Figure 2 summarizes the results. In most scenarios, LaCAM outperforms PP, OD, EECBS, and LNS2 in both success rate and runtime, while compromising the solution quality.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-validation-scalability",
+      "label": "1万台でも最大30秒で全問解決",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S4.SS5",
+      "locator": "Section 4.5",
+      "excerpt": "Only LaCAM solved all instances. Furthermore, the runtime was in at most $30\\text{\\,}\\mathrm{s}$ even with 10,000 agents, demonstrating the excellent scalability of LaCAM.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-discussion-optimality",
+      "label": "最適性の議論は保留",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S6.SS0.SSS0.Px2",
+      "locator": "Section 6 (Optimal LaCAM)",
+      "excerpt": "This paper aimed at developing a quick MAPF solver; we retain the discussion of optimality.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-discussion-adversarial",
+      "label": "狭い通路で探索量が急増",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S4.SS4",
+      "locator": "Section 4.4",
+      "excerpt": "LaCAM solved all instances, however, the search effort dramatically increases with more agents. This is because, with more agents, the high-level search can contain a huge number of slightly different configurations.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-fact-lacam-completeness",
+      "label": "定理1 完全性の保証",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2211.13432#S3.SS2.SSS0.Px3",
+      "locator": "Theorem 1",
+      "excerpt": "Algorithm 1 returns a solution for solvable MAPF instances; otherwise, it reports NO_SOLUTION.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:20.089Z",
+      "content_hash": "sha256:fb537d9c23d63d9ddecb504da635a2670f4a0fcacb6f5e56aac218e5aabcc1c2",
+      "origin": "paper-lacam"
+    },
+    {
+      "id": "ft-lacam-star-summary-1",
+      "label": "二つの改良（収束と配置生成）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S6",
+      "locator": "Section 6",
+      "excerpt": "To break this tradeoff, this paper presented two enhancements to LaCAM, namely, $\\text{LaCAM}^{\\ast}$ which eventually converges to optima and an effective configuration generator.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-contrib-1",
+      "label": "貢献1：任意時間版LaCAM*",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S1",
+      "locator": "Section 1",
+      "excerpt": "The first enhancement is its anytime version called $\\text{LaCAM}^{\\ast}$ that eventually converges to optima, provided that solution costs are accumulated transition costs.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-contrib-2",
+      "label": "貢献2：後続生成の改良",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S1",
+      "locator": "Section 1",
+      "excerpt": "The second enhancement is for the successor generation, i.e., tuning of the PIBT algorithm Okumura et al. (2022), so as to quickly obtain initial solutions.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-novelty-1",
+      "label": "準最適解を出してから改良",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S1",
+      "locator": "Section 1",
+      "excerpt": "Since solving MAPF optimally is computationally intractable Yu and LaValle (2013), one practical approach to large instances is obtaining sub-optimal solutions and then refining their quality as time allows. $\\text{LaCAM}^{\\ast}$ meets such demands.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-novelty-2",
+      "label": "既存の任意時間法は規模が限界",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S6.SS0.SSS0.Px1",
+      "locator": "Section 6 (Related Work)",
+      "excerpt": "Anytime MAPF algorithms that converge to optima have been studied Standley and Korf (2011); Cohen et al. (2018a); Vedder and Biswas (2021). However, their scalability is limited; they often fail to derive initial solutions, as we empirically saw.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-key-idea-1",
+      "label": "ゴール後も探索を続け親を更新",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S3",
+      "locator": "Section 3",
+      "excerpt": "The main differences from LaCAM are two: (i) it continues the search when finding the goal configuration $\\mathcal{G}$, and, (ii) it rewrites parent relations between search nodes as necessary.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-key-idea-2",
+      "label": "Dijkstra法で親とコストを更新",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S3.SS0.SSS0.Px3",
+      "locator": "Section 3 (Updating Parents and Costs)",
+      "excerpt": "To maintain the optimality, when finding an already known configuration, $\\text{LaCAM}^{\\ast}$ updates $\\mathit{neigh}$ (17). This is followed by updates of g-value and $\\mathit{parent}$, performed by Dijkstra’s algorithm (Lines 18 – 24).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-validation-1",
+      "label": "99%を10秒以内に準最適解",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S1",
+      "locator": "Section 1",
+      "excerpt": "For instance, it sub-optimally solved 99% of the instances retrieved from the MAPF benchmark Stern et al. (2019) within ten seconds while guaranteeing the eventual optimality, on a standard desktop PC.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-validation-2",
+      "label": "500体で探索反復181459→410",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S5.SS0.SSS0.Px2",
+      "locator": "Table 2",
+      "excerpt": "| 500 | 181459 | (44534,268724) | 410 | (391,432) | 18063 | (4598,29820) | 500 | (347,574) |",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-discussion-1",
+      "label": "多数エージェントでは収束が遅い",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S5.SS0.SSS0.Px3",
+      "locator": "Section 5 (Refinement of LaCAM*)",
+      "excerpt": "Meanwhile, the convergence speed was slow in large instances with many agents. This is due to finding new connections between known configurations becoming rare, hence reducing the chance of rewriting the search tree.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-fact-lacam-star",
+      "label": "中断可能で解を徐々に改良",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S3.SS0.SSS0.Px1",
+      "locator": "Section 3 (Keeping Goal Node)",
+      "excerpt": "Doing so makes $\\text{LaCAM}^{\\ast}$ an anytime algorithm, that is, after finding the goal node, it is interruptible whenever a solution is required, while gradually refining solution quality as time allows.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-fact-claim-optimal",
+      "label": "累積遷移コストなら最適へ収束",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S1",
+      "locator": "Section 1",
+      "excerpt": "The first enhancement is its anytime version called $\\text{LaCAM}^{\\ast}$ that eventually converges to optima, provided that solution costs are accumulated transition costs.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-fact-claim-scale",
+      "label": "99%を10秒以内（デスクトップPC）",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S1",
+      "locator": "Section 1",
+      "excerpt": "For instance, it sub-optimally solved 99% of the instances retrieved from the MAPF benchmark Stern et al. (2019) within ten seconds while guaranteeing the eventual optimality, on a standard desktop PC.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-lacam-star-fact-kw-sota-large",
+      "label": "maze以外を10秒以内に解く",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2305.03632#S5.SS0.SSS0.Px6",
+      "locator": "Section 5 (MAPF Benchmark)",
+      "excerpt": "$\\text{LaCAM}^{\\ast}$ only failed in the instances of maze-128-128-1 and sub-optimally solved all the other instances within $10\\text{\\,}\\mathrm{s}$, outperforming the other algorithms.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:35.255Z",
+      "content_hash": "sha256:48d00fcfff27ef8fef624d0a3bbeeade560a27c6ea527038c86e694a3f23e9ed",
+      "origin": "paper-lacam-star"
+    },
+    {
+      "id": "ft-primal-summary-conclusion",
+      "label": "強化と模倣の結合と局所情報",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S6",
+      "locator": "Section VI",
+      "excerpt": "In this paper, we presented PRIMAL, a new approach to multi-agent path finding, which relies on combining distributed reinforcement learning and imitation learning from a centralized expert planner. Through an extensive set of experiments, we showed how PRIMAL scales to various team sizes, world sizes and obstacle densities, despite only giving agents access to local information about the world.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-contrib-main",
+      "label": "主貢献 RLとILの分散MAPF",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S1",
+      "locator": "Section I",
+      "excerpt": "Extending our previous work on distributed reinforcement learning (RL) for multiple agents in shared environments [ 11, 12 ], the main contribution of this paper introduces PRIMAL, a novel hybrid framework for decentralized MAPF that combines RL [ 13 ] and imitation learning (IL) from an expert centralized MAPF planner.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-contrib-training",
+      "label": "実演・報酬設計・環境サンプリング",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S2.SS2",
+      "locator": "Section II-B",
+      "excerpt": "In our work, we propose to rely on imitation learning (IL)of an expert centralized planner (ODrM*) to train agents to exhibit coordination, without the need for explicit communication, in a partially-observable world. We also propose a carefully crafted reward structure and a way to sample the challenges used to train the agents.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-novelty-copy",
+      "label": "方策のコピーと部分観測",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S1",
+      "locator": "Section I",
+      "excerpt": "Since multiple agents learn a common, single-agent policy, the final learned policy can be copied onto any number of agents. Additionally, we consider the case where agents evolve in a partially-observable world, where they can only observe the world in a limited field of view (FOV) around themselves.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-key-idea-network",
+      "label": "周囲の観測から行動を出すNN",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S3.SS4",
+      "locator": "Section III-D",
+      "excerpt": "We use a deep neural network to approximate the agent’s policy, which maps the current observation of its surroundings to the next action to take.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-key-idea-rl-il",
+      "label": "エピソードごとにRLかILを選ぶ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S4.SS1.SSS2",
+      "locator": "Section IV-A2",
+      "excerpt": "In our work, we randomly select in the beginning of each episode whether it will involve RL or IL (thus setting the central switch in the middle of Fig. 4). Such demonstrations are generated dynamically by relying on the centralized planner ODrM* [ 3 ] (with $\\epsilon=2$).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-validation-1024",
+      "label": "1024台でほぼ完全な成功率",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S5.SS1",
+      "locator": "Section V-A",
+      "excerpt": "First, in a large world with no obstacles ($160\\times 160$), centralized planners especially struggle since the joint configuration space quickly grows to encompass all agents, making planning for more than $100$ agents very time-consuming. PRIMAL, on the other hand, can easily deal with teams up to $1024$ agents, with a near-perfect success rate.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-validation-hybrid",
+      "label": "工場模型で実機と模擬を混在",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S5.SS2",
+      "locator": "Section V-B",
+      "excerpt": "We also implemented PRIMAL on a small fleet of autonomous ground vehicles (AGVs) evolving in a factory mockup. In this hybrid system, two physical robots evolve alongside two (then, half-way through the experiment, three) simulated ones.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-discussion-dense",
+      "label": "密な世界で8台超から苦戦",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S5.SS1",
+      "locator": "Section V-A",
+      "excerpt": "Third, in a smaller world that is very densely populated with obstacles, all planners can only handle up to $64$ agents, but PRIMAL starts to struggle past $8$ agents, whereas ODrM* can handle up to $64$ agents.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-discussion-completeness",
+      "label": "完全性は完全なプランナと併用で",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S5.SS1",
+      "locator": "Section V-A",
+      "excerpt": "Future work will investigate the combination of PRIMAL with a complete planner to leverage the fast, decentralized planning of PRIMAL while guaranteeing completeness.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-fact-family-learned",
+      "label": "分散RLに実演のILを追加",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S4",
+      "locator": "Section IV",
+      "excerpt": "The RL portion of our framework builds upon our previous work on distributed RL for multiple agents in shared environments [ 11, 12 ]. In our work, we introduce an IL module that allows agents to learn from expert demonstrations.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-fact-primal",
+      "label": "RLとILで分散方策を学ぶ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S1",
+      "locator": "Section I",
+      "excerpt": "That is, by simultaneously learning to plan efficient single-agent paths (mostly via RL), and to imitate a centralized expert (IL), agents ultimately learn a decentralized policy where they still exhibit implicit coordination during online path planning without the need for explicit communication among agents.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-primal-fact-real-robots",
+      "label": "実機と模擬がオンラインで計画",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1809.03531#S5.SS2",
+      "locator": "Section V-B",
+      "excerpt": "The physical robots have access to the position of simulated robots, and vice-versa, as they all plan their next actions online using our decentralized approach. PRIMAL shows clear online capabilities, as the planning time per step and per agent is well below $0.1$ s on a standard GPU (and well below $0.2$ s on a CPU).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:25:50.298Z",
+      "content_hash": "sha256:f1bd28e5b620b812bea0d66194a71496037d5ff4f82b0140cd495508709d16f4",
+      "origin": "paper-primal"
+    },
+    {
+      "id": "ft-gnn-summary-1",
+      "label": "CNNとGNNで分散方策を学ぶ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S1",
+      "locator": "Section 1",
+      "excerpt": "In this paper, we propose a combined architecture, where we train a convolutional neural network (CNN) (Krizhevsky et al., 2012) that extracts adequate features from local observations, and a graph neural network (GNN) to communicate these features among robots (Gama et al., 2019b) with the ultimate goal of learning a decentralized sequential action policy that yields efficient path plans for all robots.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-summary-2",
+      "label": "最適な結合プランナを模倣",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S1",
+      "locator": "Section 1",
+      "excerpt": "We train this architecture to imitate an optimal coupled planner with global information that is available offline at training time.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-contrib-1",
+      "label": "CNNとGNNを一緒に学習",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "This framework is composed of a convolutional neural network (CNN) that extracts adequate features from local observations, and a graph neural network (GNN) that learns to explicitly communicate these features among robots. By jointly training these two components, the system is able to best determine what information is relevant for the team as a whole, and share this to facilitate efficient path planning.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-contrib-2",
+      "label": "模倣学習と大きなチームへの汎化",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "The proposed model is trained to imitate a centralized coupled planner, and makes use of a novel dataset aggregation method that leverages an online expert to resolve hard cases, thus expediting the learning process. We achieve performance that is close to that of optimal planners in terms of success rate and flowtime (sum of path costs), while also being able to generalize to previously unseen cases, such as larger robot teams and environments.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-novelty-1",
+      "label": "既存の学習手法は通信を扱わない",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "It is note-worthy that none of the aforementioned learning-based approaches consider inter-robot communication, and thus, do not exploit the scalability benefits of fully decentralized approaches. Learning what, how, and when to communicate is key to this aim.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-novelty-2",
+      "label": "共有する情報を一緒に学ぶ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S8",
+      "locator": "Section 8",
+      "excerpt": "The key idea behind our approach is that we jointly trained these two components, enabling the system to best determine what information is relevant for the team of robots as a whole.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-key-idea-1",
+      "label": "CNN・GNN・MLPの構成",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S4.SS1",
+      "locator": "Figure 1 caption",
+      "excerpt": "(ii) The decentralized framework consists of a CNN to extract observations from the input tensor, a GNN to exchange information between the neighboring agents, and an MLP to predict the actions.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-key-idea-2",
+      "label": "通信半径内でKホップ共有",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S5.SS2",
+      "locator": "Section 5.2",
+      "excerpt": "Each individual robot communicates its compressed observation vector ${\\tilde{\\mathbf{x}}}_{t}^{i}$ with neighboring robots within its communication radius $r_{\\mathrm{COMM}}$ over the multi-hop communication network, whereby the number of executed hops is limited by $K$.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-validation-1",
+      "label": "台数とホップ数Kを変える",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S6.SS3.SSS1",
+      "locator": "Section 6.3.1",
+      "excerpt": "For each panel, we train a model for $N\\in[4,6,8,10,12]$, and test it on instances of the same robot team size. In each experiment, we vary the number of communication hops ($K\\in[1,2,3]$).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-validation-2",
+      "label": "10台で学習し60台で試験",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S6.SS3.SSS2",
+      "locator": "Section 6.3.2",
+      "excerpt": "We train the GNN ($K\\in[2,3]$) with and without the online expert (OE) implementation on 10 robots, and test it on 60 robots in $50\\times 50$ environments, respectively.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-discussion-1",
+      "label": "ライブロックで成功率100%未満",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S7",
+      "locator": "Section 7",
+      "excerpt": "Secondly, inter-robot live-locks and position swaps remain a challenge impeding 100% success.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-discussion-2",
+      "label": "衝突回避は別機構で保証",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S5.SS7",
+      "locator": "Section 5.7",
+      "excerpt": "Since it is not guaranteed that robots learn collision-free paths, we require this additional mechanism to guarantee that no collisions take place.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-fact-success-rate",
+      "label": "成功率の定義",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S6.SS1",
+      "locator": "Section 6.1",
+      "excerpt": "1) Success Rate ($\\alpha$) $=n_{\\mathrm{success}}/n$, is the proportion of successful cases over the total number of tested cases $n$. A case is considered successful (complete) when all robots reach their goal prior to the timeout;",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-fact-family-learned",
+      "label": "模倣学習と強化学習の手法",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "Also in recent work, Sartoretti et al. (Sartoretti et al., 2019) propose a hybrid learning-based method called PRIMAL for multi-agent path-finding that uses both imitation learning (based on an expert algorithm) and multi-agent reinforcement learning.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-fact-communication",
+      "label": "情報共有の仕方が未解決",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "The manner in which information is shared is crucial to the system’s performance, yet is not well addressed by current machine learning approaches.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-fact-gnn-mapf",
+      "label": "近傍通信のGNNを模倣で学習",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S4",
+      "locator": "Section 4",
+      "excerpt": "In order to guarantee that the mapping ${\\mathcal{F}}$ is restricted to communications only among nearby robots, we parametrize it by means of a GNN, which is a naturally decentralized solution (Sec. 4.2). We then train this GNN to learn appropriate actions that contribute to the global objective by means of supervised learning through an expert algorithm (i.e., imitation learning) (Sec. 5.5).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-fact-claim-gnn",
+      "label": "最適プランナに近い性能",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "We achieve performance that is close to that of optimal planners in terms of success rate and flowtime (sum of path costs), while also being able to generalize to previously unseen cases, such as larger robot teams and environments.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-gnn-fact-kw-gnn",
+      "label": "ロボットをノードとするグラフ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1912.06095#S2",
+      "locator": "Section 2",
+      "excerpt": "They capture the relational aspect of robot communication and coordination by modeling the collective robot system as a graph: each robot is a node, and edges represent communication links (Prorok, 2018).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:05.340Z",
+      "content_hash": "sha256:32cbc69b2dc1b125547b4955c8cd3b83def148de5503dded8d40b9364806a549",
+      "origin": "paper-gnn"
+    },
+    {
+      "id": "ft-ml-cbs-summary-1",
+      "label": "CBSの衝突選択を学習する枠組み",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx7",
+      "locator": "Section 7",
+      "excerpt": "In this paper, we proposed the first ML framework for conflict selection in CBS.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-summary-2",
+      "label": "オラクルの判断を模倣する",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx7",
+      "locator": "Section 7",
+      "excerpt": "Our objective was to imitate the decisions made by the oracle that picks the conflict that produces the tightest lower bound on the optimal cost in its child nodes.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-contrib-oracle",
+      "label": "木が小さくなる遅いオラクル",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx1",
+      "locator": "Section 1",
+      "excerpt": "In this paper, we propose a new conflict-selection oracle that results in smaller CT sizes than the one used in previous work but is much more computationally expensive since it has to compute 1-step lookahead heuristics for each conflict.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-novelty-prior",
+      "label": "従来は3クラスで優先付け",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx1",
+      "locator": "Section 1",
+      "excerpt": "(Boyarski et al. 2015) proposes to prioritize conflicts by categorizing them into three classes and always picking one from the top class.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-novelty-learned",
+      "label": "固定規則を学習した規則に置換",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx1",
+      "locator": "Section 1",
+      "excerpt": "Compared to previous work on conflict selection in CBS, our approach is able to discover more efficient rules for conflict selection that significantly improve the success rate and reduce the CT size and the runtime of the search. Our method is flexible since we are able to customize the conflict-selection strategies easily for different environments and do not need to hard-code different rules for different scenarios.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-key-idea-imitate",
+      "label": "特徴量と順位を記録して学習",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx5",
+      "locator": "Section 5",
+      "excerpt": "The key idea is that, by observing and recording the features and ranks of conflicts determined by the scores given by the oracle, we learn a ranking function that ranks the conflicts as similarly as possible to the oracle without actually probing the oracle.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-key-idea-replace",
+      "label": "探索中は学習した関数で選ぶ",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx5.SSx3",
+      "locator": "Section 5 (ML-Guided Search)",
+      "excerpt": "After offline data collection and ranking function $f(\\cdot)$ learning, we replace the oracle for conflict selection in CBS with the learned function.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-validation-setup",
+      "label": "6地図でCBSH2と比較",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx6",
+      "locator": "Section 6",
+      "excerpt": "We run CBSH2, ML-S and ML-O on randomly generated instances on each of the six maps and vary the number of agents. The runtime limits are set to 60 minutes for the two largest maps (the city and game maps) and 10 minutes for the others.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-validation-result",
+      "label": "ほぼ全条件で全指標が上回る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx6",
+      "locator": "Section 6",
+      "excerpt": "ML-S and ML-O dominate CBSH2 in all metrics on all maps for almost all cases.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-discussion-generalize",
+      "label": "エージェント数と未知の地図へ汎化",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx7",
+      "locator": "Section 7",
+      "excerpt": "The extensive experimental results showed that our learned ranking function can generalize across different numbers of agents on a fixed graph (map) or unseen graphs.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-discussion-future",
+      "label": "より良いオラクルと技法統合が課題",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx7",
+      "locator": "Section 7",
+      "excerpt": "We are also interested in discovering a better oracle for conflict selection from which we can learn. We expect our method to work well with other newly-developed techniques, such as symmetry breaking techniques (Li et al. 2020), and it remains future work to incorporate those techniques into the framework of CBSH2 to work with our ML-guided conflict selection.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-fact-tree",
+      "label": "衝突選択で制約木の大きさが変わる",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx1",
+      "locator": "Section 1",
+      "excerpt": "Picking good conflicts is important, and a good strategy for conflict selection could have a big impact on the efficiency of CBS by reducing both the size of CT and its runtime.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-fact-family-cbs",
+      "label": "制約を加えて再計画する2段階探索",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx1",
+      "locator": "Section 1",
+      "excerpt": "The key idea behind CBS is to use a bi-level search that resolves conflicts by adding constraints at the high level and replans paths for agents respecting these constraints at the low level.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-fact-cbs-baseline",
+      "label": "CBSH2を比較の基準に使う",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx6",
+      "locator": "Section 6",
+      "excerpt": "We use the C++ code for CBSH2 with the WDG heuristic made available by (Li et al. 2019a) as our CBS version. We compare against CBSH2+ $O_{0}$ as baseline since $O_{0}$ is the most commonly used conflict-selection oracle.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-fact-ml-cbs",
+      "label": "オラクルを模倣する順位関数で選択",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx1",
+      "locator": "Section 1",
+      "excerpt": "In the second phase, we learn a ranking function for conflicts in a supervised fashion that imitates the oracle but is faster to evaluate. In the last phase, we use the learned ranking function to replace the oracle and select conflicts in CBS to solve unseen instances.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-ml-cbs-fact-claim-ml-cbs",
+      "label": "成功率・実行時間・木の大きさを改善",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2012.06005#Sx6",
+      "locator": "Section 6",
+      "excerpt": "Overall, CBSH2, ML-S and ML-O solve 3,326 (55.43%), 3,779 (62.98%) and 3,758 (62.63%) instances out of 6,000 we tested, respectively. The improvement of ML-S and ML-O over CBSH2 on instances commonly solved by all solvers is 10.3% to 64.4% for the runtime and 13.0% to 68.2% for the CT sizes across different maps.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:20.401Z",
+      "content_hash": "sha256:e8d6f3fa262bab15ec1f267f46373c387679cb0de6b2e6ee21750671baace50c",
+      "origin": "paper-ml-cbs"
+    },
+    {
+      "id": "ft-mapf-benchmark-summary-aim",
+      "label": "統一用語とベンチマークの提示",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S1",
+      "locator": "Section 1",
+      "excerpt": "This paper aims to address this growing challenge by introducing a unified terminology to describe MAPF problems, and by establishing common benchmarks and evaluation measures for evaluating MAPF algorithms.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-contrib-terminology",
+      "label": "古典的MAPFの前提を定義",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S5",
+      "locator": "Section 5",
+      "excerpt": "In the first part of this paper, we defined common assumptions in the “classical” Multi-Agent Pathfinding (MAPF) problem and discuss the relationships between them.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-contrib-grid-benchmark",
+      "label": "新しい格子ベンチマーク",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S1",
+      "locator": "Section 1",
+      "excerpt": "In the second part of this paper, we introduce a new grid MAPF benchmark to the community. This benchmark includes a diverse set of maps, as well as generated source and target vertices.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-novelty-terminology-gap",
+      "label": "用語の不一致で比較基準が困難",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S1",
+      "locator": "Section 1",
+      "excerpt": "Even in cases where the assumptions and objective function are described formally, there are still differences in used MAPF terminology. This makes it difficult to navigate through and understand existing literature and to establish appropriate baselines for comparison.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-novelty-common-ground",
+      "label": "共通の土台としての用語",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S1",
+      "locator": "Section 1",
+      "excerpt": "We hope this terminology will serve as a common ground for future researchers, and will be used by them to describe their contributions succinctly and accurately.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-key-idea-conflicts",
+      "label": "許す衝突の種類を指定",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S2.SS1",
+      "locator": "Section 2.1",
+      "excerpt": "To properly define a classical MAPF problem, one needs to specify which types of conflicts are allowed in a solution.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-key-idea-objectives",
+      "label": "makespanと和コスト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S2.SS3",
+      "locator": "Section 2.3",
+      "excerpt": "The two most common functions used for evaluating a solution in classical MAPF are makespan and sum of costs.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-validation-icbs-30s",
+      "label": "ICBSを30秒制限で実行",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S4.SS3.SSSx1",
+      "locator": "Table 1 caption",
+      "excerpt": "Table 1: Results for running ICBS with a timeout of 30 seconds on the grid MAPF benchmark.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-validation-unsolved",
+      "label": "時間内に解けない問題が多い",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S4.SS3.SSSx1",
+      "locator": "Section 4.3",
+      "excerpt": "As can be seen, while ICBS is able to solve many problems, the problems in this benchmark are complex enough so that there are many problems that cannot be solved by ICBS in the allotted time. Thus, the problems in this grid MAPF benchmark are hard enough to pose a challenge for contemporary MAPF solvers.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-discussion-scope",
+      "label": "用語と実験設定の提案が目的",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S5",
+      "locator": "Section 5",
+      "excerpt": "In the second part of this paper, we introduced a new suite of MAPF benchmark problems and point to another set of MAPF benchmark problems. Both parts of this paper are intended to propose a common language, terminology, and experimental setting for MAPF research.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-fact-collision",
+      "label": "衝突なしで実行できる解",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S2.SS1",
+      "locator": "Section 2.1",
+      "excerpt": "The overarching goal of MAPF solvers is to find a solution, i.e., a single-agent plan for each agent, that can be executed without collisions. To achieve this, MAPF solvers use the notion of conflicts during planning, where a MAPF solution is called valid iff there is no conflict between any two single-agent plans.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-fact-soc",
+      "label": "和コストの定義",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S2.SS3",
+      "locator": "Section 2.3",
+      "excerpt": "Sum of costs. The sum of time steps required by each agent to reach its target.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-fact-makespan",
+      "label": "makespanの定義",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S2.SS3",
+      "locator": "Section 2.3",
+      "excerpt": "Makespan. The number of time steps required for all agents to reach their target.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-mapf-benchmark-fact-grid-procedure",
+      "label": "台数を順に増やして評価",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/1906.08291#S4.SS3.SSSx1",
+      "locator": "Section 4.3",
+      "excerpt": "For a chosen MAPF algorithm, map type, and scenario, try to solve as many agents as possible in each scenario, adding them in consecutive order.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:35.549Z",
+      "content_hash": "sha256:d8e0be1909737a7d1402ad4f2867d844cabbdd6fbca4bb9fd02150e8ec4c4e75",
+      "origin": "paper-mapf-benchmark"
+    },
+    {
+      "id": "ft-rhcr-summary-conclusion",
+      "label": "RHCRで時間窓MAPFの列に分解",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S6",
+      "locator": "Section 6",
+      "excerpt": "In this paper, we proposed Rolling-Horizon Collision Resolution (RHCR) for solving lifelong MAPF by decomposing it into a sequence of Windowed MAPF instances.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-contrib-framework",
+      "label": "枠組みRHCRの提案",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S1",
+      "locator": "Section 1",
+      "excerpt": "In this paper, we propose a new framework Rolling-Horizon Collision Resolution (RHCR) for solving lifelong MAPF where we decompose lifelong MAPF into a sequence of Windowed MAPF instances and replan paths once every $h$ timesteps (replanning period $h$ is user-specified) for interleaving planning and execution.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-contrib-solvers",
+      "label": "4種のMAPFソルバで評価",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S1",
+      "locator": "Section 1",
+      "excerpt": "We evaluate RHCR with various MAPF solvers, namely CA* (Silver 2005) (incomplete and suboptimal), PBS (Ma et al. 2019) (incomplete and suboptimal), ECBS (Barer et al. 2014) (complete and bounded suboptimal), and CBS (Sharon et al. 2015) (complete and optimal).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-novelty-whca",
+      "label": "WHCA*との違い",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S2.SS3",
+      "locator": "Section 2.3",
+      "excerpt": "In this paper, we showcase the benefits of applying this idea to lifelong MAPF and other MAPF solvers. In particular, RHCR yields the benefits of lower computational costs for planning with bounded horizons while keeping the agents busy and yet, unlike WHCA* for regular MAPF, decreasing the solution quality only slightly.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-novelty-pliable",
+      "label": "新しい目標に適応する計画",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S1",
+      "locator": "Section 1",
+      "excerpt": "Second, it generates pliable plans that adapt to continually arriving new goal locations. In fact, resolving collisions in the entire time horizon (i.e., $w=\\infty$) is often unnecessary since the paths of the agents can change as new goal locations arrive.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-key-idea-params",
+      "label": "時間窓wと再計画周期h",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S4",
+      "locator": "Section 4",
+      "excerpt": "The time horizon $w$ specifies that the Windowed MAPF solver has to resolve collisions within a time horizon of $w$ timesteps. The replanning period $h$ specifies that the Windowed MAPF solver needs to replan paths once every $h$ timesteps.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-key-idea-episode",
+      "label": "計画してh步動かす手順",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S4",
+      "locator": "Section 4",
+      "excerpt": "Once the start locations and the goal location sequences for all agents require no more updates, RHCR calls a Windowed MAPF solver to find paths for all agents that move them from their start locations to all their goal locations in the order given by their goal location sequences and are collision-free for the first $w$ timesteps. Finally, it moves the agents for $h$ timesteps along the generated paths and remove the visited goal locations from their goal location sequences.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-validation-fulfillment",
+      "label": "倉庫で既存2手法を上回る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S5.SS1",
+      "locator": "Section 5.1",
+      "excerpt": "In terms of throughput, RHCR outperforms the reserving dummy path method, which in turn outperforms the holding endpoints method.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-validation-sorting",
+      "label": "小さいwで最大6倍高速",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S5.SS2",
+      "locator": "Section 5.2",
+      "excerpt": "In all cases, small values of $w$ speed up RHCR by up to a factor of 6 without compromising the throughput. Small values of $w$ also yield scalability with respect to the number of agents, as indicated in both tables by missing “-”.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-discussion-deadlock",
+      "label": "短すぎる窓でデッドロック",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S4.SS3",
+      "locator": "Section 4.3",
+      "excerpt": "Nevertheless, the bounded-horizon method also has a drawback since using too small a value for the time horizon may generate deadlocks that prevent agents from reaching their goal locations, as shown in Example 2.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-discussion-completeness",
+      "label": "完全性も最適性も保証なし",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S6",
+      "locator": "Section 6",
+      "excerpt": "Although RHCR does not guarantee completeness or optimality, we empirically demonstrated its success on fulfillment warehouse maps and sorting center maps.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-fact-lifelong",
+      "label": "lifelong MAPFの定義",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S1",
+      "locator": "Section 1",
+      "excerpt": "Typically, after an agent reaches its goal location, it does not stop and wait there forever. Instead, it is assigned a new goal location and required to keep moving, which is referred to as lifelong MAPF (Ma et al. 2017) and characterized by agents constantly being assigned new goal locations.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-rhcr-fact-claim-rhcr",
+      "label": "1,000台まで高スループット",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://arxiv.org/html/2005.07371#S6",
+      "locator": "Section 6",
+      "excerpt": "We demonstrated its scalability up to 1,000 agents while also producing solutions of high throughput.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:26:51.794Z",
+      "content_hash": "sha256:618723f2f45700d4c1eb9df305e3eb7a84f94f7ce2f820286f828ce58914dfe0",
+      "origin": "paper-rhcr"
+    },
+    {
+      "id": "ft-cbs-2012-summary",
+      "label": "CBSの2段階の構成",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "Introduction",
+      "excerpt": "CBS is a two-level algorithm where the high level search is performed in a constraint tree (CT) whose nodes include constraints on time and location for a single agent.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-novelty",
+      "label": "探索木は衝突の数で増える",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "Introduction",
+      "excerpt": "Unlike A*-based searches where the search tree is exponential in the number of agents, the high-level search tree of CBS is exponential in the number of conflicts encountered during the solving process.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-key-idea",
+      "label": "子は制約を1つ足す",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "High-level: Search the Constraint Tree (CT)",
+      "excerpt": "The child of a node in the CT inherits the constraints of the parent and adds one new constraint for one agent.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-example",
+      "label": "衝突から2つの子を作る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "CBS Example",
+      "excerpt": "As a result, the root is declared as non-goal and two children are generated in order to resolve the conflict (Line 11).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-speedup",
+      "label": "最大で1桁速い",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "Introduction",
+      "excerpt": "In many cases, CBS outperforms other optimal solvers by up to a full order of magnitude.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-dao",
+      "label": "DAOの地図で展開数がA*より少ない",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "Experimental results (DAO maps)",
+      "excerpt": "Table 1 shows the number of states expanded by CBS and by A* for the three DAO maps presented in Figure 3 (left). Clearly, CBS expands less states than A* in all these cases.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-bottleneck",
+      "label": "ボトルネックと開けた空間",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "Comparison with other algorithms",
+      "excerpt": "If there are more bottlenecks, CBS will have advantage over the A*-based approaches. If there are more open spaces, A* will have advantage over CBS.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-cbs-2012-structure",
+      "label": "性能は問題の構造に依存",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/AAAI/article/download/8140/7998",
+      "locator": "Discussion and future work",
+      "excerpt": "The performance of CBS depends on the structure of the problem.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:9b8d7bd9b29e62184f2acd07822ba635fb72364bac7e79fd1fe95a274334a118",
+      "origin": "paper-cbs-2012"
+    },
+    {
+      "id": "ft-ecbs-summary",
+      "label": "CBSにもとづく準最適ソルバ群",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/download/18315/18106",
+      "locator": "Conclusions",
+      "excerpt": "We presented a range of unbounded and bounded suboptimal MAPF solvers based on the CBS algorithm. Our bounded suboptimal solvers, BCBS and ECBS, use a focal list in potentially both of CBS’s levels.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:010afb19ceba9a8f9c7a083c4267aba33199d0099b9cb8f40fee2b47c15346a0",
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "ft-ecbs-key-idea",
+      "label": "フォーカル探索の2つのリスト",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/download/18315/18106",
+      "locator": "Bounded Suboptimal CBS",
+      "excerpt": "Focal search maintains two lists of nodes: OPEN and FOCAL. OPEN is the regular OPEN-list of A*. FOCAL contains a subset of nodes from OPEN.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:010afb19ceba9a8f9c7a083c4267aba33199d0099b9cb8f40fee2b47c15346a0",
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "ft-ecbs-novelty",
+      "label": "倍率の固定配分をやめる",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/download/18315/18106",
+      "locator": "Enhanced CBS",
+      "excerpt": "Furthermore, BCBS fixes wH and wL throughout the search; this might be inefficient. To address these issues we propose Enhanced CBS (ECBS).",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:010afb19ceba9a8f9c7a083c4267aba33199d0099b9cb8f40fee2b47c15346a0",
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "ft-ecbs-validation",
+      "label": "ECBSが他の変種を上回る",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/download/18315/18106",
+      "locator": "Experimental results",
+      "excerpt": "The success rates on the same three domains are shown in Figure 3. The most evident observation is that ECBS outperforms all the other variants.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:010afb19ceba9a8f9c7a083c4267aba33199d0099b9cb8f40fee2b47c15346a0",
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "ft-ecbs-speedup",
+      "label": "上限を保ったまま数桁の高速化",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/download/18315/18106",
+      "locator": "Conclusions",
+      "excerpt": "Experimental results show several orders of magnitude speedups while still guaranteeing a bound on solution quality.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:010afb19ceba9a8f9c7a083c4267aba33199d0099b9cb8f40fee2b47c15346a0",
+      "origin": "paper-ecbs"
+    },
+    {
+      "id": "ft-ecbs-w-domain",
+      "label": "倍率の効き方は領域で違う",
+      "provenance": "fixture",
+      "type": "Evidence",
+      "source_url": "https://ojs.aaai.org/index.php/SOCS/article/download/18315/18106",
+      "locator": "Experimental results",
+      "excerpt": "Different w values are presented for the different domains, as the impact of w varies greatly between domains.",
+      "verification": "verified",
+      "retrieved_at": "2026-10-12T12:38:14Z",
+      "content_hash": "sha256:010afb19ceba9a8f9c7a083c4267aba33199d0099b9cb8f40fee2b47c15346a0",
+      "origin": "paper-ecbs"
     }
   ],
   "relations": [

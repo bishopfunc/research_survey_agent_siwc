@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, validateSnapshot, type Entity } from '../packages/domain/src/index';
-import { assessSurvey } from '../packages/domain/src/survey-assessment';
+import { assessSurvey, findGaps, readingSources } from '../packages/domain/src/survey-assessment';
 
 const failing = (snapshot: typeof fixture) => assessSurvey(snapshot).filter(c => !c.pass).map(c => c.id);
 /** The sample grown to the target scale: about 50 papers across 2008–2024, achievement for every issue. */
@@ -38,3 +38,20 @@ test('duplicates, unidentified or unplaced papers, short spans and unclassified 
   ];
   for (const [id, mutate] of cases) { const s = scaled(); mutate(s); assert.ok(failing(s).includes(id), `${id}: ${failing(s).join(',')}`); }
 });
+test('facts come from the full text: a reading sourced only by the abstract is not read in depth and is a gap to fill', () => {
+  // The sample's readings cite verified full-text excerpts (a section, table or caption, with the page hash).
+  for (const paper of fixture.entities.filter((e): e is Extract<Entity, { type: 'Paper' }> => e.type === 'Paper' && !!e.reading?.cites)) {
+    const { evidence, fromBody } = readingSources(fixture, paper);
+    assert.ok(fromBody, `${paper.id} cites the full text`);
+    assert.ok(evidence.filter(e => !/^abstract/i.test(e.locator)).every(e => e.verification === 'verified' && e.content_hash), paper.id);
+  }
+  const s = structuredClone(fixture);
+  const lacam = s.entities.find(e => e.id === 'paper-lacam');
+  if (lacam?.type !== 'Paper' || !lacam.reading) throw Error('fixture changed');
+  lacam.reading.cites = { summary: ['src-lacam'] }; lacam.reading.evidence = ['src-lacam'];
+  assert.ok(!readingSources(s, lacam).fromBody);
+  assert.ok(findGaps(s).some(g => g.target === 'paper-lacam' && g.field === 'reading.cites'));
+  // Only the journal edition of CBS, whose full text is not open, still has a reading without full-text sources.
+  assert.deepEqual(findGaps(fixture).filter(g => g.field === 'reading.cites').map(g => g.target), ['paper-cbs']);
+});
+

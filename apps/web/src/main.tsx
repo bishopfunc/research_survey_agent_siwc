@@ -138,19 +138,19 @@ function Overview({ entity, snapshot, onSelect }: { entity: Entity; snapshot: Su
 const OVERVIEW_TYPES = new Set(['Domain', 'Concept', 'Issue', 'Method', 'Keyword', 'Resource', 'Tutorial']);
 /** A paper's detail: 概要, 要旨, 解説, 貢献, 図解, 主張, 事実と出典, 関連 and メタ情報, all at the same level. Every reading field shows its
  * own sources when the reading has per-field sources; an older reading lists its sources once at the end of 解説. */
-function PaperDetail({ paper, snapshot, preview, onSelect, claims, evidence, knowledge, related, refreshDisabled, onRefreshCitation }: { paper: Paper; snapshot: SurveySnapshot; preview: boolean; onSelect: (id: string) => void; claims: Claim[]; evidence: (claim: Claim) => string | undefined; knowledge: Extract<Entity, { type: 'Keyword' }>[]; related: React.ReactNode; refreshDisabled: boolean; onRefreshCitation: () => Promise<void> }) {
+function PaperDetail({ paper, snapshot, preview, onSelect, claims, evidence, knowledge, related, refreshDisabled, onUpdate }: { paper: Paper; snapshot: SurveySnapshot; preview: boolean; onSelect: (id: string) => void; claims: Claim[]; evidence: (claim: Claim) => string | undefined; knowledge: Extract<Entity, { type: 'Keyword' }>[]; related: React.ReactNode; refreshDisabled: boolean; onUpdate: () => Promise<void> }) {
   const arxiv = useArxivData(arxivIdOf(paper), preview);
   const [refreshing, setRefreshing] = useState(false);
   const reading = paper.reading, cites = reading?.cites;
   const sources = (ids: string[] | undefined) => cites ? <Sources ids={ids ?? []} snapshot={snapshot} onSelect={onSelect}/> : null;
-  // 最新を取得: the arXiv page past the saved result and this paper's citation count, together.
+  // この論文を更新: the arXiv page past the saved result, and the paper's empty fields and citation count, together.
   async function refresh() {
     setRefreshing(true);
-    try { await Promise.all([arxivIdOf(paper) ? arxiv.load(true) : Promise.resolve(false), onRefreshCitation()]); } finally { setRefreshing(false); }
+    try { await Promise.all([arxivIdOf(paper) ? arxiv.load(true) : Promise.resolve(false), onUpdate()]); } finally { setRefreshing(false); }
   }
   const part = (label: string, body: React.ReactNode, className = '') => <section className={`detail-part ${className}`} aria-label={label}><h3 className="detail-part-heading">{label}</h3>{body}</section>;
   return <>
-    <div className="detail-toolbar"><button className="toolbar-button" disabled={refreshing || refreshDisabled} onClick={() => void refresh()}><Icon name="refresh"/>{refreshing ? '取得中…' : '最新を取得'}</button></div>
+    <div className="detail-toolbar"><button className="toolbar-button" disabled={refreshing || refreshDisabled} onClick={() => void refresh()}><Icon name="refresh"/>{refreshing ? '更新中…' : 'この論文を更新'}</button></div>
     <Overview entity={paper} snapshot={snapshot} onSelect={onSelect}/>
     {part('要旨', <PaperAbstract key={`abstract-${paper.id}`} paper={paper}/>)}
     {part('解説', <div className="paper-reading">
@@ -244,7 +244,16 @@ function App() {
   const [sideWidth, setSideWidth] = useState(() => storedWidth(SIDE_WIDTH));
   useEffect(() => { try { localStorage.setItem(SIDEBAR_WIDTH.key, String(sidebarWidth)); localStorage.setItem(SIDE_WIDTH.key, String(sideWidth)); } catch { /* per-viewer preference only */ } }, [sidebarWidth, sideWidth]);
   function setSidePanel(collapsedNext: boolean) { setSideCollapsed(collapsedNext); if (!collapsedNext) setStartHidden(false); try { localStorage.setItem(SIDE_KEY, collapsedNext ? '1' : '0'); } catch { /* per-viewer preference only */ } }
-  function openSide(view: 'detail' | 'chat') { setSide(view); setSidePanel(false); }
+  // The right panel holds チャット and 詳細 as separate tabs, each closed with ×; closing both leaves the rail to reopen them.
+  const [sideTabs, setSideTabs] = useState<('chat' | 'detail')[]>(['chat', 'detail']);
+  /** Shows a tab of the right panel (opening it if it was closed) without unfolding a folded panel. */
+  function showSideTab(view: 'detail' | 'chat') { setSideTabs(tabs => tabs.includes(view) ? tabs : [...tabs, view]); setSide(view); }
+  function openSide(view: 'detail' | 'chat') { showSideTab(view); setSidePanel(false); }
+  function closeSideTab(view: 'detail' | 'chat') {
+    const rest = sideTabs.filter(t => t !== view);
+    setSideTabs(rest);
+    if (!rest.length) setSidePanel(true); else if (side === view) setSide(rest[0]);
+  }
   // The items shown in the detail before the current one, for its back button; a collection starts its own.
   const [trail, setTrail] = useState<string[]>([]);
   useEffect(() => { setTrail([]); }, [workspace.active_branch]);
@@ -261,7 +270,7 @@ function App() {
   const [agent, setAgent] = useState('Codexの状態を確認中');
   const [agentReady, setAgentReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [citing, setCiting] = useState(false);
+  const [updating, setUpdating] = useState(false);
   // Paper cache: reuse stored papers (this survey's and the other collections') instead of re-reading them. Per-viewer preference.
   const [paperCache, setPaperCache] = useState(() => { try { return localStorage.getItem(CACHE_KEY) !== '0'; } catch { return true; } });
   function togglePaperCache() { setPaperCache(on => { try { localStorage.setItem(CACHE_KEY, on ? '0' : '1'); } catch { /* per-viewer preference only */ } return !on; }); }
@@ -368,7 +377,7 @@ function App() {
     // A deleted collection's run would hold the single Codex slot; once its undo is dropped here, cancel it now.
     flushCancel();
     // A new survey shows its trace under the input; the right chat follows it but stays closed.
-    setSubmitting(true); setUndo(null); if (startingSurvey) setSide('chat'); else openSide('chat');
+    setSubmitting(true); setUndo(null); if (startingSurvey) showSideTab('chat'); else openSide('chat');
     try {
       const others = workspace.branches.filter(b => b.id !== owner).map(b => workspace.commits.find(c => c.id === b.head)?.snapshot).filter((v): v is SurveySnapshot => !!v);
       const result: Run = await request('/api/codex/runs', { instruction: text, base_commit_id: head.id, snapshot, use_library: paperCache, library: paperCache ? buildLibrary(others, snapshot) : [] });
@@ -394,32 +403,35 @@ function App() {
     // Keep a follow-up the user picked or typed while reviewing; only the request that produced this run is cleared.
     if (instruction.trim() === (run.instruction ?? '').trim()) setInstruction('');
   }
-  /** Fetches current citation counts from OpenAlex and saves them, with their source and date, as a new version. */
-  async function updateCitations(pick: (paper: Paper) => boolean = () => true) {
-    if (reviewPreview || historical || citing) return;
+  /** この論文を更新 / すべての論文を更新 (design 0026): fills the papers' empty fields that public sources give mechanically
+   * (bibliography, abstract, code) and takes their current citation counts, saved together as a new version. */
+  async function updatePapers(pick: (paper: Paper) => boolean = () => true) {
+    if (reviewPreview || historical || updating) return;
     const base = head, before = workspace;
     const list = base.snapshot.entities.filter((e): e is Paper => e.type === 'Paper' && pick(e));
     if (!list.length) return;
-    setCiting(true);
+    setUpdating(true);
     try {
-      const found: { source: string; as_of: string; results: { id: string; citation_count: number }[]; not_found: string[]; error: string | null } = await request('/api/citations', { papers: list.map(p => ({ id: p.id, doi: p.doi, arxiv_id: p.arxiv_id, title: p.title, year: p.year })) });
+      const found: { as_of: string; papers: { id: string; fields: Record<string, unknown>; citation: { citation_count: number; citation_source: string; citation_as_of: string } | null }[]; filled: { arxiv: number; openalex: number; code: number }; not_found: string[]; error: string | null; figures_queued?: number } =
+        await request('/api/papers/refresh', { papers: list.map(p => ({ id: p.id, title: p.title, authors: p.authors, year: p.year, venue: p.venue, venue_type: p.venue_type, doi: p.doi, arxiv_id: p.arxiv_id, url: p.url, abstract: p.abstract, abstract_source_url: p.abstract_source_url, code_availability: p.code_availability, code_url: p.code_url, code_checked_at: p.code_checked_at, citation_count: p.citation_count })) });
+      const completed = found.papers.filter(p => Object.keys(p.fields).length).length, counted = found.papers.filter(p => p.citation).length;
       let saved = false;
-      if (found.results.length) guard(() => {
-        // newCommit works on the workspace of this render, so nothing may have changed while OpenAlex answered.
-        if (latestWorkspace.current !== before) { setUndo(null); throw Error('調査が変わったため引用数を保存しませんでした'); }
+      if (completed || counted) guard(() => {
+        // newCommit works on the workspace of this render, so nothing may have changed while the sources answered.
+        if (latestWorkspace.current !== before) { setUndo(null); throw Error('調査が変わったため更新を保存しませんでした'); }
         const next = structuredClone(base.snapshot);
-        for (const r of found.results) { const paper = next.entities.find(e => e.id === r.id); if (paper?.type === 'Paper') Object.assign(paper, { citation_count: r.citation_count, citation_source: found.source, citation_as_of: found.as_of }); }
-        newCommit(next, `引用数を更新（${found.source}・${found.results.length}件）`);
+        for (const r of found.papers) { const paper = next.entities.find(e => e.id === r.id); if (paper?.type === 'Paper') Object.assign(paper, r.fields, r.citation ?? {}); }
+        newCommit(next, `論文を更新（空欄の補完${completed}本・引用数${counted}本）`);
         setUndo(() => () => save(before));
         saved = true;
       });
-      if (found.results.length && !saved) return;
-      const summary = [found.results.length ? `引用数を更新しました（${found.results.length}件）` : '引用数は見つかりませんでした', found.not_found.length ? `未発見 ${found.not_found.length}件` : '', found.error ?? ''].filter(Boolean).join(' · ');
-      setNotice(summary);
-    } catch (e) { setNotice(e instanceof Error ? e.message : '引用数を取得できませんでした'); }
-    finally { setCiting(false); }
+      if ((completed || counted) && !saved) return;
+      const queued = found.figures_queued ?? 0;
+      setNotice([completed || counted ? `更新しました（空欄の補完${completed}本・引用数${counted}本）` : '更新するものはありませんでした', queued ? `arXivの図解を順に取得中（${queued}本・約${Math.ceil(queued * 15 / 60)}分）` : '', found.not_found.length ? `引用数の未発見 ${found.not_found.length}本` : '', found.error ?? ''].filter(Boolean).join(' · '));
+    } catch (e) { setNotice(e instanceof Error ? e.message : '論文を更新できませんでした'); }
+    finally { setUpdating(false); }
   }
-  useEffect(() => { if (citeAfterSave && !citing) { setCiteAfterSave(false); void updateCitations(p => p.citation_count === null); } }, [citeAfterSave, citing, head.id]);
+  useEffect(() => { if (citeAfterSave && !updating) { setCiteAfterSave(false); void updatePapers(p => p.citation_count === null); } }, [citeAfterSave, updating, head.id]);
   function closeRun() {
     if (!run) return;
     const previous = run, owner = branch.id;
@@ -483,7 +495,7 @@ function App() {
   const startingSurvey = !snapshot.entities.length && !historical;
   // A new survey is named after the request typed or running in its chat until research gives it a title (design 0026).
   const provisionalTitle = startingSurvey && snapshot.title === NEW_SURVEY_TITLE ? requestTitle(composerText) : '';
-  const panelCollapsed = sideCollapsed || (startHidden && startingSurvey);
+  const panelCollapsed = sideCollapsed || !sideTabs.length || (startHidden && startingSurvey);
   // Codex's saved research, and the sample's own request and answer.
   const chatHistory = [...history].reverse().filter(c => (c.source === 'codex' || c.source === 'fixture') && c.instruction);
   // Saved research and explanations, in time order; an explanation changes nothing, so it has no version.
@@ -510,7 +522,7 @@ function App() {
   // The running survey and its proposal: in the right chat, or under the input while a new survey is being made.
   const runTurn = run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.skill && skillById(run.skill) && <strong className="run-skill">{skillById(run.skill).label}</strong>}{run.message}</span>{run.status === 'running' ? <button onClick={() => { const owner = branch.id; void request(`/api/codex/runs/${run.id}/cancel`, {}).then((value: Run) => showRun(owner, value)).catch(e => setNotice(e.message)); }} className="run-cancel" aria-label="取消" title="取消"><Icon name="stop"/></button> : <span className="run-actions">{run.status !== 'succeeded' && <button className="run-icon" disabled={!run.instruction || !agentReady || historical || submitting} onClick={() => { const text = run.instruction!; closeRun(); void askCodex(text); }} aria-label="再実行" title="再実行"><Icon name="refresh"/></button>}<button className="run-icon" onClick={closeRun} aria-label="閉じる" title="閉じる"><CloseIcon size={16}/></button></span>}</div>{runTrace}</div>}</div>;
   const sideRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (selected) setSide('detail'); }, [selected]);
+  useEffect(() => { if (selected) showSideTab('detail'); }, [selected]);
   useEffect(() => { if (side === 'chat' && sideRef.current) sideRef.current.scrollTop = sideRef.current.scrollHeight; }, [side, run?.status, run?.trace?.length, chatTurns.length]);
   // A finished explanation moves into the chat history and frees the composer.
   useEffect(() => {
@@ -561,12 +573,12 @@ function App() {
             rowLabel={key => { const issue = key ? issuePapers.issues.get(key) : undefined; return issue ? <RowHeading title={issue.label} term={issue.english_terms?.[0]} overview={overviewOf(issue)} status={achievement(issue.id)} indent={issuePapers.depth.get(issue.id)! * 12} chosen={selected === issue.id} onClick={() => select(issue.id)}/> : <span className="family-none">未分類</span>; }}/></> : <div className="empty">課題なし</div>)}
           {tab === 'issues' && issueView === 'list' && <div className="issue-list">{issues.map(e => <button key={e.id} className={`issue-card ${e.id === selected ? 'chosen' : ''}`} onClick={() => select(e.id)}><div className="card-top">{snapshot.relations.filter(r => r.type === 'part_of' && r.from === e.id).map(r => <small key={r.id}>↳ {linked(r.to)?.label}</small>)}</div><h3>{e.label}</h3>{!!e.english_terms?.length && <p className="english-terms">{e.english_terms.join(' · ')}</p>}<p>{e.description}</p>{(() => { const top = claimsAbout(e.id)[0]; return top && <p className="achievement-line"><span className={`status-chip ${top.status}`}>{statusLabels[top.status]}</span><span>{top.statement}</span></p>; })()}{snapshot.relations.some(r => r.type === 'addresses' && r.to === e.id) && <div className="card-bottom">{snapshot.relations.filter(r => r.type === 'addresses' && r.to === e.id).map(r => <span key={r.id}>{linked(r.from)?.label}</span>)}</div>}</button>)}{!issues.length && <div className="empty">課題なし</div>}</div>}
           {tab === 'tutorial' && <TutorialView snapshot={snapshot} preview={reviewPreview} onSelect={select}/>}
-          {tab === 'papers' && papers.length > 0 && <div className="view-toolbar"><SubTabs label="論文の表示" value={paperView} options={[['all', 'すべて'], ['representative', '代表論文']]} onChange={setPaperView}/><button className="toolbar-button" disabled={citing || historical || reviewPreview} onClick={() => void updateCitations()}><Icon name="refresh"/>{citing ? '更新中…' : '引用数を更新'}</button></div>}
+          {tab === 'papers' && papers.length > 0 && <div className="view-toolbar"><SubTabs label="論文の表示" value={paperView} options={[['all', 'すべて'], ['representative', '代表論文']]} onChange={setPaperView}/><button className="toolbar-button" disabled={updating || historical || reviewPreview} onClick={() => void updatePapers()}><Icon name="refresh"/>{updating ? '更新中…' : 'すべての論文を更新'}</button></div>}
           {tab === 'papers' && <div className="paper-list">{shownPapers.map(p => <button key={p.id} className={`paper-card ${selected === p.id ? 'chosen' : ''}`} onClick={() => select(p.id)}><div className="paper-body"><h3>{p.title}</h3>{p.authors.length > 0 && <p className="paper-authors">{p.authors.slice(0, 3).join(', ')}{p.authors.length > 3 && ' ほか'}</p>}<div className="paper-meta">{paperView === 'representative' && <>{represents.get(p.id)!.methods.length > 0 && <span className="paper-represents">{represents.get(p.id)!.methods.map(m => m.label).join(' · ')}</span>}{represents.get(p.id)!.reasons.map(r => <span key={r} className="importance-chip">{IMPORTANCE_LABELS[r]}</span>)}</>}<span>{p.year ?? '年未取得'}</span><span>{p.venue ?? 'venue未取得'}</span>{p.venue_type && <span>{venueTypes[p.venue_type]}</span>}<span className="paper-tag citations">引用 {p.citation_count ?? '未取得'}</span><span className={`paper-tag code ${p.code_availability ?? 'unknown'}`}>{codeTagLabels[p.code_availability ?? 'unknown']}</span></div><p>{p.one_line_summary}</p></div>{p.representative_figure ? <FigureImage figure={p.representative_figure} compact/> : <CardFigure paper={p}/>}</button>)}{!shownPapers.length && <div className="empty">{paperView === 'representative' && papers.length ? '代表論文なし' : '論文なし'}</div>}</div>}
           {tab === 'keywords' && keywords.length > 0 && <div className="view-toolbar"><SubTabs label="ナレッジの分類" value={activeCategory} options={[['all', 'すべて'], ...Object.entries(keywordCategories).filter(([id]) => (KEYWORD_SECTIONS as readonly string[]).includes(id) || keywords.some(k => k.category === id))] as [typeof categoryFilter, string][]} onChange={setCategoryFilter}/></div>}
           {tab === 'keywords' && <div className="keyword-groups">{(Object.keys(keywordCategories) as (keyof typeof keywordCategories)[]).map(category => [category, shownKeywords.filter(k => k.category === category)] as const).filter(([category, items]) => items.length || ((KEYWORD_SECTIONS as readonly string[]).includes(category) && (activeCategory === 'all' || activeCategory === category))).map(([category, items]) => <section key={category} className="keyword-group"><h3>{keywordCategories[category]}</h3>{items.length ? <div className="keyword-list">{items.map(k => <button key={k.id} className={`keyword-card ${selected === k.id ? 'chosen' : ''}`} onClick={() => select(k.id)}>{(k.aliases.length > 0 || k.as_of) && <div className="card-top"><small>{k.aliases.join(' / ')}</small>{k.as_of && <span className="as-of">{k.as_of}時点</span>}</div>}<h3>{k.label}</h3><p>{k.meaning}</p>{k.papers.length > 0 && <div className="card-bottom">{k.papers.map(id => <span key={id}>{linked(id)?.label ?? id}</span>)}</div>}</button>)}</div> : <p className="muted">見つからず</p>}</section>)}</div>}
         </>}
-        </section>{panelCollapsed ? <aside className="side-panel side-rail" aria-label="詳細とチャット"><button className="side-toggle" aria-expanded={false} aria-label="パネルを開く" title="開く" onClick={() => setSidePanel(false)}><Icon name="panel"/></button><button aria-label="チャットを開く" title="チャット" onClick={() => openSide("chat")}><Icon name="spark"/>{run?.status === "running" && <span className="side-live" aria-label="実行中"/>}</button><button aria-label="詳細を開く" title="詳細" onClick={() => openSide("detail")}><Icon name="layers"/></button></aside> : <aside className="side-panel" aria-label="詳細とチャット"><ResizeHandle label="詳細とチャットの幅" width={sideWidth} limits={SIDE_WIDTH} edge="left" column=".side-panel" onChange={setSideWidth}/><div className="side-tabs" role="tablist" aria-label="右パネル">{(["chat", "detail"] as const).map(id => <button key={id} role="tab" aria-selected={side === id} className={side === id ? "active" : ""} onClick={() => setSide(id)}>{id === "detail" ? "詳細" : "チャット"}{id === "chat" && run?.status === "running" && <span className="side-live" aria-label="実行中"/>}</button>)}<button className="side-toggle" aria-expanded={true} aria-label="パネルを折りたたむ" title="折りたたむ" onClick={() => setSidePanel(true)}><Icon name="panel"/></button></div><div className="side-body" ref={sideRef}>{side === "detail" ? <div className="inspector">{entity ? <>
+        </section>{panelCollapsed ? <aside className="side-panel side-rail" aria-label="詳細とチャット"><button className="side-toggle" aria-expanded={false} aria-label="パネルを開く" title="開く" onClick={() => { setSideTabs(['chat', 'detail']); setSidePanel(false); }}><Icon name="panel"/></button><button aria-label="チャットを開く" title="チャット" onClick={() => openSide("chat")}><Icon name="spark"/>{run?.status === "running" && <span className="side-live" aria-label="実行中"/>}</button><button aria-label="詳細を開く" title="詳細" onClick={() => openSide("detail")}><Icon name="layers"/></button></aside> : <aside className="side-panel" aria-label="詳細とチャット"><ResizeHandle label="詳細とチャットの幅" width={sideWidth} limits={SIDE_WIDTH} edge="left" column=".side-panel" onChange={setSideWidth}/><div className="side-tabs" role="tablist" aria-label="右パネル">{(["chat", "detail"] as const).filter(id => sideTabs.includes(id)).map(id => { const name = id === "detail" ? "詳細" : "チャット"; return <div key={id} className={`side-tab ${side === id ? "active" : ""}`}><button role="tab" aria-selected={side === id} onClick={() => setSide(id)}>{name}{id === "chat" && run?.status === "running" && <span className="side-live" aria-label="実行中"/>}</button><button className="side-tab-close" aria-label={`${name}を閉じる`} title="閉じる" onClick={() => closeSideTab(id)}><CloseIcon size={14}/></button></div>; })}</div><div className="side-body" ref={sideRef}>{side === "detail" ? <div className="inspector">{entity ? <>
           <div className="entity-type"><button className="detail-back" disabled={!backTo} onClick={back} aria-label={backTo ? `戻る：${display(backTo)}` : '戻る'} title={backTo ? `戻る：${display(backTo)}` : '戻る'}><Icon name="back"/></button><span className={`type-chip t-${entity.type}`}>{entityLabels[entity.type]}</span><span>{{fixture:'サンプル',user:'編集済み',codex:'Codexの提案'}[entity.provenance]}</span></div>
           <div className="entity-heading"><h2>{display(entity)}</h2></div>
           {(entity.type === 'Issue' || entity.type === 'Method' || entity.type === 'Concept') && !!entity.english_terms?.length && <p className="english-terms">{entity.english_terms.join(' · ')}</p>}
@@ -574,7 +586,7 @@ function App() {
           {entity.type === 'Paper' && <p className="paper-byline">{[entity.authors.slice(0, 3).join(', ') + (entity.authors.length > 3 ? ' ほか' : ''), entity.year, entity.venue].filter(Boolean).join(' · ')}</p>}
           {entity.type === 'Keyword' && <div className="keyword-meta"><span className="type-chip t-Keyword">{keywordCategories[entity.category]}</span>{entity.as_of && <span className="as-of">{entity.as_of}時点</span>}{entity.aliases.length > 0 && <p className="keyword-aliases">{entity.aliases.join(' / ')}</p>}</div>}
           {OVERVIEW_TYPES.has(entity.type) && <Overview entity={entity} snapshot={snapshot} onSelect={show}/>}
-          {entity.type === 'Paper' && <PaperDetail key={entity.id} paper={entity} snapshot={snapshot} preview={reviewPreview} onSelect={show} claims={entity.claims.map(id => linked(id)).filter((e): e is Claim => e?.type === 'Claim')} evidence={firstExcerpt} knowledge={usedKnowledge(entity.id)} related={related} refreshDisabled={citing || historical || reviewPreview} onRefreshCitation={() => updateCitations(p => p.id === entity.id)}/>}
+          {entity.type === 'Paper' && <PaperDetail key={entity.id} paper={entity} snapshot={snapshot} preview={reviewPreview} onSelect={show} claims={entity.claims.map(id => linked(id)).filter((e): e is Claim => e?.type === 'Claim')} evidence={firstExcerpt} knowledge={usedKnowledge(entity.id)} related={related} refreshDisabled={updating || historical || reviewPreview} onUpdate={() => updatePapers(p => p.id === entity.id)}/>}
           {entity.type === 'Issue' && <section className="detail-part claims" aria-label="達成度"><h3 className="detail-part-heading">達成度</h3>{claimsAbout(entity.id).length ? <ClaimRows claims={claimsAbout(entity.id)} evidence={firstExcerpt} onSelect={show}/> : <p className="muted-label">未調査</p>}</section>}
           {entity.type === 'Claim' && <section className="detail-part" aria-label="主張"><h3 className="detail-part-heading">主張</h3><span className="tag">{statusLabels[entity.status]}</span><p>{entity.statement}</p><Sources ids={entity.evidence} snapshot={snapshot} onSelect={show}/></section>}
           {entity.type === 'Claim' && <section className="detail-part" aria-label="条件"><h3 className="detail-part-heading">条件</h3><dl><dt>Task</dt><dd>{entity.scope.task}</dd><dt>Setting</dt><dd>{entity.scope.setting}</dd><dt>Metric</dt><dd>{entity.scope.metric}</dd><dt>評価時点</dt><dd>{entity.as_of ?? '未取得'}</dd><dt>前提</dt><dd>{entity.scope.assumptions.join(' / ') || '未記入'}</dd><dt>制約</dt><dd>{entity.scope.limitations.join(' / ') || '未記入'}</dd></dl></section>}
