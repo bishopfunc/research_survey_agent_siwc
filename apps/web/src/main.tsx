@@ -18,7 +18,15 @@ function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 
 }
 const reviewPreview = new URLSearchParams(location.search).get('preview') === 'lab';
 const KEY = 'survey-studio.workspace.v1';
+/** Before runs were kept per collection, one pending run was stored here; it is moved to its collection on load. */
 const RUN_KEY = 'survey-studio.pending-run';
+const RUNS_KEY = 'survey-studio.pending-runs';
+function loadPendingRuns(): Record<string, string> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(RUNS_KEY) ?? '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).filter(([, id]) => typeof id === 'string')) : {};
+  } catch { return {}; }
+}
 const SIDEBAR_KEY = 'survey-studio.sidebar-collapsed';
 const SIDE_KEY = 'survey-studio.side-collapsed';
 const SIDEBAR_WIDTH = { key: 'survey-studio.sidebar-width', fallback: 248, min: 184, max: 420 };
@@ -151,8 +159,15 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState<'all' | keyof typeof keywordCategories>('all');
   const [figurePaper,setFigurePaper] = useState<Extract<Entity,{type:'Paper'}>|null>(null);
   const [editing, setEditing] = useState<Entity | null>(null);
-  const [instruction, setInstruction] = useState('');
-  const [side, setSide] = useState<'detail' | 'chat'>(() => !reviewPreview && localStorage.getItem(RUN_KEY) ? 'chat' : 'detail');
+  // Each collection keeps its own draft and its own pending Codex run, so chats never mix between collections.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const instruction = drafts[workspace.active_branch] ?? '';
+  const setInstruction = (text: string) => setDrafts(current => ({ ...current, [workspace.active_branch]: text }));
+  const [pendingRuns, setPendingRuns] = useState<Record<string, string>>(() => reviewPreview ? {} : loadPendingRuns());
+  const runId = pendingRuns[workspace.active_branch] ?? null;
+  function setBranchRun(branchId: string, id: string | null) { setPendingRuns(current => { const next = { ...current }; if (id) next[branchId] = id; else delete next[branchId]; return next; }); }
+  useEffect(() => { if (!reviewPreview) try { localStorage.setItem(RUNS_KEY, JSON.stringify(pendingRuns)); } catch { /* the run stays on the server */ } }, [pendingRuns]);
+  const [side, setSide] = useState<'detail' | 'chat'>(() => !reviewPreview && (loadPendingRuns()[workspace.active_branch] || localStorage.getItem(RUN_KEY)) ? 'chat' : 'detail');
   const [undo, setUndo] = useState<(() => void) | null>(null);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(SIDEBAR_KEY) === '1'; } catch { return false; } });
   const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem(SIDE_KEY) === '1'; } catch { return false; } });
@@ -163,7 +178,6 @@ function App() {
   function openSide(view: 'detail' | 'chat') { setSide(view); setSidePanel(false); }
   function toggleSidebar() { setCollapsed(c => { try { localStorage.setItem(SIDEBAR_KEY, c ? '0' : '1'); } catch { /* per-viewer preference only */ } return !c; }); }
   const [run, setRun] = useState<Run | null>(null);
-  const [runId, setRunId] = useState<string | null>(() => reviewPreview ? null : localStorage.getItem(RUN_KEY));
   const [agent, setAgent] = useState('Codexの状態を確認中');
   const [agentReady, setAgentReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -183,6 +197,20 @@ function App() {
     void request('/api/codex/status').then(data => { setAgent(data.message); setAgentReady(data.chatgpt); }).catch(() => setAgent('Codex接続は npm run dev:poc で利用できます'));
   }, []);
   useEffect(() => {
+    // Move the single pending run of older versions to the collection whose version it was based on.
+    if (reviewPreview) return;
+    let legacy: string | null = null;
+    try { legacy = localStorage.getItem(RUN_KEY); } catch { return; }
+    if (!legacy) return;
+    const id = legacy;
+    const reaches = (head: string, target: string) => { const seen = new Set<string>(), stack = [head]; while (stack.length) { const c = stack.pop()!; if (c === target) return true; if (seen.has(c)) continue; seen.add(c); stack.push(...(workspace.commits.find(x => x.id === c)?.parents ?? [])); } return false; };
+    request(`/api/codex/runs/${id}`).then((found: Run) => {
+      const owner = workspace.branches.find(b => b.head === found.base_commit_id) ?? workspace.branches.find(b => found.base_commit_id && reaches(b.head, found.base_commit_id)) ?? workspace.branches.find(b => b.id === workspace.active_branch);
+      if (owner) setPendingRuns(current => Object.values(current).includes(id) || current[owner.id] ? current : { ...current, [owner.id]: id });
+    }).catch(() => { /* the server no longer has it */ }).finally(() => { try { localStorage.removeItem(RUN_KEY); } catch { /* ignore */ } });
+  }, []);
+  useEffect(() => {
+    setRun(current => current && current.id === runId ? current : null);
     if (!runId) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -192,7 +220,7 @@ function App() {
         if (!active) return;
         setRun(result);
         if (result.status === 'running') timer = setTimeout(poll, 1600);
-      } catch (e) { if (active) { setNotice(e instanceof Error ? e.message : 'run取得失敗'); setRunId(null); localStorage.removeItem(RUN_KEY); } }
+      } catch (e) { if (active) { setNotice(e instanceof Error ? e.message : 'run取得失敗'); setPendingRuns(current => Object.fromEntries(Object.entries(current).filter(([, id]) => id !== runId))); } }
     };
     void poll(); return () => { active = false; clearTimeout(timer); };
   }, [runId]);
@@ -222,7 +250,7 @@ function App() {
     setSubmitting(true); setRun(null); setUndo(null); openSide('chat');
     try {
       const result: Run = await request('/api/codex/runs', { instruction: text, base_commit_id: head.id, snapshot });
-      setRun(result); setRunId(result.id); localStorage.setItem(RUN_KEY, result.id);
+      setRun(result); setBranchRun(branch.id, result.id);
     } catch (e) { setNotice(e instanceof Error ? e.message : 'Codex実行失敗'); }
     finally { setSubmitting(false); }
   }
@@ -232,13 +260,13 @@ function App() {
     // The first research on an empty survey also names its collection after the researched title.
     const title = head.snapshot.entities.length ? null : (run.patch.operations.find(op => op.op === 'set_title') as { title?: string } | undefined)?.title?.slice(0, 40) ?? null;
     newCommit(next, run.patch.message, 'codex', run.patch, title);
-    setRun(null); setRunId(null); localStorage.removeItem(RUN_KEY); setInstruction('');
+    setRun(null); setBranchRun(branch.id, null); setInstruction('');
   }
   function closeRun() {
     if (!run) return;
-    const previous = run;
-    setRun(null); setRunId(null); localStorage.removeItem(RUN_KEY);
-    if (previous.patch) { setUndo(() => () => { setRun(previous); setRunId(previous.id); localStorage.setItem(RUN_KEY, previous.id); }); setNotice('変更案を破棄しました'); }
+    const previous = run, owner = branch.id;
+    setRun(null); setBranchRun(owner, null);
+    if (previous.patch) { setUndo(() => () => { setRun(previous); setBranchRun(owner, previous.id); }); setNotice('変更案を破棄しました'); }
   }
   const lineage = new Set<string>();
   function visit(id: string) { if (lineage.has(id)) return; lineage.add(id); workspace.commits.find(c => c.id === id)?.parents.forEach(visit); }
@@ -262,7 +290,7 @@ function App() {
   const activeCategory = categoryFilter !== 'all' && keywords.some(k => k.category === categoryFilter) ? categoryFilter : 'all';
   const shownKeywords = keywords.filter(k => (activeCategory === 'all' || k.category === activeCategory)).sort((a, b) => keywordOrder.indexOf(a.category) - keywordOrder.indexOf(b.category) || a.label.localeCompare(b.label));
   function removeCollection(id: string) {
-    guard(() => { const previous = workspace; save(deleteBranch(workspace, id)); setViewId(null); setSelected(''); setUndo(() => () => save(previous)); setNotice('コレクションを削除しました'); });
+    guard(() => { const previous = workspace, previousRun = pendingRuns[id]; save(deleteBranch(workspace, id)); setBranchRun(id, null); setViewId(null); setSelected(''); setUndo(() => () => { save(previous); if (previousRun) setBranchRun(id, previousRun); }); setNotice('コレクションを削除しました'); });
   }
   const startingSurvey = !snapshot.entities.length && !historical;
   const chatHistory = [...history].reverse().filter(c => c.source === 'codex' && c.instruction);
