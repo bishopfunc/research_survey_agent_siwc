@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, SURVEY_RESEARCH_INSTRUCTIONS, stageLabel } from '../../../packages/agent/src/research-prompt';
-import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, SURVEY_EDITOR_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
+import { ADDITIONAL_RESEARCH_INSTRUCTIONS, ADDITIONAL_RESEARCH_STEPS, NEW_SURVEY_INSTRUCTIONS, RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, stageLabel } from '../../../packages/agent/src/research-prompt';
+import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REPAIR_PROMPT_VERSION, REPAIR_TIMEOUT_SECONDS, RESEARCH_MODES, SURVEY_RULES_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../../packages/domain/src/index';
 import { buildEvolution } from '../../../packages/domain/src/evolution';
 import './lab.css';
@@ -32,7 +32,7 @@ function fieldType(field: FieldSchema): string {
 }
 const steps = [
   {title:'UI',caption:'テーマ・編集指示',detail:'課題・手法・論文・系譜を同じ調査から表示。フォーム編集も検証して保存する。'},
-  {title:'Codex',caption:'変更案を作成',detail:'ローカルAPIからCodex CLIを起動し、現在の調査と自然言語指示を渡す。'},
+  {title:'Codex',caption:'Web検索で調査',detail:'ローカルAPIからCodex CLIを起動し、今の調査と依頼を渡す。調査が空なら新規調査、中身があれば追加調査のPromptを使う。使える道具はWeb検索で、シェル・ブラウザ操作・開発用AGENTS.mdは渡さない（ローカル画像の表示view_imageはCodexの設定で止められない）。調査中は検索語と思考の見出しを表示する。'},
   {title:'検証',caption:'型・参照・循環',detail:'サーバーで出力を検証し、適用時にはブラウザでも最新のbaseと全グラフを確認する。'},
   {title:'レビュー',caption:'変更前後を確認',detail:'ユーザーが差分を確認する。Codexの提案を自動適用しない。'},
   {title:'Commit',caption:'新しい版を保存',detail:'指示・run・Patch・親版を追跡し、過去版を保持する。PoCの履歴はブラウザ、FigのPNGはローカルサーバーに保存する。'},
@@ -74,29 +74,32 @@ export function Lab() {
     catch { setNotice('保存できませんでした。ブラウザの保存容量を確認してください'); }
   }
   function downloadNotes() {
-    const content = `# Survey Studio 開発レビュー\n\n日付: ${new Date().toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo'})}\n編集Prompt: ${PROMPT_VERSION}\n調査Prompt: ${RESEARCH_PROMPT_VERSION}\nDSL: ${fixture.schema_version}\n\n` + (['ui','prompt','dsl'] as Topic[]).map(t=>`## ${titles[t]}\n\n状態: ${reviews[t].status}\n\n${reviews[t].note || 'メモなし'}\n`).join('\n');
+    const content = `# Survey Studio 開発レビュー\n\n日付: ${new Date().toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo'})}\n共通ルール: ${PROMPT_VERSION}\n新規調査: ${RESEARCH_MODES.new.version} / ${RESEARCH_PROMPT_VERSION}\n追加調査: ${RESEARCH_MODES.additional.version}\nDSL: ${fixture.schema_version}\n\n` + (['ui','prompt','dsl'] as Topic[]).map(t=>`## ${titles[t]}\n\n状態: ${reviews[t].status}\n\n${reviews[t].note || 'メモなし'}\n`).join('\n');
     const url = URL.createObjectURL(new Blob([content],{type:'text/markdown;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='survey-review.md';a.click();URL.revokeObjectURL(url);
   }
   return <div className="lab-shell">
     <header className="lab-header"><a className="lab-wordmark" href="/lab"><span>↗</span>Survey Studio <small>Lab</small></a><div><a href="/">アプリに戻る ↗</a><button onClick={downloadNotes}>メモを書き出す</button></div></header>
     <div className="lab-layout"><aside className="lab-nav"><span>開発レビュー</span><a href="#overview">全体の流れ</a><a href="#ui">01 / UI <small>{reviews.ui.status}</small></a><a href="#prompt">02 / Agent Prompt <small>{reviews.prompt.status}</small></a><a href="#dsl">03 / DSL <small>{reviews.dsl.status}</small></a><div className="lab-review-progress"><strong>{count}<span> / 3</span></strong><p>確認済みの対象</p><small>状態はあなたのレビューメモです。</small></div></aside>
       <main className="lab-content">
-        <section className="lab-intro" id="overview"><div className="lab-kicker">開発レビュー / ローカルPoC</div><div className="lab-intro-heading"><h1>アプリの核を、<br/>ここでレビュー。</h1><p>UIで何を見せるか。Agentに何を任せるか。<br/>調査をどんな構造で残すか。<br/>この3点を、動く画面と実装の定義で確認できます。</p></div><div className="lab-scope"><span>実装済み：表示・編集・変更案・検証・ローカル履歴・PDFからFig抽出</span><span>未実装：自動文献検索・全文調査・論文ライブラリ（DB）・Cloudflareの永続Job</span></div><Architecture selected={step} onSelect={setStep}/></section>
+        <section className="lab-intro" id="overview"><div className="lab-kicker">開発レビュー / ローカルPoC</div><div className="lab-intro-heading"><h1>アプリの核を、<br/>ここでレビュー。</h1><p>UIで何を見せるか。Agentに何を任せるか。<br/>調査をどんな構造で残すか。<br/>この3点を、動く画面と実装の定義で確認できます。</p></div><div className="lab-scope"><span>実装済み：表示・編集・Codexの新規調査と追加調査（Web検索）・検証・ローカル履歴・PDFからFig抽出</span><span>未実装：論文ライブラリ（DB）・PDF全文の読解・取得した原文の照合・Cloudflareの永続Job</span></div><Architecture selected={step} onSelect={setStep}/></section>
 
         <section className="lab-section" id="ui"><div className="lab-section-heading"><div><span className="lab-section-number">UIのレビュー</span><h2>UI <small>何を見せ、どう編集するか</small></h2></div><a href="/?preview=lab" target="_blank" rel="noreferrer">プレビューを開く ↗</a></div>
-          <p className="lab-lede">ResearchRabbitを参考にした配置です。左に調査（コレクション）と課題の階層、上に版の履歴、中央に課題・手法・課題と手法・論文の4つの表示、右に選択した項目のつながり図と詳細を置きます。画面には説明文を置かず、件数と状態（サンプル・未検証、過去の版）は短いラベルで示します。編集はフォームかCodexへの指示で行います。</p>
+          <p className="lab-lede">ResearchRabbitを参考にした配置です。左に調査（コレクション）、上に時計アイコンの版の履歴（日時で表示）とサンプル・新規調査・フォーク、中央に課題・手法・課題と手法・論文の4つの表示、右に選択した項目のつながり図と詳細を置きます。課題は種類で絞り込め、何も選んでいないときは右に課題ツリーを出します。画面には説明文や件数のチップを置かず、件数はタブ、情報の由来（サンプル・Codexの提案・編集済み）は詳細欄、過去の版は履歴で示します。手作業の修正はフォームで、調べものはCodexの「調査」で行います。</p>
           <figure className="lab-live-preview"><iframe src="/?preview=lab" title="保存済み調査から隔離したUIプレビュー" sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy"/><figcaption>実際のアプリを操作できます。変更はこのプレビュー内だけに残り、実Codexの実行は無効です。</figcaption></figure>
           <div className="lab-review-points"><h3>レビューすること</h3><ul><li>「課題と手法」のセルから、課題・手法の説明と関連論文を確認できるか。</li><li>課題の階層と、手法の派生関係を区別して読み取れるか。</li><li>論文から主張・根拠・代表Fig・公開コードへ迷わずたどれるか。</li><li>つながり図の点を選んで、関連する課題・手法・論文へ移動できるか。色と種類の対応が読み取れるか。</li><li>説明文を消しても、操作と状態が伝わるか。</li><li>編集、差分確認、過去版、Forkの操作がわかるか。</li></ul></div><ReviewBox topic="ui" review={reviews.ui} onChange={updateReview}/>
         </section>
 
-        <section className="lab-section" id="prompt"><div className="lab-section-heading"><div><span className="lab-section-number">Agentのレビュー</span><h2>Agent Prompt <small>Codexに何を任せるか</small></h2></div><span className="lab-source-stamp">調査の順序と編集ルール</span></div>
-          <div className="lab-research-plan"><h3>サーベイ調査の順序</h3><p>{RESEARCH_PROMPT_VERSION} · Prompt定義済み / 実調査への接続は未実装</p><div className="lab-prompt-rules">{RESEARCH_STEPS.map(s=>{const parallel=RESEARCH_STEPS.filter(o=>o.stage===s.stage).length>1;return <article key={s.id} className={parallel ? '' : 'lab-stage-solo'}><span>{stageLabel(s)}</span><div><h3>{s.title}{parallel && <small className="lab-parallel">並行</small>}</h3><p>{s.explanation}</p></div></article>;})}</div><details className="lab-prompt-source"><summary>サーベイ調査用Promptを読む</summary><pre>{SURVEY_RESEARCH_INSTRUCTIONS}</pre><p>テーマと調査基準日を渡します。2a・2bは同時に進め、結果を突き合わせてから3へ進みます。サーベイやawesomeは入口とし、主張の根拠は一次論文で確認します。論文ライブラリにある論文は読み直さず、引用した原文はリンク・位置と一緒に残します（ライブラリは設計のみ・未実装）。</p></details></div><h3 className="lab-editor-heading">現在のPoC：調査の編集</h3><p className="lab-source-stamp">{PROMPT_VERSION} · 実行時と共通</p>
-          <p className="lab-lede">現在のAgentは、渡された調査の編集案をつくります。自動検索や全文読解はまだ行いません。生成した変更案は検証し、あなたが適用するまで保存されません。</p>
-          <div className="lab-io"><div><span>INPUT</span><h3>今の調査 ＋ 編集指示</h3><p>例：Learning-based MAPFを、未検証の課題・手法として追加して。</p></div><div><span>OUTPUT</span><h3>対象の版に対する変更案</h3><p>追加・変更・削除の操作、変更理由、どの版を編集するかを返します。</p></div></div>
+        <section className="lab-section" id="prompt"><div className="lab-section-heading"><div><span className="lab-section-number">Agentのレビュー</span><h2>Agent Prompt <small>Codexに何を任せるか</small></h2></div><span className="lab-source-stamp">新規調査・追加調査と共通ルール</span></div>
+          <p className="lab-lede">「調査」ボタンは1つで、CodexがWeb検索で調べた結果を変更案（Patch）で返します。画面では分けず、今の調査が空なら新規調査、中身があれば追加調査のPromptをサーバーが選びます。右上の新規調査は空の調査を作り、入力欄に移ります。変更案は検証し、あなたが保存するまで調査に入りません。</p>
+          <div className="lab-io"><div><span>新規調査（空の調査）</span><h3>テーマ → 最初の版</h3><p>例：VLNの主要課題をサーベイ。{RESEARCH_MODES.new.version} · 上限{RESEARCH_MODES.new.timeoutSeconds/60}分</p></div><div><span>追加調査（中身のある調査）</span><h3>今の調査 ＋ 依頼 → 新しい版</h3><p>例：Learning-based MAPFも入れて。{RESEARCH_MODES.additional.version} · 上限{RESEARCH_MODES.additional.timeoutSeconds/60}分</p></div></div>
+          <div className="lab-research-plan"><h3>新規調査の順序</h3><p>{RESEARCH_PROMPT_VERSION} · 実行時と共通</p><div className="lab-prompt-rules">{RESEARCH_STEPS.map(s=>{const parallel=RESEARCH_STEPS.filter(o=>o.stage===s.stage).length>1;return <article key={s.id} className={parallel ? '' : 'lab-stage-solo'}><span>{stageLabel(s)}</span><div><h3>{s.title}{parallel && <small className="lab-parallel">並行</small>}</h3><p>{s.explanation}</p></div></article>;})}</div><details className="lab-prompt-source"><summary>新規調査の指示を読む</summary><pre>{NEW_SURVEY_INSTRUCTIONS}</pre><p>2a・2bは同時に進め、結果を突き合わせてから3へ進みます。最初の調査は課題4〜10・手法4〜12・論文8〜20件程度に絞ります。学会とawesomeはDSLに専用の型が無いため、URL付きで分野の説明に残します。</p></details></div>
+          <div className="lab-research-plan"><h3>追加調査の進め方</h3><p>{RESEARCH_MODES.additional.version} · 実行時と共通</p><div className="lab-prompt-rules">{ADDITIONAL_RESEARCH_STEPS.map((s,i)=><article key={s.id}><span>{i+1}</span><div><h3>{s.title}</h3><p>{s.explanation}</p></div></article>)}</div><details className="lab-prompt-source"><summary>追加調査の指示を読む</summary><pre>{ADDITIONAL_RESEARCH_INSTRUCTIONS}</pre></details></div>
+          <h3 className="lab-editor-heading">共通のルール</h3><p className="lab-source-stamp">{PROMPT_VERSION} · 実行時と共通</p>
           <div className="lab-prompt-rules">{PROMPT_RULES.map((r,i)=><article key={r.id}><span>{String(i+1).padStart(2,'0')}</span><div><h3>{r.title}</h3><p>{r.explanation}</p></div></article>)}</div>
-          <details className="lab-prompt-source"><summary>実際の英語指示を読む</summary><pre>{SURVEY_EDITOR_INSTRUCTIONS}</pre><p>この後にbase_commit_id、ユーザー指示、現在のsnapshotを渡します。実データや認証情報はここに表示しません。</p></details>
-          <dl className="lab-execution"><div><dt>実行場所</dt><dd>ローカルNode → Codex CLI</dd></div><div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div><div><dt>上限</dt><dd>{CODEX_EXECUTION.maxConcurrent}件ずつ / {CODEX_EXECUTION.timeoutSeconds/60}分</dd></div><div><dt>保存</dt><dd>{CODEX_EXECUTION.appliesAutomatically ? '自動適用' : 'レビュー後に適用'}</dd></div></dl>
-          <div className="lab-review-points"><h3>レビューすること</h3><ul><li>調査対象を広げる指示と、既存情報の修正を扱えているか。</li><li>未検証の情報や生成した概要を、確定した事実にしていないか。</li><li>今後の検索・読解・検証を、どの段階に追加するか。</li></ul></div><ReviewBox topic="prompt" review={reviews.prompt} onChange={updateReview}/>
+          <details className="lab-prompt-source"><summary>修正の指示を読む</summary><pre>{REPAIR_INSTRUCTIONS}</pre><p>修正では、共通ルールのうちページ取得に関するものを除き、返答形式・データの扱い・由来・Fig・解決状態・削除・検証のルールを前に付けます。</p></details>
+          <details className="lab-prompt-source"><summary>実際の英語指示を読む</summary><pre>{SURVEY_RULES_INSTRUCTIONS}</pre><p>この後にモード別の指示、base_commit_id、調査日、依頼、現在の調査（新規調査では空）を渡します。実データや認証情報はここに表示しません。</p></details>
+          <dl className="lab-execution"><div><dt>実行場所</dt><dd>ローカルNode → Codex CLI（リポジトリ外の一時ディレクトリ）</dd></div><div><dt>道具</dt><dd>Web検索（{CODEX_EXECUTION.webSearch}）。シェル・コマンド実行・ブラウザ操作は無効。ローカル画像の表示（view_image）はCodex 0.144.6の設定で止められない</dd></div><div><dt>経過表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示</dd></div><div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div><div><dt>上限</dt><dd>{CODEX_EXECUTION.maxConcurrent}件ずつ</dd></div><div><dt>検証エラー</dt><dd>Codexに1回だけ修正させる（{REPAIR_PROMPT_VERSION}・Web検索なし・上限{REPAIR_TIMEOUT_SECONDS/60}分）</dd></div><div><dt>変更なし</dt><dd>操作が空ならmessageだけ表示し、保存しない</dd></div><div><dt>保存</dt><dd>{CODEX_EXECUTION.appliesAutomatically ? '自動適用' : 'レビュー後に保存'}</dd></div></dl>
+          <div className="lab-review-points"><h3>レビューすること</h3><ul><li>新規調査が、学会→サーベイとawesome（並行）→一次論文の順に調べているか。</li><li>追加調査が依頼の範囲に収まり、調査にある論文を読み直していないか。</li><li>根拠の原文・リンク・書誌情報を作り話で埋めず、未確認として残しているか。</li></ul></div><ReviewBox topic="prompt" review={reviews.prompt} onChange={updateReview}/>
         </section>
 
         <section className="lab-section" id="dsl"><div className="lab-section-heading"><div><span className="lab-section-number">DSLのレビュー</span><h2>DSL <small>調査をどんな構造で残すか</small></h2></div><span className="lab-source-stamp">schema {fixture.schema_version} · 定義から生成</span></div>

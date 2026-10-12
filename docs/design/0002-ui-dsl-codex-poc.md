@@ -56,9 +56,11 @@ Codex提案を自動適用しない。Patch適用後の全snapshotを検証し�
 
 ## Codex実行契約
 
+2026-10-12更新：Codexは編集だけでなくWeb検索で調査し、新規調査と追加調査に分かれた。起動条件・保存・ログは[0012](0012-codex-research-modes.md)を正とする。
+
 `POST /api/codex/runs` は指示とbase/snapshotを受け202でrun IDを返す。`GET /api/codex/runs/:id`で状態をpollし、取消APIを提供する。最大1実行、入力サイズ上限、時間上限を置く。run成果物はGit除外の `.poc/` に保存し、サーバー再起動時に未完了runはinterruptedとして扱う。
 
-CLIにはschemaと現在snapshotを渡し、`--output-schema`の構造化出力を利用する。read-only sandboxと隔離した作業ディレクトリを使い、コマンド引数に指示本文を埋めずstdinから渡す。stdout/stderrの生ログはUIに転送せず、状態と検証済みPatchだけを返す。認証情報は保存しない。論文の検証にはURLとsource locatorを要求し、出典未確認の生成をverifiedにしない。
+CLIにはschemaと現在snapshotを渡し、`--output-schema`の構造化出力を利用する。read-only sandboxと隔離した作業ディレクトリを使い、コマンド引数に指示本文を埋めずstdinから渡す。stdout/stderrの生ログはUIに転送せず、状態と検証済みPatchだけを返す（0012以降は、ログを `.poc/runs/<id>/` に伏せ字付きで保存し、UIにはエラーの短い理由だけを出す）。認証情報は保存しない。論文の検証にはURLとsource locatorを要求し、出典未確認の生成をverifiedにしない。
 
 Codexの構造化出力はJSON Schemaの一部のみを扱うため、非対応のformat/uniqueItems等を除く投影を作る。返却後は元の完全schemaとグラフvalidatorで検証する。PoCではユーザー設定やhooks/MCPを継承せずCLI標準モデルで実行する。
 

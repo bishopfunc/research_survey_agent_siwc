@@ -13,10 +13,43 @@ const shape = ajv.compile<SurveySnapshot>(snapshotSchema);
 const patchShape = ajv.compile<SurveyPatch>(patchSchema);
 export const fixture = fixtureJSON as SurveySnapshot;
 export const emptySurvey = (title: string): SurveySnapshot => ({ schema_version: '0.1.0', title, entities: [], relations: [] });
-const formatErrors = (errors: typeof shape.errors) => (errors ?? []).slice(0, 12).map(e => `${e.instancePath || '/'} ${e.message}`);
+type AjvError = NonNullable<typeof shape.errors>[number];
+const describe = (e: AjvError, prefix = '') => `${prefix}${e.instancePath || (prefix ? '' : '/')} ${e.message}${e.keyword === 'additionalProperties' ? ` (${(e.params as { additionalProperty?: string }).additionalProperty})` : ''}`;
+const entityShape = Object.fromEntries(snapshotSchema.$defs.Entity.anyOf.map(ref => {
+  const name = ref.$ref.split('/').at(-1)!;
+  return [name, ajv.compile({ $defs: snapshotSchema.$defs, $ref: `#/$defs/${name}` })];
+}));
+/** Reports entity errors against the definition its `type` names, so the other branches of the Entity union do not hide the cause. */
+function formatErrors(errors: typeof shape.errors, value: unknown, kind: 'snapshot' | 'patch') {
+  const entities: [unknown, string][] = kind === 'patch'
+    ? ((value as { operations?: unknown[] })?.operations ?? []).flatMap((op, i) => op && typeof op === 'object' && 'entity' in op ? [[(op as { entity: unknown }).entity, `/operations/${i}/entity`] as [unknown, string]] : [])
+    : ((value as { entities?: unknown[] })?.entities ?? []).map((e, i) => [e, `/entities/${i}`] as [unknown, string]);
+  const precise: string[] = []; const covered: string[] = [];
+  for (const [entity, path] of entities) {
+    const check = entityShape[String((entity as { type?: unknown })?.type)];
+    if (!check) continue;
+    covered.push(path);
+    if (!check(entity)) {
+      precise.push(...(check.errors ?? []).map(e => describe(e, path)));
+      // The other operation variants (relation, id, title…) only add noise once the entity error is known.
+      if (kind === 'patch') covered.push(path.replace(/\/entity$/, ''));
+    }
+  }
+  const generic = (errors ?? []).filter(e => !covered.some(path => e.instancePath === path || e.instancePath.startsWith(`${path}/`))).map(e => describe(e));
+  return [...new Set([...precise, ...generic])].slice(0, 12);
+}
 
+/** Allowed entity types at each end of a typed relation (from, to). Relations not listed accept any entity. Shared with the agent prompt. */
+export const RELATION_ENDPOINTS: Partial<Record<Relation['type'], [string[], string[]]>> = {
+  part_of: [['Issue', 'Domain'], ['Issue', 'Domain']], specializes: [['Issue', 'Method'], ['Issue', 'Method']],
+  addresses: [['Method', 'Paper'], ['Issue']], proposes: [['Paper'], ['Method']],
+  introduces_issue: [['Method'], ['Issue']], extends: [['Method'], ['Method']], builds_on: [['Method'], ['Method']],
+  instance_of: [['Issue', 'Method'], ['Concept']], supports: [['Paper', 'Claim', 'Evidence'], ['Claim']],
+  about: [['Claim'], ['Issue', 'Method', 'Concept', 'Domain']],
+  contradicts: [['Paper', 'Claim', 'Evidence'], ['Claim']], refines: [['Claim'], ['Claim']],
+};
 export function validateSnapshot(value: unknown): string[] {
-  if (!shape(value)) return formatErrors(shape.errors);
+  if (!shape(value)) return formatErrors(shape.errors, value, 'snapshot');
   const errors: string[] = [];
   const entities = new Map(value.entities.map(e => [e.id, e]));
   if (entities.size !== value.entities.length) errors.push('Entity IDが重複しています');
@@ -57,14 +90,7 @@ export function validateSnapshot(value: unknown): string[] {
     }
     if (e.type === 'Paper' && e.url && !/^https?:\/\//.test(e.url)) errors.push(`${e.id}: URLはhttp/httpsのみ対応します`);
   }
-  const typed: Partial<Record<Relation['type'], [string[], string[]]>> = {
-    part_of: [['Issue', 'Domain'], ['Issue', 'Domain']], specializes: [['Issue', 'Method'], ['Issue', 'Method']],
-    addresses: [['Method', 'Paper'], ['Issue']], proposes: [['Paper'], ['Method']],
-    introduces_issue: [['Method'], ['Issue']], extends: [['Method'], ['Method']], builds_on: [['Method'], ['Method']],
-    instance_of: [['Issue', 'Method'], ['Concept']], supports: [['Paper', 'Claim', 'Evidence'], ['Claim']],
-    about: [['Claim'], ['Issue', 'Method', 'Concept', 'Domain']],
-    contradicts: [['Paper', 'Claim', 'Evidence'], ['Claim']], refines: [['Claim'], ['Claim']],
-  };
+  const typed = RELATION_ENDPOINTS;
   const triples = new Set<string>();
   for (const r of value.relations) {
     const allowed = typed[r.type]; reference(r.id, r.from, allowed?.[0]); reference(r.id, r.to, allowed?.[1]);
@@ -101,7 +127,7 @@ export function validateSnapshot(value: unknown): string[] {
 }
 
 export function applyPatch(snapshot: SurveySnapshot, patch: unknown, commitId: string): SurveySnapshot {
-  if (!patchShape(patch)) throw Error(formatErrors(patchShape.errors).join('\n'));
+  if (!patchShape(patch)) throw Error(formatErrors(patchShape.errors, patch, 'patch').join('\n'));
   if (patch.base_commit_id !== commitId) throw Error('base_commitが変わっています。最新の版で再提案してください');
   const next = structuredClone(snapshot);
   for (const op of patch.operations) {

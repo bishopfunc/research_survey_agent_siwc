@@ -16,6 +16,8 @@ UI、schema、検証、ローカル履歴を先行実装し、ローカルNode�
 
 SIWC直接HTTPによる独自Agentは今回のCodex指定に合わせ、製品Agentの先行実装には使わない。Cloudflare ContainersからのCodex実行は後続で検証する。SDK/app-serverは会話継続や詳細イベントが必要になった段階で再検討し、最初のPoCはexecの構造化出力で進める。
 
+2026-10-12追記：Codexは編集Patchの提案に加えて、Web検索で新規調査・追加調査を行う（[0012](../design/0012-codex-research-modes.md)）。道具はWeb検索だけに絞り、シェル・ブラウザ操作・プロジェクトのAGENTS.mdは渡さない。結果はこれまでどおりPatchで返し、アプリの検証とユーザーの保存操作で確定する。
+
 ## 影響
 
 ADR 0001/0003/0004のCloudflare本番方針は維持するが、実装順序はこのPoCを先にする。ブラウザ保存とローカルprocessは実験用であり、MVPの永続Jobや権限制御の完成とは扱わない。JSON SchemaとPatch validatorは本番へ引き継げる。

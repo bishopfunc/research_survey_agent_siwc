@@ -64,7 +64,7 @@ Commitのsnapshotには、これまで通りPaper・Claim・Evidenceを写して
 
 ## 移行と運用
 
-既存Commitのsnapshotは書き換えない。PoCでは現時点でAgentが文献を検索・取得しないため、ライブラリは未実装。ローカルの `.poc/papers/` で同じ構造を試すかはB04の着手時に判断する。
+既存Commitのsnapshotは書き換えない。PoCのCodex調査（[0012](0012-codex-research-modes.md)）では、調査に既にある論文をライブラリとみなし、DOI・arXiv・タイトルで照合して読み直さないようPromptで指示する。PDF・mdの保存とDBは未実装。ローカルの `.poc/papers/` で同じ構造を試すかはB04の着手時に判断する。
 
 ## 検証と完了条件
 

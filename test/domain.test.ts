@@ -1,15 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyPatch, fixture, initialWorkspace, makeCommit, validateSnapshot, validateWorkspace, type SurveyPatch } from '../packages/domain/src/index';
-import { codexOutputSchema } from '../packages/domain/src/codex-schema';
+import { applyPatch, emptySurvey, fixture, initialWorkspace, makeCommit, snapshotSchema, validateSnapshot, validateWorkspace, type SurveyPatch } from '../packages/domain/src/index';
+import { codexOutputSchema, codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { patchSchema } from '../packages/domain/src/index';
 
 test('Codex output schema strips unsupported format/uniqueness but retains field names and required structure', () => {
   const projected = codexOutputSchema(patchSchema);
   const text = JSON.stringify(projected);
-  assert.ok(!text.includes('"format"') && !text.includes('"uniqueItems"'));
+  assert.ok(!text.includes('"uri"') && !text.includes('"uniqueItems"') && !text.includes('"minLength"'));
+  assert.ok(text.includes('"date-time"') && text.includes('"date"') && text.includes('"pattern"'));
   assert.ok(text.includes('"source_url"') && text.includes('"required"'));
-  assert.ok(JSON.stringify(patchSchema).includes('"format"'));
+  assert.ok(JSON.stringify(patchSchema).includes('"uri"'));
+});
+
+test('research runs may only emit unverified Evidence without a content hash', () => {
+  const schema = codexPatchSchema(patchSchema) as { $defs: { Evidence: { properties: Record<string, unknown> } } };
+  assert.deepEqual(schema.$defs.Evidence.properties.verification, { type: 'string', enum: ['unverified'] });
+  assert.deepEqual(schema.$defs.Evidence.properties.content_hash, { type: 'null' });
+  assert.ok(JSON.stringify((patchSchema as { $defs: { Evidence: unknown } }).$defs.Evidence).includes('"verified"'));
 });
 
 test('fixture is valid; unknown citation count is distinct from zero', () => {
@@ -134,4 +142,36 @@ test('abstract-only evidence must keep the original passage alongside its link',
   assert.deepEqual(validateSnapshot(input), []);
   evidence.source_url = 'ftp://example.org/paper';
   assert.match(validateSnapshot(input).join(), /http\/https/);
+});
+
+
+test('the Codex output schema is strict: every object lists all properties as required and forbids extras', () => {
+  const problems: string[] = [];
+  const walk = (node: unknown, path: string) => {
+    if (Array.isArray(node)) { node.forEach((child, i) => walk(child, `${path}[${i}]`)); return; }
+    if (!node || typeof node !== 'object') return;
+    const object = node as Record<string, unknown>;
+    if (object.properties) {
+      const keys = Object.keys(object.properties as object).sort();
+      if (JSON.stringify([...(object.required as string[] ?? [])].sort()) !== JSON.stringify(keys)) problems.push(`${path}: required`);
+      if (object.additionalProperties !== false) problems.push(`${path}: additionalProperties`);
+    }
+    for (const [key, value] of Object.entries(object)) walk(value, `${path}/${key}`);
+  };
+  walk(codexPatchSchema(patchSchema), '#');
+  assert.deepEqual(problems, []);
+  const paper = (codexPatchSchema(patchSchema) as { $defs: { Paper: { properties: Record<string, unknown> } } }).$defs.Paper.properties;
+  assert.deepEqual(paper.code_availability, { anyOf: [{ type: 'string', enum: ['public', 'not_found', 'unknown'] }, { type: 'null' }] });
+});
+test('nulls Codex must send for optional non-nullable fields are dropped, nullable ones kept', () => {
+  const paper = { ...fixture.entities.find(e => e.type === 'Paper')!, code_availability: null, code_url: null, abstract: null, representative_figure: null };
+  const cleaned = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: paper }] }, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as { operations: { entity: Record<string, unknown> }[] };
+  const entity = cleaned.operations[0].entity;
+  assert.ok(!('code_availability' in entity));
+  assert.equal(entity.code_url, null); assert.equal(entity.abstract, null); assert.equal(entity.representative_figure, null);
+  assert.equal((paper as Record<string, unknown>).code_availability, null);
+});
+test('validator errors point at the field of the declared entity type instead of other union branches', () => {
+  const patch = { schema_version: '0.1.0', base_commit_id: 'b', message: 'm', operations: [{ op: 'add_entity', entity: { id: 'e', label: 'x', provenance: 'codex', type: 'Evidence', source_url: 'https://example.org', locator: 'abstract', excerpt: '', verification: 'unverified', retrieved_at: '2026-10-12', content_hash: null } }] };
+  assert.throws(() => applyPatch(emptySurvey('t'), patch, 'b'), (error: Error) => error.message.split('\n')[0] === '/operations/0/entity/retrieved_at must match format "date-time"' && !error.message.includes('description'));
 });

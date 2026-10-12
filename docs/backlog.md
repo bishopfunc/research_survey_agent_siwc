@@ -15,6 +15,7 @@ GitHub等のremote未設定でもこのファイルをタスク台帳に使う�
 | P08 | Dropped | Distill.pub風の読むためのUI。実装途中でP09へ置き換え | P03 |
 | P09 | Done | ResearchRabbit風UI。コレクション、版の履歴、つながり図、ピル型タブ、パステルの種類色。画面の説明文を削減しAGENTS.mdに記録 | P03 |
 | P10 | Done | サーベイ論文とawesomeの調査を並列化。Paperにabstractと出典URL、abstract_onlyのEvidenceに原文を必須化。論文ライブラリとPDF/md保存の設計（実装はB03/B04） | P07 |
+| P11 | Done | Codexの「調査」：入力は1つでPromptだけを新規調査・追加調査で切替（空の調査かで判定）、Web検索、シェル等の無効化、開発用AGENTS.mdの除外、strict準拠の出力スキーマ、検証エラー時の1回修正、ChatGPT風の経過表示、Promptの版のタイムスタンプ化。UIは時計アイコンの版の履歴、課題の種類の絞り込みと課題ツリー（0012） | P07/P10 |
 | B01 | Todo | SIWC詳細design doc。Cloudflare対象条件・callback/資格情報導入経路を確認、暗号化保存・更新排他、本人認可と小さい実推論を実証 | なし |
 | B02 | Todo | domain packageとJSON Schema/TS型。Patch検証、出典、複数親、null引用数、fixture、純粋関数テスト | なし |
 | B03 | Todo | migrations、D1 repository、R2 snapshot。immutable Commit、head競合、run一意性、rollback、Fork保存を統合試験。論文ライブラリ（papers・paper_records・paper_files）とPDF/mdのR2保存（0010） | B02 |
