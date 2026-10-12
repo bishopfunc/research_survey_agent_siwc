@@ -64,7 +64,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .sidebar-collapsed .sidebar { padding-inline: 8px; align-items: center; }
 .sidebar-collapsed .brand-row { flex-direction: column; gap: var(--space-2); }
 .sidebar-collapsed .brand { padding: 0; }
-.sidebar-collapsed .brand-name, .sidebar-collapsed .sidebar-label, .sidebar-collapsed .collection-name, .sidebar-collapsed .collection-delete, .sidebar-collapsed .sidebar-footer { display: none; }
+.sidebar-collapsed .brand-name, .sidebar-collapsed .sidebar-label, .sidebar-collapsed .collection-name, .sidebar-collapsed .collection-delete, .sidebar-collapsed .collection-edit, .sidebar-collapsed .sidebar-footer { display: none; }
 .sidebar-collapsed .collections { width: 100%; align-items: center; }
 .sidebar-collapsed .collections .collection { justify-content: center; padding: 10px; }
 .sidebar-label { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) var(--space-2) var(--space-1); font-size: var(--text-small); font-weight: 600; color: var(--color-muted); }
@@ -82,7 +82,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .collection-delete { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; margin-right: 6px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); opacity: 0; }
 /* An icon-only close button centers its mark; an inline SVG would otherwise sit on the text baseline. */
 .close-icon { display: block; flex-shrink: 0; }
-.collection-row:hover .collection-delete, .collection-delete:focus-visible { opacity: 1; }
+.collection-row:hover .collection-delete, .collection-delete:focus-visible, .collection-row:hover .collection-edit, .collection-edit:focus-visible { opacity: 1; }
+.collection-edit { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); opacity: 0; }
+.collection-edit:hover { color: var(--color-accent); background: var(--color-accent-soft); }
+.collection-edit .icon { width: 14px; height: 14px; }
 .collection-delete:hover { color: var(--color-error); background: var(--color-error-soft); }
 .collection-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--color-sky); box-shadow: inset 0 0 0 1px var(--color-dot-ring); }
 .collection-dot.c0 { background: var(--color-lavender); } .collection-dot.c1 { background: var(--color-turquoise); } .collection-dot.c2 { background: var(--color-green); } .collection-dot.c3 { background: var(--color-peach); } .collection-dot.c4 { background: var(--color-yellow); }
@@ -475,7 +478,7 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
   .collections { grid-column: 1/-1; flex-direction: row; max-height: none; overflow-x: auto; scrollbar-width: none; }
   .collection-row { flex-shrink: 0; }
   .collections .collection { width: auto; }
-  .collection-delete { opacity: 1; }
+  .collection-delete, .collection-edit { opacity: 1; }
   .trail-bar { padding: 0 var(--space-4); }
   .canvas { padding: 20px var(--space-4) var(--space-6); }
 }
@@ -521,3 +524,10 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .fact-name small { margin-right: 6px; font-size: 11px; color: var(--color-muted); }
 .fact-name:hover { color: var(--color-accent); background: var(--color-transparent); }
 .fact-locator { font-size: var(--text-small); color: var(--color-faint); }
+.heading { justify-content: flex-start; gap: var(--space-2); }
+.title-edit { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); }
+.title-edit:hover { color: var(--color-accent); background: var(--color-accent-soft); }
+.title-edit:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.title-rename { flex: 1; min-width: 0; padding: 4px 10px; border: var(--rule-width) solid var(--color-accent); border-radius: var(--radius-small); font-family: var(--font-display); font-size: var(--text-display); font-weight: 700; color: var(--color-ink); background: var(--color-surface); }
+.agent-input textarea:disabled { color: var(--color-muted); cursor: not-allowed; }
+.start-run { margin-top: var(--space-4); }
