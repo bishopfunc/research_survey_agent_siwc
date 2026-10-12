@@ -14,6 +14,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: ユーザー指示でCloudflareへのデプロイを設計し（[0028](design/0028-cloudflare-deploy.md)）、その後「自分だけが自分のVPSでURLから使い、SIWCで認証する」に変えた。0028は保留、VPSは[0029](design/0029-self-hosted-vps.md)・[ADR 0020](adr/0020-self-hosted-vps.md)。公式資料の確認結果は[SIWC実現性](siwc-feasibility.md)。VPSの実測は下の記録。
 
+2026-10-12 JST: V01のVPSデプロイ（[0029](design/0029-self-hosted-vps.md)）。環境：さくらのVPS（Ubuntu 24.04、2コア、メモリ961MB、本人がswap 2GBを追加）、Docker 29.3.1、手元はmacOS。本人の了承で `hedgedoc_v2-proxy-1` と `paper_graph_agent-nginx-1` を `docker stop`（削除なし）。`scripts/deploy-vps.sh` で `survey-app:c7206e5132a1` を起動（初回の `npm ci` は約2分、2回目以降はキャッシュで12秒）。結果：`https://tk2-233-26242.vs.sakura.ne.jp` はLet's Encryptの証明書、HTTP→HTTPS、未ログインで `/` は `/auth/login` へ302、`/api/codex/status` は401。外から8788・8080・1456・24678は閉じ、1456はVPSの127.0.0.1だけ。Codex CLI 0.162.1（未ログイン）。メモリはapp 366MB・gate 26MB・caddy 14MB、空き約320MB。途中の失敗：lockfileに `packages/storage` が無く `npm ci` が失敗（lockfileを同期）、volumeの所有者でgateが書き込めない（置き場所を変更）、健全性確認のSSHの繰り返しでVPSのSSHが一時的に拒否（1本の接続を使い回すよう変更）。`npm run check` 成功（15＋146件）。未確認：本人のSIWCログイン、Codexの本人ログインと調査1回の完了、再起動後の自動起動。
+
 ## 検証記録
 
 | 日付 | 対象 | 種別 | 結果と限界 |
