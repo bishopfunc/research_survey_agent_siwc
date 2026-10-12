@@ -5,8 +5,6 @@
 対象タスク: P10（設計）、B03、B04
 関連ADR: [0009 論文ライブラリ](../adr/0009-paper-library.md)、[0002](../adr/0002-versioned-json-graph.md)、[0008](../adr/0008-paper-figure-assets.md)
 
-2026-10-12：デプロイでの置き場は[0028](0028-cloudflare-deploy.md)で変えた（[ADR 0019](../adr/0019-per-user-storage-and-shared-paper-meta.md)）。論文の固定情報は共通の論文メタD1に置き、ownerを持たない。Claim・Evidence・LLMの要点は利用者のDurable Object、PDFとmdは利用者のR2の `users/{uid}/` に置く。下の表の `owner` と、Claim・Evidenceを共通の表に置く記述は0028が置き換える。
-
 ## 目的と範囲
 
 2026-10-12のユーザー指示を設計に反映する。

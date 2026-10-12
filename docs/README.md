@@ -5,7 +5,8 @@
 | 文書 | 用途 |
 | --- | --- |
 | [MVP設計](design/0001-mvp.md) | 構成、データ、API、実装順序 |
-| [Cloudflareへのデプロイ](design/0028-cloudflare-deploy.md) | SIWCで作る複数の利用者、利用者ごとのDurable ObjectとR2、共通の論文メタDB、デプロイの順番 |
+| [自分のVPSで動かす](design/0029-self-hosted-vps.md) | さくらのVPSにDockerで置き、URLの入口をSIWCで自分だけに絞る |
+| [Cloudflareへのデプロイ（保留）](design/0028-cloudflare-deploy.md) | 複数の利用者にするときの最小構成と順番、共通の論文メタDB |
 | [UI/DSL/Codex PoC](design/0002-ui-dsl-codex-poc.md) | 現在の最優先。UIとスキーマの調整 |
 | [手法系譜・時系列](design/0003-method-evolution.md) | 手法の分岐と代表論文を年順でたどる |
 | [開発レビューLab](design/0004-review-lab.md) | `/lab`でUI・Agent Prompt・DSLをまとめてレビュー |

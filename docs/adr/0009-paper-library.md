@@ -1,9 +1,8 @@
 # ADR 0009: 論文ライブラリで抽出を再利用し、PDFとmdを保存する
 
-状態: Superseded
+状態: Accepted
 日付: 2026-10-12 JST
 関連: [論文ライブラリ設計](../design/0010-paper-library.md)、[ADR 0002](0002-versioned-json-graph.md)、[ADR 0008](0008-paper-figure-assets.md)
-superseded by: [ADR 0019](0019-per-user-storage-and-shared-paper-meta.md)（共通の論文メタと利用者ごとのLLMの要点に分けた。読み直さない規則は0019で続ける）
 
 ## 背景
 
