@@ -34,13 +34,22 @@ const failure = (attempt: CodexAttempt) => attempt.spawnError
 
 type Operation = SurveyPatch['operations'][number];
 const opKey = (op: Operation) => 'entity' in op ? `e:${op.entity.id}` : 'relation' in op ? `r:${op.relation.id}` : 'id' in op ? `${op.op === 'remove_entity' ? 'e' : 'r'}:${op.id}` : 'title';
-/** A repair that returned only the corrected operations: they replace the rejected patch's operations with the same target,
- * new targets are appended, and everything else in the research result is kept. */
+/** A correction to an operation of the same patch. An item the patch itself adds stays an addition: a replace updates
+ * the added item, a remove withdraws the addition (null). Otherwise the correction wins. */
+function correct(op: Operation, fix: Operation): Operation | null {
+  if (!op.op.startsWith('add_')) return fix;
+  if (fix.op.startsWith('remove_')) return null;
+  return 'entity' in fix ? { op: 'add_entity', entity: fix.entity } : 'relation' in fix ? { op: 'add_relation', relation: fix.relation } : fix;
+}
+/** A repair or a later checkpoint that returned only the corrected operations: they replace the earlier operations with
+ * the same target, new targets are appended, and everything else is kept. Relations added to a withdrawn entity go too. */
 export function mergeRepair(rejected: SurveyPatch, repaired: SurveyPatch): SurveyPatch {
   const fixes = new Map(repaired.operations.map(op => [opKey(op), op]));
-  const merged = rejected.operations.map(op => fixes.get(opKey(op)) ?? op);
+  const merged = rejected.operations.map(op => { const fix = fixes.get(opKey(op)); return fix ? correct(op, fix) : op; });
+  const withdrawn = new Set(rejected.operations.filter((op, i) => op.op === 'add_entity' && !merged[i]).map(op => 'entity' in op ? op.entity.id : ''));
+  const kept = merged.filter((op): op is Operation => !!op && !(op.op === 'add_relation' && 'relation' in op && (withdrawn.has(op.relation.from) || withdrawn.has(op.relation.to))));
   const known = new Set(rejected.operations.map(opKey));
-  return { ...rejected, message: repaired.message || rejected.message, follow_ups: repaired.follow_ups ?? rejected.follow_ups, operations: [...merged, ...repaired.operations.filter(op => !known.has(opKey(op)))] as SurveyPatch['operations'] };
+  return { ...rejected, message: repaired.message || rejected.message, follow_ups: repaired.follow_ups ?? rejected.follow_ups, operations: [...kept, ...repaired.operations.filter(op => !known.has(opKey(op)))] as SurveyPatch['operations'] };
 }
 async function check(steps: ResearchSteps, step: 'research' | 'repair'): Promise<{ patch?: unknown; error?: string; unchanged?: string }> {
   let raw: string;

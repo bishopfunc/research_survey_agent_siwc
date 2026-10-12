@@ -42,6 +42,19 @@ test('corrections and full final replay replace matching operations without dupl
   assert.throws(() => chunks.finish('unfinished JSON')); assert.equal(saved[0].operations.length, 1);
 });
 
+test('a final replace or remove of a checkpointed addition updates or withdraws it instead of targeting a missing ID', () => {
+  const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, () => {});
+  const resource = { ...domain, id: 'd2', label: 'D2' };
+  const issue = { id: 'i', type: 'Issue', kind: 'fundamental', label: 'I', description: 'I', provenance: 'codex' };
+  assert.equal(chunks.accept(event(patch([{ op: 'add_entity', entity: domain }, { op: 'add_entity', entity: issue }, { op: 'add_relation', relation: { id: 'r', type: 'part_of', from: 'i', to: 'd' } }]))), 'saved');
+  const final = patch([{ op: 'replace_entity', entity: { ...domain, label: 'Corrected' } }, { op: 'remove_entity', id: 'i' }, { op: 'add_entity', entity: resource }]);
+  const result = JSON.parse(chunks.finish(JSON.stringify(final)));
+  assert.deepEqual(result.operations.map((o: { op: string }) => o.op), ['add_entity', 'add_entity']);
+  const snapshot = applyPatch(emptySurvey('t'), result, 'b');
+  assert.equal(snapshot.entities.find(e => e.id === 'd')?.label, 'Corrected');
+  assert.equal(snapshot.entities.some(e => e.id === 'i'), false); assert.equal(snapshot.relations.length, 0);
+});
+
 test('cancellation suppresses late checkpoint writes while earlier results remain', () => {
   let active = true; const saved: SurveyPatch[] = [];
   const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, p => saved.push(p), () => active);
