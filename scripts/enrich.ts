@@ -3,11 +3,14 @@
  * OpenAlex for the rest. Only these two fixed hosts are contacted. */
 import type { SurveyPatch } from '../packages/domain/src/index';
 import { normalizeDoi, normalizeTitle, OPENALEX } from './citations';
+import { lookupVenue } from '../packages/domain/src/venues';
 
 export const ARXIV_API = 'https://export.arxiv.org/api/query';
+export const HF_PAPERS = 'https://huggingface.co/api/papers';
+const CODE_URL = /https?:\/\/(?:www\.)?(?:github\.com|gitlab\.com)\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/;
 export type TextFetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 type PaperFields = Record<string, unknown> & { id: string; type: 'Paper'; title: string };
-export interface EnrichResult { patch: SurveyPatch; arxiv: number; openalex: number; error: string | null }
+export interface EnrichResult { patch: SurveyPatch; arxiv: number; openalex: number; code: number; error: string | null }
 const ARXIV_BATCH = 40, DOI_BATCH = 40, MAX_TITLE_QUERIES = 40;
 
 const empty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
@@ -19,7 +22,7 @@ export function arxivIdOfPaper(p: Record<string, unknown>): string | null {
   const id = field || url;
   return /^(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?$/i.test(id) ? id : null;
 }
-interface ArxivEntry { id: string; title: string; summary: string; year: number | null; authors: string[]; doi: string | null }
+interface ArxivEntry { id: string; title: string; summary: string; year: number | null; authors: string[]; doi: string | null; comment: string; journal: string | null }
 /** Atom entries of the arXiv API. */
 export function parseArxivFeed(xml: string): ArxivEntry[] {
   return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(m => {
@@ -27,7 +30,8 @@ export function parseArxivFeed(xml: string): ArxivEntry[] {
     const raw = e.match(/<id>\s*https?:\/\/arxiv\.org\/abs\/([^<\s]+)\s*<\/id>/)?.[1] ?? '';
     return { id: raw.replace(/v\d+$/, ''), title: squash(e.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? ''), summary: squash(e.match(/<summary>([\s\S]*?)<\/summary>/)?.[1] ?? ''),
       year: Number(e.match(/<published>(\d{4})/)?.[1]) || null, authors: [...e.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>/g)].map(a => squash(a[1])),
-      doi: e.match(/<arxiv:doi[^>]*>([^<]+)<\/arxiv:doi>/)?.[1]?.trim() ?? null };
+      doi: e.match(/<arxiv:doi[^>]*>([^<]+)<\/arxiv:doi>/)?.[1]?.trim() ?? null,
+      comment: squash(e.match(/<arxiv:comment[^>]*>([\s\S]*?)<\/arxiv:comment>/)?.[1] ?? ''), journal: e.match(/<arxiv:journal_ref[^>]*>([\s\S]*?)<\/arxiv:journal_ref>/)?.[1] ? squash(e.match(/<arxiv:journal_ref[^>]*>([\s\S]*?)<\/arxiv:journal_ref>/)![1]) : null };
   }).filter(e => e.id && e.summary);
 }
 /** OpenAlex stores abstracts as an inverted index (word → positions). */
@@ -38,13 +42,24 @@ export function abstractFromIndex(index: unknown): string | null {
   const text = words.filter(Boolean).join(' ').trim();
   return text || null;
 }
-interface Work { id: string; doi: string | null; title: string | null; publication_year: number | null; cited_by_count: number; authorships?: { author?: { display_name?: string } }[]; primary_location?: { source?: { display_name?: string } | null } | null; abstract_inverted_index?: unknown }
+interface Work { id: string; doi: string | null; title: string | null; publication_year: number | null; cited_by_count: number; authorships?: { author?: { display_name?: string } }[]; primary_location?: { source?: { display_name?: string; type?: string } | null } | null; abstract_inverted_index?: unknown }
 
 export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf: string, schedule: <T>(task: () => Promise<T>) => Promise<T> = t => t()): Promise<EnrichResult> {
   const out = structuredClone(patch);
   const papers = out.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' ? [op.entity as unknown as PaperFields] : []);
   const set = (p: PaperFields, key: string, value: unknown) => { if (empty(p[key]) && !empty(value)) p[key] = value; };
-  let arxiv = 0, openalex = 0, error: string | null = null;
+  let arxiv = 0, openalex = 0, code = 0, error: string | null = null;
+  // Venue: the prepared acronym table makes it fixed information; an unknown name is kept as it is.
+  const setVenue = (p: PaperFields, name: string | null | undefined, sourceType?: string) => {
+    const known = lookupVenue(name) ?? lookupVenue(p.venue as string | null);
+    if (known) { p.venue = known.acronym; if (empty(p.venue_type) || known.type !== 'preprint') p.venue_type = known.type; return; }
+    set(p, 'venue', name ?? null);
+    set(p, 'venue_type', sourceType === 'journal' ? 'journal' : sourceType === 'conference' ? 'conference' : sourceType === 'repository' ? 'preprint' : null);
+  };
+  const setCode = (p: PaperFields, url: string | null | undefined) => {
+    if (!url || (p.code_availability && p.code_availability !== 'unknown')) return;
+    p.code_availability = 'public'; p.code_url = url.replace(/[.)]+$/, ''); p.code_checked_at = asOf; code++;
+  };
   try {
     // arXiv first: its abstract is the authors' own text, linked to the abstract page.
     const byArxiv = papers.flatMap(p => { const id = arxivIdOfPaper(p); return id && (empty(p.abstract) || empty(p.authors) || p.year === null) ? [[p, id.replace(/v\d+$/, '')] as const] : []; });
@@ -57,6 +72,8 @@ export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf
         const e = entries.get(id.toLowerCase()); if (!e) continue;
         if (empty(p.abstract)) { p.abstract = e.summary; p.abstract_source_url = `https://arxiv.org/abs/${id}`; }
         set(p, 'authors', e.authors); set(p, 'year', e.year); set(p, 'url', `https://arxiv.org/abs/${id}`); set(p, 'arxiv_id', id); set(p, 'doi', e.doi);
+        if (e.journal) setVenue(p, e.journal); else if (empty(p.venue)) setVenue(p, 'arXiv');
+        setCode(p, `${e.summary} ${e.comment}`.match(CODE_URL)?.[0]);
         arxiv++;
       }
     }
@@ -75,22 +92,32 @@ export async function enrichPatch(patch: SurveyPatch, fetcher: TextFetcher, asOf
       const index = new Map((await get(`filter=doi:${chunk.map(([, d]) => encodeURIComponent(d)).join('|')}&per_page=100`)).map(w => [normalizeDoi(w.doi), w]));
       for (const [p, d] of chunk) { const w = index.get(d); if (w) found.set(p, w); }
     }
-    for (const p of papers.filter(p => !found.has(p) && empty(p.abstract) && typeof p.year === 'number' && normalizeTitle(p.title).split(' ').length >= 3).slice(0, MAX_TITLE_QUERIES)) {
+    // Title search also finds the published edition of an arXiv paper (its venue and citation count).
+    for (const p of papers.filter(p => !found.has(p) && (empty(p.abstract) || empty(p.venue) || p.venue === 'arXiv' || p.citation_count === null || p.citation_count === undefined) && typeof p.year === 'number' && normalizeTitle(p.title).split(' ').length >= 3).slice(0, MAX_TITLE_QUERIES)) {
       const title = normalizeTitle(p.title), year = p.year as number;
-      const w = (await get(`filter=title.search:${encodeURIComponent(title)},publication_year:${year - 1}-${year + 1}&per_page=10`)).filter(w => normalizeTitle(w.title) === title).sort((a, b) => b.cited_by_count - a.cited_by_count)[0];
+      const published = (w: Work) => w.primary_location?.source?.type && w.primary_location.source.type !== 'repository' ? 1 : 0;
+      const w = (await get(`filter=title.search:${encodeURIComponent(title)},publication_year:${year - 1}-${year + 1}&per_page=10`)).filter(w => normalizeTitle(w.title) === title).sort((a, b) => published(b) - published(a) || b.cited_by_count - a.cited_by_count)[0];
       if (w) found.set(p, w);
     }
     for (const [p, w] of found) {
       const text = abstractFromIndex(w.abstract_inverted_index);
       if (empty(p.abstract) && text) { p.abstract = text; p.abstract_source_url = w.id; }
       set(p, 'authors', (w.authorships ?? []).map(a => a.author?.display_name).filter(Boolean));
-      set(p, 'year', w.publication_year); set(p, 'venue', w.primary_location?.source?.display_name ?? null); set(p, 'doi', normalizeDoi(w.doi));
+      set(p, 'year', w.publication_year); set(p, 'doi', normalizeDoi(w.doi));
+      const source = w.primary_location?.source;
+      if (source?.display_name && (empty(p.venue) || p.venue === 'arXiv' || lookupVenue(source.display_name))) { if (p.venue === 'arXiv') { p.venue = null; p.venue_type = null; } setVenue(p, source.display_name, source.type); }
       if (p.citation_count === null || p.citation_count === undefined) { p.citation_count = w.cited_by_count; p.citation_source = 'OpenAlex'; p.citation_as_of = asOf; }
       openalex++;
+    }
+    // Code: Hugging Face links papers to their GitHub repository; looked up only for arXiv papers whose code is still unknown.
+    for (const p of papers.filter(p => arxivIdOfPaper(p) && (!p.code_availability || p.code_availability === 'unknown')).slice(0, 60)) {
+      const response = await fetcher(`${HF_PAPERS}/${encodeURIComponent(arxivIdOfPaper(p)!.replace(/v\d+$/, ''))}`);
+      if (!response.ok) continue;
+      try { const repo = (JSON.parse(await response.text()) as { githubRepo?: unknown }).githubRepo; if (typeof repo === 'string' && CODE_URL.test(repo)) setCode(p, repo); } catch { /* not JSON */ }
     }
   } catch (e) { error = e instanceof Error ? e.message : '書誌の補完に失敗しました'; }
   // A translation needs its original; one whose original could not be found is dropped rather than failing validation.
   for (const p of papers) if (!empty(p.abstract_ja) && empty(p.abstract)) p.abstract_ja = null;
-  if (arxiv || openalex) out.message = `${out.message}（書誌・アブストラクトの補完：arXiv ${arxiv}本、OpenAlex ${openalex}本）`;
-  return { patch: out, arxiv, openalex, error };
+  if (arxiv || openalex || code) out.message = `${out.message}（書誌・アブストラクトの補完：arXiv ${arxiv}本、OpenAlex ${openalex}本、コード${code}本）`;
+  return { patch: out, arxiv, openalex, code, error };
 }

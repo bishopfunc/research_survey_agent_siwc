@@ -162,7 +162,7 @@ test('the paper list does not stop below thirty, every tutorial method section c
 test('fields copied from the paper library are an explicit exception to the retrieve-in-this-run rules', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /copy a stored abstract only when replacing a paper that already has one/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /a paper taken from the paper library keeps its stored reading, sources and key figures instead/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /give year and the venue acronym when you know them from a retrieved page or the paper library/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /the server sets the venue acronym from its table of well-known venues/);
   assert.match(NEW_SURVEY_INSTRUCTIONS, /Do not write abstracts or full bibliography/);
 });
 
