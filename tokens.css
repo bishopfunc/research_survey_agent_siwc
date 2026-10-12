@@ -43,6 +43,7 @@
   --color-shadow: oklch(22% .012 265 / .07);
   --color-shadow-strong: oklch(22% .012 265 / .14);
   --color-backdrop: oklch(22% .012 265 / .32);
+  --color-on-dark-hover: oklch(100% 0 0 / .12);
   --color-transparent: transparent;
   --gradient-brand: linear-gradient(135deg, var(--color-lavender-soft) 15%, var(--color-turquoise-soft) 55%, var(--color-green-soft));
   --font-display: 'Plus Jakarta Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;

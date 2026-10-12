@@ -25,6 +25,9 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 :where(button:not(:disabled)):hover { color: var(--color-accent); background: var(--color-accent-soft); border-color: var(--color-accent); }
 :where(button:not(:disabled)):active { transform: translateY(1px); }
 button:disabled { cursor: not-allowed; opacity: .45; }
+.entity-close, .collection-delete, .modal-heading button, .toast button:not(.toast-action) { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: var(--color-transparent); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.entity-close:hover, .modal-heading button:hover { color: var(--color-ink); background: var(--color-paper); }
+.entity-close:active, .collection-delete:active, .modal-heading button:active, .toast button:not(.toast-action):active { transform: scale(.92); }
 :where(button, input, textarea, select, a, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .primary { color: var(--color-accent-ink); background: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
 .primary:hover:not(:disabled) { color: var(--color-accent-ink); background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
@@ -67,7 +70,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .collections .collection>span:last-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .collections .collection:hover { color: var(--color-ink); background: var(--color-transparent); }
 .collection-row.current .collection { color: var(--color-accent); font-weight: 600; }
-.collection-delete { flex-shrink: 0; margin-right: 4px; padding: 0 6px; border: 0; font-size: 16px; line-height: 1.4; color: var(--color-muted); background: var(--color-transparent); opacity: 0; }
+.collection-delete { flex-shrink: 0; width: 24px; height: 24px; margin-right: 6px; opacity: 0; }
 .collection-row:hover .collection-delete, .collection-delete:focus-visible { opacity: 1; }
 .collection-delete:hover { color: var(--color-error); background: var(--color-error-soft); }
 .collection-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--color-sky); box-shadow: inset 0 0 0 1px var(--color-dot-ring); }
@@ -143,8 +146,9 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .kind-filter { margin-bottom: var(--space-3); flex-wrap: wrap; }
 .keyword-groups { display: grid; gap: var(--space-5); }
 .keyword-group>h3 { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
-.entity-close { margin-left: auto; padding: 0 6px; border: 0; font-size: 18px; line-height: 1; color: var(--color-muted); background: var(--color-transparent); }
-.entity-close:hover { color: var(--color-ink); background: var(--color-paper); }
+.entity-close { margin-left: var(--space-1); }
+.run-cancel { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 4px 12px 4px 8px; font-size: var(--text-small); }
+.run-cancel .icon { width: 16px; height: 16px; }
 .entity-type>span:nth-child(2) { margin-left: auto; }
 .entity-type>span:nth-child(2)+.entity-close { margin-left: 0; }
 .issue-tree h3 { margin-bottom: var(--space-2); font-family: var(--font-display); font-size: var(--text-caption); font-weight: 700; }
@@ -278,14 +282,16 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .inspector>.empty { border: 0; padding: var(--space-5) 0; }
 .muted { padding: var(--space-2); font-size: var(--text-small); color: var(--color-muted); }
 .toast { position: fixed; z-index: 30; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-start; gap: var(--space-4); max-width: calc(100vw - 32px); max-height: 35vh; overflow: auto; padding: var(--space-3) var(--space-4); border-radius: var(--radius-panel); font-size: var(--text-caption); color: var(--color-code-ink); background: var(--color-code); box-shadow: var(--shadow-raised); white-space: pre-wrap; }
-.toast button { padding: 0; border: 0; font-size: 18px; line-height: 1; color: var(--color-code-ink); background: var(--color-transparent); }
+.toast button { padding: 0; border: 0; color: var(--color-code-ink); background: var(--color-transparent); }
+.toast button:not(.toast-action) { width: 24px; height: 24px; flex-shrink: 0; color: var(--color-code-ink); opacity: .75; }
 .toast .toast-action { font-size: var(--text-caption); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .toast button:hover { color: var(--color-code-ink); background: var(--color-transparent); }
+.toast button:not(.toast-action):hover { opacity: 1; background: var(--color-on-dark-hover); }
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: var(--space-5); background: var(--color-backdrop); }
 .edit-modal { width: 640px; max-width: 100%; max-height: 88dvh; overflow: auto; padding: var(--space-5); background: var(--color-surface); border-radius: var(--radius-large); box-shadow: var(--shadow-raised); }
 .modal-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding-bottom: var(--space-4); margin-bottom: 18px; border-bottom: var(--rule-width) solid var(--color-line); }
 .modal-heading h2 { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
-.modal-heading button { padding: 0 6px; border: 0; font-size: 22px; color: var(--color-muted); background: var(--color-transparent); }
+.modal-heading button { width: 32px; height: 32px; }
 .form-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--space-4); }
 .form-fields>label, .form-fields fieldset label { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--text-small); font-weight: 500; color: var(--color-muted); }
 .form-fields input, .form-fields textarea, .form-fields select { width: 100%; padding: 9px var(--space-3); border: var(--rule-width) solid var(--color-line-strong); border-radius: var(--radius-small); background: var(--color-surface); color: var(--color-ink); font-size: var(--text-body); }

@@ -19,6 +19,8 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
 
 カードは丸角14px・大きな面は20px、ボタン・タブ・チップはピル型。影は弱く、hoverで少し強める。選択はaccentの枠と淡い輪。hover・focus・disabled・errorを区別し、focusリングは即時に出す。動きはtransformと色の短い遷移だけ。`prefers-reduced-motion` で止める。
 
+閉じる・削除は共通の `CloseIcon`（24pxグリッドに丸端の線2本の×）を、丸いhover面のアイコンボタンで出す。文字の「×」は使わない。削除はhoverでerrorの淡い面、暗い通知の上では白の半透明の面。Codexの取消は停止アイコン付きのピル。押したときは少し縮める。
+
 320/375/414/768pxで横溢れを確認する。表・系譜図だけが領域内で横スクロールする。狭い画面ではサイドバーを上部の横並びにし、詳細は一覧の下へ回す。
 
 ## Exports
@@ -57,6 +59,8 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   --color-peach-soft: oklch(95% .03 55);
   --color-yellow: oklch(87% .14 88);
   --color-yellow-soft: oklch(96.5% .045 92);
+  --color-rose: oklch(80% .09 10);
+  --color-rose-soft: oklch(95.5% .025 10);
   --color-sky: oklch(82% .07 268);
   --color-sky-soft: oklch(95% .02 268);
   --color-dot-ring: oklch(22% .012 265 / .28);
@@ -69,6 +73,7 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   --color-shadow: oklch(22% .012 265 / .07);
   --color-shadow-strong: oklch(22% .012 265 / .14);
   --color-backdrop: oklch(22% .012 265 / .32);
+  --color-on-dark-hover: oklch(100% 0 0 / .12);
   --color-transparent: transparent;
   --gradient-brand: linear-gradient(135deg, var(--color-lavender-soft) 15%, var(--color-turquoise-soft) 55%, var(--color-green-soft));
   --font-display: 'Plus Jakarta Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
@@ -134,6 +139,8 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   --color-peach-soft: oklch(95% .03 55);
   --color-yellow: oklch(87% .14 88);
   --color-yellow-soft: oklch(96.5% .045 92);
+  --color-rose: oklch(80% .09 10);
+  --color-rose-soft: oklch(95.5% .025 10);
   --color-sky: oklch(82% .07 268);
   --color-sky-soft: oklch(95% .02 268);
   --color-dot-ring: oklch(22% .012 265 / .28);
@@ -146,6 +153,7 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   --color-shadow: oklch(22% .012 265 / .07);
   --color-shadow-strong: oklch(22% .012 265 / .14);
   --color-backdrop: oklch(22% .012 265 / .32);
+  --color-on-dark-hover: oklch(100% 0 0 / .12);
   --color-transparent: transparent;
   --font-display: 'Plus Jakarta Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
   --font-body: 'IBM Plex Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
@@ -265,6 +273,14 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
     "$value": "oklch(96.5% .045 92)",
     "$type": "color"
   },
+  "color-rose": {
+    "$value": "oklch(80% .09 10)",
+    "$type": "color"
+  },
+  "color-rose-soft": {
+    "$value": "oklch(95.5% .025 10)",
+    "$type": "color"
+  },
   "color-sky": {
     "$value": "oklch(82% .07 268)",
     "$type": "color"
@@ -311,6 +327,10 @@ Hallmarkによるstudied-DNAのapp設計。[ResearchRabbit](https://www.research
   },
   "color-backdrop": {
     "$value": "oklch(22% .012 265 / .32)",
+    "$type": "color"
+  },
+  "color-on-dark-hover": {
+    "$value": "oklch(100% 0 0 / .12)",
     "$type": "color"
   },
   "color-transparent": {

@@ -4,6 +4,7 @@ import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REP
 import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../../packages/domain/src/index';
 import { buildEvolution } from '../../../packages/domain/src/evolution';
 import './lab.css';
+import { CloseIcon } from './CloseIcon';
 
 type Topic = 'ui' | 'prompt' | 'dsl';
 type Review = { status: '未確認' | '要修正' | '確認済み'; note: string };
@@ -112,6 +113,6 @@ export function Lab() {
         </section>
         <footer className="lab-footer"><span>Survey Studio / 開発レビュー</span><button onClick={downloadNotes}>メモを書き出す ↗</button></footer>
       </main>
-    </div>{notice && <div className="lab-notice" role="status">{notice}<button aria-label="Labの通知を閉じる" onClick={()=>setNotice('')}>×</button></div>}
+    </div>{notice && <div className="lab-notice" role="status">{notice}<button aria-label="Labの通知を閉じる" onClick={()=>setNotice('')}><CloseIcon/></button></div>}
   </div>;
 }
