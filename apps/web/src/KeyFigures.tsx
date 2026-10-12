@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Entity } from '../../../packages/domain/src/index';
 import { MathText, Tex } from './Tex';
 
@@ -33,14 +33,18 @@ export function Images({ figure }: { figure: ArxivFigure }) {
 export function useArxivData(id: string | null, preview: boolean) {
   const [data, setData] = useState<ArxivFigures | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+  // The ID a response belongs to; a slow answer for a previous paper is dropped.
+  const current = useRef(id);
+  current.current = id;
   async function load(signal?: { active: boolean }) {
+    const requested = id;
     setState('loading');
     try {
-      const response = await fetch(`/api/arxiv-figures/${encodeURIComponent(id!)}`, { method: 'POST' });
+      const response = await fetch(`/api/arxiv-figures/${encodeURIComponent(requested!)}`, { method: 'POST' });
       const value = await response.json();
       if (!response.ok) throw Error(value.error);
-      if (signal?.active !== false) { setData(value); setState('idle'); }
-    } catch { if (signal?.active !== false) setState('error'); }
+      if (signal?.active !== false && current.current === requested) { setData(value); setState('idle'); }
+    } catch { if (signal?.active !== false && current.current === requested) setState('error'); }
   }
   useEffect(() => {
     // A changed arXiv ID (edit or saved proposal) must not keep showing the previous paper's figures.

@@ -300,7 +300,9 @@ function App() {
   const canResearch = agentReady && !!instruction.trim() && !historical && !submitting && run?.status !== 'running' && !run?.patch;
   async function askCodex(text = instruction) {
     if (reviewPreview || !agentReady || !text.trim() || historical || submitting || run?.status === 'running' || run?.patch) return;
-    const owner = branch.id, previousUndo = undo;
+    const owner = branch.id, previousUndo = undo, submitted = workspace;
+    // A deleted collection's run would hold the single Codex slot; once its undo is dropped here, cancel it now.
+    flushCancel();
     setSubmitting(true); setUndo(null); openSide('chat');
     try {
       const others = workspace.branches.filter(b => b.id !== owner).map(b => workspace.commits.find(c => c.id === b.head)?.snapshot).filter((v): v is SurveySnapshot => !!v);
@@ -309,7 +311,8 @@ function App() {
       setBranchRun(owner, result.id); showRun(owner, result);
     } catch (e) {
       setNotice(e instanceof Error ? e.message : 'Codex実行失敗');
-      if (previousUndo && activeBranch.current === owner) setUndo(() => previousUndo);
+      // Put the discard undo back only if nothing changed meanwhile, so it cannot revert a newer edit or replace a newer undo.
+      if (previousUndo && activeBranch.current === owner && latestWorkspace.current === submitted) setUndo(current => current ?? previousUndo);
     }
     finally { setSubmitting(false); }
   }
@@ -382,10 +385,10 @@ function App() {
     guard(() => {
       const previous = workspace, previousRun = pendingRuns[id];
       save(deleteBranch(workspace, id)); setBranchRun(id, null); setViewId(null); setSelected('');
-      if (previousRun) pendingCancel.current = { runId: previousRun, timer: setTimeout(flushCancel, 20_000) };
+      if (previousRun) pendingCancel.current = { runId: previousRun, timer: setTimeout(() => { flushCancel(); setUndo(null); }, 20_000) };
       setUndo(() => () => {
         const pending = pendingCancel.current;
-        if (pending?.runId === previousRun) { clearTimeout(pending.timer); pendingCancel.current = null; }
+        if (previousRun && pending?.runId === previousRun) { clearTimeout(pending.timer); pendingCancel.current = null; }
         save(previous); if (previousRun) setBranchRun(id, previousRun);
       });
       setNotice('コレクションを削除しました');

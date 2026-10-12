@@ -159,4 +159,10 @@ test('the paper list does not stop below thirty, every tutorial method section c
   assert.match(SURVEY_RULES_INSTRUCTIONS, /every section cites at least one Paper, the naive baseline included/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
 });
+test('fields copied from the paper library are an explicit exception to the retrieve-in-this-run rules', () => {
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /or copy the stored abstract and its source from the paper library or snapshot/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /a paper taken from the paper library keeps its stored reading, sources and key figures instead/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /or you copy them from the paper library/);
+  assert.match(NEW_SURVEY_INSTRUCTIONS, /for every Paper you add that is not in the paper library/);
+});
 

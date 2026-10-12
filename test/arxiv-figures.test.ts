@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cacheName, extractAlgorithms, extractEquations, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
+import { ARXIV_MIN_INTERVAL_MS, cacheName, extractAlgorithms, extractEquations, extractFigures, fetchArxivFigures, parseArxivId, throttled, type PageFetcher } from '../scripts/arxiv-figures';
 
 const page = 'https://arxiv.org/html/2307.15644';
 const html = `<html><body>
@@ -85,4 +85,4 @@ test('display equations give one entry per row with its number label; inline mat
   <table class="ltx_equationgroup ltx_eqn_table"><tbody><tr class="ltx_eqn_row"><td><math alttext="L" display="block"></math></td><td><math alttext="=a+b" display="block"></math></td><td><span class="ltx_tag ltx_tag_equation">(2a)</span></td></tr><tr class="ltx_eqn_row"><td><math alttext="M=c" display="block"></math></td></tr></tbody></table>`;
   assert.deepEqual(extractEquations(html), [{ number: 1, label: '(1)', tex: '\\argmax_{r} P(r)' }, { number: null, label: '(2a)', tex: 'L =a+b' }, { number: null, label: null, tex: 'M=c' }]);
 });
-
+test('arXiv requests keep the robots.txt crawl delay', () => { assert.equal(ARXIV_MIN_INTERVAL_MS, 15_000); });
