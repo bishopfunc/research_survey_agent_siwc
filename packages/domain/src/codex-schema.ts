@@ -88,6 +88,8 @@ function tidy(value: unknown, schema: Schema | undefined, defs: Record<string, S
   if (value && typeof value === 'object' && def.properties) {
     const object = value as Record<string, unknown>, required = new Set((def.required as string[] | undefined) ?? []), properties = def.properties as Record<string, Schema>;
     for (const [key, child] of Object.entries(object)) if (child === null && !required.has(key) && !allowsNull(properties[key])) delete object[key]; else object[key] = tidy(child, properties[key], defs);
+    // A free-text checkpoint leaves out the keys it has no value for (a Paper without doi); the strict output sends null or [].
+    for (const key of required) if (object[key] === undefined && properties[key]) { if (allowsNull(properties[key])) object[key] = null; else if (resolve(properties[key], defs)?.type === 'array') object[key] = []; }
   }
   return value;
 }

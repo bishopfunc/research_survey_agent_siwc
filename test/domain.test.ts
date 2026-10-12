@@ -450,6 +450,18 @@ test('nullable Codex reading arrays are normalized without losing additions or r
   assert.throws(() => applyPatch(emptySurvey('VLN'), stripCodexNulls(bad, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as SurveyPatch, 'empty'));
 });
 
+test('a checkpoint paper that leaves out the keys it has no value for gets null or an empty list, as the strict output would send', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const base = emptySurvey('t'), head = makeCommit(base, [], 'base');
+  // A real outline checkpoint: Papers with arxiv_id and no doi key (or the other way round) and no claims key.
+  const paper = { id: 'p', type: 'Paper', provenance: 'codex', label: 'RCM', title: 'Reinforced Cross-Modal Matching', year: 2019, venue: 'CVPR', venue_type: 'conference', one_line_summary: 's', arxiv_id: '1811.10092', url: 'https://arxiv.org/abs/1811.10092', authors: [], proposes: [], addresses: [], evidence: [] };
+  const raw = { schema_version: '0.1.0', base_commit_id: head.id, message: 'm', operations: [{ op: 'add_entity', entity: paper }] };
+  assert.throws(() => applyPatch(base, raw as unknown as SurveyPatch, head.id));
+  const out = stripCodexNulls(raw, defs) as SurveyPatch;
+  const entity = (out.operations[0] as unknown as { entity: Record<string, unknown> }).entity;
+  assert.equal(entity.doi, null); assert.deepEqual(entity.claims, []); assert.equal(entity.arxiv_id, '1811.10092');
+  assert.doesNotThrow(() => applyPatch(base, out, head.id));
+});
 test('a literature guide entry needs an http link and points only at issues, methods and a paper', () => {
   const input = structuredClone(fixture);
   const resource = input.entities.find(e => e.type === 'Resource' && e.paper);
