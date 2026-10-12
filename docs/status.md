@@ -94,6 +94,8 @@ Cloudflareの製品OAuth、D1/R2、Workflow、Subgraph Forkは未実装。既存
 
 2026-10-12 JST: P21の続き（ユーザー指示：会議の略称の対応表とコード公開を固定情報に）。対応表（約70件）とHugging Face・arXivコメントからのコード検出、arXiv論文の出版版の探索を補完に追加（`survey-rules@2026-10-12T15:23+09:00`）。実ネットワークで論文15本を4.8秒で補完（略称つきの会議、EECBS・LaCAMの出版版AAAI、引用数、コードURL 2本）。単体試験97件PASS。
 
+2026-10-12 JST: 代表FigをCodexが選ぶ形に（`survey-rules@2026-10-12T15:27+09:00`）。key_figuresの最初を代表Figとし、調査の後にその論文のarXiv図を裏で取得、一覧のカードに表示（手動の切り出しを優先）。単体試験97件PASS。画面と実Codexでの確認は未実施。
+
 CODEX_HANDOFFのOAuth未実装という記述は、現在のローカル実装については古い。Worker側OAuth未実装という点は現在のコードと一致する。
 
 ## 開発基盤

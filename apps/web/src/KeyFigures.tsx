@@ -92,3 +92,22 @@ export function KeyFigures({ paper, preview }: { paper: Paper; preview: boolean 
     {data && <a className="figure-source" href={data.source_url} target="_blank" rel="noreferrer">arXiv HTML ↗</a>}
   </section>{formulas}</>;
 }
+
+/** The representative figure Codex chose (the first key figure), from the saved arXiv result only: a paper list never
+ * contacts arXiv by itself. A figure cut out by hand from the PDF takes precedence and is shown by the caller. */
+export function CardFigure({ paper }: { paper: Paper }) {
+  const id = arxivIdOf(paper), first = paper.reading?.key_figures?.[0];
+  const [figure, setFigure] = useState<ArxivFigure | null>(null);
+  useEffect(() => {
+    setFigure(null);
+    const key = first ? figureKey(first) : null;
+    if (!id || !key) return;
+    let active = true;
+    fetch(`/api/arxiv-figures/${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null).then((data: ArxivFigures | null) => {
+      const found = (data?.figures ?? []).filter(f => figureKey(f.label) === key);
+      if (active && found.length === 1) setFigure(found[0]);
+    }).catch(() => { /* not fetched yet */ });
+    return () => { active = false; };
+  }, [id, first]);
+  return figure ? <figure className="paper-figure compact"><img src={figure.images[0]} alt={`${figure.label} ${figure.caption}`} loading="lazy" referrerPolicy="no-referrer"/><figcaption>{figure.label}</figcaption></figure> : null;
+}

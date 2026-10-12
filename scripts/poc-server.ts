@@ -51,6 +51,21 @@ async function body(req: IncomingMessage) {
 /** The arXiv API asks for at most one request every three seconds. */
 let arxivApiLast = 0;
 const arxivApi = async <T,>(task: () => Promise<T>) => { const wait = arxivApiLast + 3_000 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait)); arxivApiLast = Date.now(); return task(); };
+const arxivDirectory = resolve('.poc/arxiv');
+function readArxivCache(id: string) {
+  try { const saved = JSON.parse(readFileSync(join(arxivDirectory, cacheName(id)), 'utf8')); return saved.parser === FIGURE_PARSER_VERSION ? saved : null; } catch { return null; }
+}
+async function fetchAndCacheArxiv(id: string) {
+  const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
+  mkdirSync(arxivDirectory, { recursive: true, mode: 0o700 }); writeFileSync(join(arxivDirectory, cacheName(id)), JSON.stringify(result), { mode: 0o600 });
+  return result;
+}
+/** After a run, the figures of the papers Codex chose figures for are fetched in the background (spaced by the arXiv queue),
+ * so the representative figure shows as soon as the proposal is opened. */
+function warmFigures(patch: SurveyPatch) {
+  const ids = patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' && op.entity.reading?.key_figures?.length ? [parseArxivId(op.entity.arxiv_id, op.entity.url)] : []).filter((id): id is string => !!id && !readArxivCache(id));
+  void (async () => { for (const id of [...new Set(ids)]) { try { await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ } } })();
+}
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 function runCodexStep(run: Run, directory: string, step: 'research' | 'repair', prompt: string, timeoutSeconds: number): Promise<CodexAttempt> {
   return new Promise(done => {
@@ -115,7 +130,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
   }).then(outcome => {
     if (outcome.status === 'stopped' || run.status !== 'running') return;
-    if (outcome.status === 'succeeded') { run.patch = outcome.patch; run.follow_ups = outcome.patch.follow_ups; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
+    if (outcome.status === 'succeeded') { warmFigures(outcome.patch); run.patch = outcome.patch; run.follow_ups = outcome.patch.follow_ups; run.status = 'succeeded'; run.message = `調査結果の変更案ができました（Web検索 ${outcome.searches}回${outcome.repaired ? '・検証エラーを1回修正' : ''}）。差分を確認して保存してください`; }
     else if (outcome.status === 'unchanged') { run.status = 'succeeded'; run.follow_ups = outcome.follow_ups; run.message = `変更はありません：${outcome.message}`.slice(0, 1600); }
     else { run.status = 'failed'; run.message = outcome.message.slice(0, 1600); }
     save(run);
@@ -155,15 +170,12 @@ const server = createServer(async (req, res) => {
     if (arxiv && (req.method === 'GET' || req.method === 'POST')) {
       const id = parseArxivId(decodeURIComponent(arxiv[1]));
       if (!id) { json(res, { error: 'arXiv IDを確認してください' }, 400); return; }
-      const directory = resolve('.poc/arxiv'), file = join(directory, cacheName(id));
-      try { const saved = JSON.parse(readFileSync(file, 'utf8')); if (saved.parser === FIGURE_PARSER_VERSION) { json(res, saved); return; } } catch { /* not fetched yet */ }
+      const cached = readArxivCache(id);
+      if (cached) { json(res, cached); return; }
       if (req.method === 'GET') { json(res, { error: 'NOT_FETCHED' }, 404); return; }
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
-      try {
-        const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
-        mkdirSync(directory, { recursive: true, mode: 0o700 }); writeFileSync(file, JSON.stringify(result), { mode: 0o600 });
-        json(res, result);
-      } catch (error) { json(res, { error: error instanceof Error ? error.message : 'arXivのFigを取得できませんでした' }, 502); }
+      try { json(res, await fetchAndCacheArxiv(id)); }
+      catch (error) { json(res, { error: error instanceof Error ? error.message : 'arXivのFigを取得できませんでした' }, 502); }
       return;
     }
     if (url.pathname === '/api/codex/status' && req.method === 'GET') {
