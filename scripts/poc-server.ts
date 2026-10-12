@@ -15,13 +15,16 @@ import { deepenInstructions, divergeInstructions, fillInstructions, integrateIns
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
+import { singleFlight } from './single-flight';
+import { requestIdentity, repeatedRequest } from './run-request';
+import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, budgetInstructions, timeBudget } from '../packages/agent/src/time-budget';
 import { attemptSucceeded, attemptError, superviseProcess } from './codex-supervisor';
 import { streamCheckpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch, stageStep, stageTraceText } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
-import { cacheName, fetchArxivFigures, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
+import { cacheName, fetchArxivFigures, hasVisuals, usableVisualCache, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 import { sanitizeLibrary } from '../packages/agent/src/library';
 import { enrichPatch } from './enrich';
 import { parseRefreshRequest, refreshPapers } from './paper-refresh';
@@ -35,7 +38,7 @@ const origin = `http://127.0.0.1:${port}`;
 const storage = resolve('.poc/runs');
 const MAX_LOG_BYTES = 2_000_000;
 mkdirSync(storage, { recursive: true, mode: 0o700 });
-type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[]; use_library?: boolean; library_papers?: number; skill?: SkillId; explanation?: Explanation };
+type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; started_at: string; base_commit_id: string; instruction: string; title: string | null; prompt_version: string; searches: number; message: string; trace: (TraceItem & { at: string })[]; patch?: SurveyPatch; follow_ups?: string[]; use_library?: boolean; library_papers?: number; skill?: SkillId; explanation?: Explanation; context_papers?: string[]; request_id?: string; request_fingerprint?: string };
 const MAX_TRACE = 120;
 function addTrace(run: Run, item: TraceItem) { run.trace = [...run.trace, { ...item, at: new Date().toISOString() }].slice(-MAX_TRACE); }
 const runs = new Map<string, Run>();
@@ -67,21 +70,21 @@ const arxivApi = async <T,>(task: () => Promise<T>) => { const wait = arxivApiLa
 const papersDb = paperLibrary(openSqlite(resolve('.poc/library.sqlite')));
 await papersDb.migrate(readFileSync(resolve('packages/storage/migrations/0001_paper_library.sql'), 'utf8'));
 const blobs = fileBlobStore(resolve('.poc/blobs'));
+const sharedArxivFetch = singleFlight<string, Awaited<ReturnType<typeof fetchArxivFigures>>>();
 const arxivDirectory = resolve('.poc/arxiv');
 async function readArxivCache(id: string) {
-  // A result without figures may come from a page that was not ready; it is fetched again after a day.
-  const stale = (saved: { figures?: unknown[]; algorithms?: unknown[]; equations?: unknown[]; tables?: unknown[]; sections?: unknown[]; retrieved_at?: string }) => ![saved.figures, saved.algorithms, saved.equations, saved.tables, saved.sections].some(list => list?.length) && Date.now() - Date.parse(saved.retrieved_at ?? '') > 86_400_000;
-  const parse = (text: string | null) => { try { const saved = text ? JSON.parse(text) : null; return saved?.parser === FIGURE_PARSER_VERSION && !stale(saved) ? saved : null; } catch { return null; } };
+  const parse = (text: string | null) => { try { const saved = text ? JSON.parse(text) : null; return usableVisualCache(saved) ? saved : null; } catch { return null; } };
   return parse(await blobs.get(`arxiv/${cacheName(id)}`)) ?? parse((() => { try { return readFileSync(join(arxivDirectory, cacheName(id)), 'utf8'); } catch { return null; } })());
 }
 async function fetchAndCacheArxiv(id: string, keep: Awaited<ReturnType<typeof readArxivCache>> = null) {
-  const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
-  // 最新を取得 never replaces a saved result that has content with an empty one (a page not converted yet, a 404).
-  if (keep && ![result.figures, result.algorithms, result.equations, result.tables, result.sections].some(list => list.length)) return keep;
-  await blobs.put(`arxiv/${cacheName(id)}`, JSON.stringify(result), { contentType: 'application/json' });
-  return result;
+  return sharedArxivFetch(id, async () => {
+    const result = await fetchArxivFigures(id, page => fetch(page, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'text/html' } }));
+    if (keep && hasVisuals(keep) && !hasVisuals(result)) return keep;
+    await blobs.put(`arxiv/${cacheName(id)}`, JSON.stringify(result), { contentType: 'application/json' });
+    return result;
+  });
 }
-/** After a run, the figures of the papers Codex chose figures for are fetched in the background (spaced by the arXiv queue),
+/** After a run, every arXiv paper's diagrams are fetched in the background (spaced by the arXiv queue),
  * so the representative figure shows as soon as the proposal is opened. */
 /** Codex's interpretations (one-line summary, translation, reading) become a new reading version of each paper. */
 async function saveReadings(patch: SurveyPatch, runId: string, promptVersion: string) {
@@ -106,7 +109,7 @@ async function libraryForRun(snapshot: SurveySnapshot, fromBrowser: Record<strin
   return out;
 }
 function warmFigures(patch: SurveyPatch) {
-  void warmArxiv(patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' && op.entity.reading?.key_figures?.length ? [parseArxivId(op.entity.arxiv_id, op.entity.url)] : []).filter((id): id is string => !!id));
+  void warmArxiv(patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' ? [parseArxivId(op.entity.arxiv_id, op.entity.url, op.entity.doi)] : []).filter((id): id is string => !!id));
 }
 /** Fetches in the background, through the arXiv queue (15 s apart), the figures of the papers not fetched yet; returns how many. */
 async function warmArxiv(ids: string[]) {
@@ -177,9 +180,9 @@ function stepResult(attempt: CodexAttempt, directory: string, file: string): Ste
   return { ok: ok && output !== undefined, output, error: ok ? (output === undefined ? 'Codexの出力が見つかりません' : undefined) : attemptError(attempt), searches: attempt.state.searches };
 }
 const logged = new Map<string, number>();
-function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null; useLibrary: boolean; library: LibraryPaper[] }): Run {
+function startRun(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; title: string | null; useLibrary: boolean; library: LibraryPaper[]; context_papers: string[]; identity: ReturnType<typeof requestIdentity> }): Run {
   const id = randomUUID(); const directory = join(storage, id); mkdirSync(directory, { mode: 0o700 });
-  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: `${input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode)} · ${BUDGET_PROMPT_VERSION}`, searches: 0, message: input.mode === 'new' ? 'Codexが調査しています' : 'Codexが依頼の種類を判定しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length, skill: input.mode === 'new' ? 'survey-new' : undefined };
+  const run: Run = { id, mode: input.mode, status: 'running', started_at: new Date().toISOString(), base_commit_id: input.base_commit_id, instruction: input.instruction, title: input.title, prompt_version: `${input.mode === 'new' ? stagedPromptVersion() : promptVersion(input.mode)} · ${BUDGET_PROMPT_VERSION} · ${CONTEXT_PROMPT_VERSION}`, searches: 0, message: input.mode === 'new' ? 'Codexが調査しています' : 'Codexが依頼の種類を判定しています', trace: [], use_library: input.useLibrary, library_papers: input.library.length, context_papers: input.context_papers, ...(input.identity ? { request_id: input.identity.id, request_fingerprint: input.identity.fingerprint } : {}), skill: input.mode === 'new' ? 'survey-new' : undefined };
   runs.set(id, run); save(run); logged.set(id, 0);
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
   writeFileSync(join(directory, 'router-schema.json'), JSON.stringify(routerSchema), { mode: 0o600 });
@@ -196,7 +199,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
     return result.patch;
   };
-  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, instructions: `${instructions}\n\n${CHECKPOINT_INSTRUCTIONS}` });
+  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: `${instructions}\n\n${CHECKPOINT_INSTRUCTIONS}` });
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
     run: async (stage, prompt, snapshot = input.snapshot) => {
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
@@ -236,11 +239,11 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   }, MAX_PARALLEL_WORKERS) : executeSkillRun(input.instruction, {
     route: async () => {
       addTrace(run, { kind: 'step', text: '依頼の種類を判定' }); save(run);
-      return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false }), directory, 'route.json');
+      return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot) + contextInstructions(input.context_papers, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false }), directory, 'route.json');
     },
-    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library }), skillById('explain').timeoutSeconds, { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
+    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), skillById('explain').timeoutSeconds, { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
     research: skillId => { const skill = skillById(skillId); return executeResearch({
-      research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, instructions: skillInstructions(skill) }), skill.timeoutSeconds),
+      research: () => runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: skillInstructions(skill) }), skill.timeoutSeconds),
       repair: (patch, errors) => { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), skill.repairTimeoutSeconds); },
       output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
       normalize,
@@ -253,7 +256,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     active: () => run.status === 'running',
     chosen: (skillId, reason) => {
       const skill = skillById(skillId);
-      run.skill = skillId; run.prompt_version = `${ROUTER_VERSION} · ${skill.version}${skill.output === 'patch' ? ` · ${PROMPT_VERSION}` : ''} · ${BUDGET_PROMPT_VERSION}`;
+      run.skill = skillId; run.prompt_version = `${ROUTER_VERSION} · ${skill.version}${skill.output === 'patch' ? ` · ${PROMPT_VERSION}` : ''} · ${BUDGET_PROMPT_VERSION} · ${CONTEXT_PROMPT_VERSION}`;
       run.message = skill.output === 'patch' ? `Codexが${skill.label}をしています` : 'Codexが解説を書いています';
       addTrace(run, { kind: 'step', text: `${skill.label}：${reason}` }); save(run);
     },
@@ -305,7 +308,7 @@ const server = createServer(async (req, res) => {
       try { papers = parseRefreshRequest(await body(req)); } catch { json(res, { error: 'INVALID_INPUT' }, 400); return; }
       const result = await refreshPapers(papers, target => fetch(target, { signal: AbortSignal.timeout(30_000), headers: { Accept: 'application/json, application/atom+xml' } }), today(), arxivApi, process.env.OPENALEX_API_KEY);
       // The arXiv figures, tables and sections of the papers not fetched yet follow in the background (15 s apart).
-      const figures_queued = await warmArxiv(papers.map(p => { const filled = result.papers.find(r => r.id === p.id)?.fields ?? {}; return parseArxivId((filled.arxiv_id ?? p.arxiv_id) as string | null, (filled.url ?? p.url) as string | null); }).filter((id): id is string => !!id));
+      const figures_queued = await warmArxiv(papers.map(p => { const filled = result.papers.find(r => r.id === p.id)?.fields ?? {}; return parseArxivId((filled.arxiv_id ?? p.arxiv_id) as string | null, (filled.url ?? p.url) as string | null, (filled.doi ?? p.doi) as string | null); }).filter((id): id is string => !!id));
       json(res, { as_of: today(), ...result, figures_queued }); return;
     }
     const arxiv = url.pathname.match(/^\/api\/arxiv-figures\/([^/]+)$/);
@@ -331,18 +334,26 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/api/codex/runs' && req.method === 'POST') {
       if (req.headers.origin !== origin) { json(res, { error: 'ORIGIN_REQUIRED' }, 403); return; }
-      if (new Set([...children.keys()].map(k => k.split(':')[0])).size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
       const input = await body(req);
       if (typeof input.instruction !== 'string' || !input.instruction.trim() || input.instruction.length > 8000 || typeof input.base_commit_id !== 'string' || !input.base_commit_id || input.base_commit_id.length > 200) throw Error('INVALID_INPUT');
       const errors = validateSnapshot(input.snapshot); if (errors.length) { json(res, { error: errors.join('\n') }, 400); return; }
+      const context_papers = validateContextPapers(input.context_papers, input.snapshot);
+      const identity = requestIdentity({ ...input, context_papers });
+      const repeated = repeatedRequest(runs.values(), identity);
+      if (repeated) { json(res, repeated, 202); return; }
+      if (new Set([...children.keys()].map(k => k.split(':')[0])).size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
       if (input.use_library !== undefined && typeof input.use_library !== 'boolean') throw Error('INVALID_INPUT');
       const useLibrary = input.use_library ?? true, library = useLibrary ? await libraryForRun(input.snapshot as SurveySnapshot, sanitizeLibrary(input.library)) : [];
+      // Library reads yield: another request may have acquired the slot or started this same request meanwhile.
+      const recovered = repeatedRequest(runs.values(), identity);
+      if (recovered) { json(res, recovered, 202); return; }
+      if (new Set([...children.keys()].map(k => k.split(':')[0])).size >= CODEX_EXECUTION.maxConcurrent) { json(res, { error: 'Codexは1件ずつ実行してください' }, 409); return; }
       // One 調査 button for both cases: an empty survey gets the new-survey prompt, otherwise additional research.
       const mode: ResearchMode = (input.snapshot as SurveySnapshot).entities.length ? 'additional' : 'new';
       const env = { ...process.env }; delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.OPENALEX_API_KEY;
       const status = spawnSync('codex', ['login', 'status'], { env, encoding: 'utf8', timeout: 10_000 });
       if (status.status !== 0 || !/ChatGPT/i.test(status.stdout + status.stderr)) { json(res, { error: 'CodexをChatGPTでログインしてから実行してください' }, 503); return; }
-      json(res, startRun({ mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, title: null, useLibrary, library }), 202); return;
+      json(res, startRun({ mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, title: null, useLibrary, library, context_papers, identity }), 202); return;
     }
     const match = url.pathname.match(/^\/api\/codex\/runs\/([\da-f-]{36})(\/cancel)?$/);
     if (match) {

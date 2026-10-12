@@ -150,3 +150,10 @@ test('key sections match the numbers named in the reading, or fall back to the s
   assert.equal(sourceHref('https://arxiv.org/html/2211.13432', 'S3.SS2'), 'https://arxiv.org/html/2211.13432#S3.SS2');
   assert.equal(sourceHref('https://arxiv.org/html/2211.13432', null), 'https://arxiv.org/html/2211.13432');
 });
+
+test('a primary HTML page with sections alone still tries ar5iv and preserves its sections', async () => {
+  const primary = '<section class="ltx_section" id="S1"><h2 class="ltx_title">1 Introduction</h2><p>Useful section.</p></section>';
+  const fallback = pages({ 'https://arxiv.org/html/2101.00001': { status: 200, body: primary }, 'https://ar5iv.labs.arxiv.org/html/2101.00001': { status: 200, body: html } });
+  const out = await fetchArxivFigures('2101.00001', fallback.fetcher, 't', task => task());
+  assert.equal(fallback.seen.length, 2); assert.ok(out.figures.length > 0); assert.ok(out.sections.length > 0);
+});

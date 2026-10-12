@@ -30,6 +30,7 @@
 | [調査のスキルと依頼の振り分け](design/0023-skills-and-routing.md) | 新規調査・深掘り・違う視点・解説・修正のスキルと、追加の依頼の判定 |
 | [手法ツリーと課題ツリー](design/0022-timeline-trees.md) | 年を左から右、行ごとに系統。複数の系統は曲線。論文タブの代表論文 |
 | [調査期限と途中保存](design/0031-research-budget-and-checkpoints.md) | 書き出し時間を予約するbudgetと検証済みcheckpoint |
+| [チャット・コンテキスト・キューと図解](design/0032-chat-context-queue-and-figures.md) | 独立パネル、論文選択、待機依頼、図解が欠ける原因と取得改善 |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

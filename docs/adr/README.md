@@ -24,3 +24,4 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0018](0018-semantic-scholar-for-citations.md) | 引用数と書誌の補完はSemantic Scholarを主にし、OpenAlexはDOIの単体照会だけに残す | Superseded |
 | [0019](0019-openalex-with-key.md) | Semantic Scholarは使わず、OpenAlexを無料キー付きで使う | Accepted |
 | [0020](0020-validated-stream-checkpoints.md) | Codexの途中成果は検証済み累積Patchとして保存する | Accepted |
+| [0021](0021-browser-chat-queue.md) | PoCの待機依頼はコレクションごとにブラウザ保存する | Accepted |
