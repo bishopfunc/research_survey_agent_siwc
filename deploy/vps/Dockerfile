@@ -3,7 +3,9 @@
 FROM node:24-bookworm-slim
 ARG CODEX_VERSION=0.162.1
 # The real Codex goes to /usr/local/bin; /opt/survey/bin/codex comes first in PATH and runs it on the gate's ChatGPT token.
-RUN npm install -g @openai/codex@${CODEX_VERSION} && npm cache clean --force \
+# Codex (Rust) verifies TLS with the system certificates, which the slim image does not have; Node carries its own.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+ && npm install -g @openai/codex@${CODEX_VERSION} && npm cache clean --force \
  && mkdir -p /app /home/node/.codex /home/node/.codex-siwc /opt/survey/bin \
  && chown node:node /app /home/node/.codex /home/node/.codex-siwc \
  && printf '#!/bin/sh\nexec /app/node_modules/.bin/tsx /app/scripts/codex-siwc.ts "$@"\n' > /opt/survey/bin/codex && chmod 755 /opt/survey/bin/codex
