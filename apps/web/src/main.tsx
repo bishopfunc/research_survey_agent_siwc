@@ -12,8 +12,8 @@ import { byPublication } from '../../../packages/domain/src/evolution';
 import { buildConnections, type Connection } from '../../../packages/domain/src/connections';
 import { ConnectionMap } from './ConnectionMap';
 
-function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop'; className?: string }) {
-  const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12a4 4 0 0 0 4 4h8 M6 9h8a4 4 0 0 0 4-4V3', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z' };
+function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron'; className?: string }) {
+  const paths = { network:'M5 5h5v5H5z M14 14h5v5h-5z M14 5h5v5h-5z M7.5 10v6.5H14 M10 7.5h4', arrow:'M5 12h14 M13 6l6 6-6 6', spark:'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z', search:'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z M16 16l5 5', branch:'M6 3v12a4 4 0 0 0 4 4h8 M6 9h8a4 4 0 0 0 4-4V3', plus:'M12 5v14 M5 12h14', layers:'M3 7l9-4 9 4-9 4z M3 12l9 4 9-4 M3 17l9 4 9-4', grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z', paper:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7', clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2', panel:'M4 4h16v16H4z M9 4v16', stop:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.5 9.5h5v5h-5z', chevron:'M9.5 6l6 6-6 6' };
   return <svg className={`icon ${className}`} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
 }
 const reviewPreview = new URLSearchParams(location.search).get('preview') === 'lab';
@@ -79,10 +79,39 @@ type ResearchMode = 'new' | 'additional';
 type Trace = { at: string; kind: 'search' | 'open' | 'thinking' | 'error' | 'step'; text: string };
 /** Versions are shown as JST timestamps. */
 const stamp = (iso: string) => new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-type Run = { id: string; mode?: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; instruction?: string; title?: string | null; base_commit_id?: string; message: string; trace?: Trace[]; patch?: SurveyPatch };
+type Run = { id: string; mode?: ResearchMode; status: 'running' | 'succeeded' | 'failed' | 'cancelled'; instruction?: string; title?: string | null; base_commit_id?: string; message: string; searches?: number; trace?: Trace[]; patch?: SurveyPatch };
 async function request(path: string, body?: unknown) {
   const response = await fetch(path, body === undefined ? undefined : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await response.json(); if (!response.ok) throw Error(data.error ?? `HTTP ${response.status}`); return data;
+}
+type Operation = SurveyPatch['operations'][number];
+type Change = { group: string; name: string; note?: string; tag?: 'replace' | 'remove'; before?: unknown; after?: unknown };
+const CHANGE_GROUPS = ['Domain', 'Concept', 'Issue', 'Method', 'Paper', 'Claim', 'Evidence', 'Keyword', 'relation', 'title'];
+const changeGroupLabels: Record<string, string> = { ...entityLabels, relation: '関連', title: '調査名' };
+function describeChange(op: Operation, base: SurveySnapshot, lookup: (id: string) => string): Change {
+  const ends = (r: { from: string; to: string }) => `${lookup(r.from)} → ${lookup(r.to)}`;
+  switch (op.op) {
+    case 'add_entity': return { group: op.entity.type, name: op.entity.label, after: op.entity };
+    case 'replace_entity': return { group: op.entity.type, name: op.entity.label, tag: 'replace', before: base.entities.find(e => e.id === op.entity.id), after: op.entity };
+    case 'remove_entity': { const before = base.entities.find(e => e.id === op.id); return { group: before?.type ?? 'Concept', name: before?.label ?? op.id, tag: 'remove', before }; }
+    case 'add_relation': return { group: 'relation', name: ends(op.relation), note: relationLabels[op.relation.type]?.[0], after: op.relation };
+    case 'replace_relation': return { group: 'relation', name: ends(op.relation), note: relationLabels[op.relation.type]?.[0], tag: 'replace', before: base.relations.find(r => r.id === op.relation.id), after: op.relation };
+    case 'remove_relation': { const before = base.relations.find(r => r.id === op.id); return { group: 'relation', name: before ? ends(before) : op.id, note: before && relationLabels[before.type]?.[0], tag: 'remove', before }; }
+    case 'set_title': return { group: 'title', name: op.title, tag: 'replace', before: base.title, after: op.title };
+  }
+}
+/** A Codex proposal in the chat: summary, save/discard, and the changes grouped by type (collapsed until asked). */
+function Proposal({ patch, base, lookup, stale, disabled, onDiscard, onSave }: { patch: SurveyPatch; base: SurveySnapshot; lookup: (id: string) => string; stale: boolean; disabled: boolean; onDiscard: () => void; onSave: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [full, setFull] = useState(false);
+  const changes = patch.operations.map(op => describeChange(op, base, lookup));
+  const groups = CHANGE_GROUPS.map(group => ({ group, items: changes.filter(c => c.group === group) })).filter(g => g.items.length);
+  return <section className="proposal" aria-label="変更案">
+    <button className={full ? 'proposal-message full' : 'proposal-message'} aria-expanded={full} onClick={() => setFull(!full)}>{patch.message}</button>
+    <div className="proposal-bar"><button className="proposal-toggle" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="chevron"/>{patch.operations.length}件の変更</button><button onClick={onDiscard}>破棄</button><button className="primary" disabled={disabled} onClick={onSave}>保存</button></div>
+    {stale && <p className="validation-errors">最新の版が変わったため保存できません</p>}
+    {open && <div className="change-groups">{groups.map(({ group, items }) => <details key={group} className="change-group"><summary><Icon name="chevron"/><span className={`connection-dot t-${group}`}/>{changeGroupLabels[group]}<small>{items.length}</small></summary><ul>{items.map((c, i) => <li key={i}><details className="change-row"><summary><span className="change-name" title={c.name}>{c.name}</span>{c.tag && <span className={`change-tag ${c.tag}`}>{c.tag === 'replace' ? '変更' : '削除'}</span>}{c.note && <span className="change-note">{c.note}</span>}</summary><div className="change-body">{c.before !== undefined && c.after !== undefined ? <><small>変更前</small><p>{describeValue(c.before, lookup)}</p><small>変更後</small><p>{describeValue(c.after, lookup)}</p></> : <p>{describeValue(c.after ?? c.before, lookup)}</p>}</div></details></li>)}</ul></details>)}</div>}
+  </section>;
 }
 function App() {
   const [loaded] = useState(() => reviewPreview ? {workspace:initialWorkspace(),warning:''} : load());
@@ -97,7 +126,7 @@ function App() {
   const [editing, setEditing] = useState<Entity | null>(null);
   const [instruction, setInstruction] = useState('');
   const [side, setSide] = useState<'detail' | 'chat'>(() => !reviewPreview && localStorage.getItem(RUN_KEY) ? 'chat' : 'detail');
-  const [undo, setUndo] = useState<Workspace | null>(null);
+  const [undo, setUndo] = useState<(() => void) | null>(null);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(SIDEBAR_KEY) === '1'; } catch { return false; } });
   const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem(SIDE_KEY) === '1'; } catch { return false; } });
   function setSidePanel(collapsedNext: boolean) { setSideCollapsed(collapsedNext); try { localStorage.setItem(SIDE_KEY, collapsedNext ? '1' : '0'); } catch { /* per-viewer preference only */ } }
@@ -160,7 +189,7 @@ function App() {
   const canResearch = agentReady && !!instruction.trim() && !historical && !submitting && run?.status !== 'running' && !run?.patch;
   async function askCodex(text = instruction) {
     if (reviewPreview || !agentReady || !text.trim() || historical || submitting || run?.status === 'running' || run?.patch) return;
-    setSubmitting(true); setRun(null); openSide('chat');
+    setSubmitting(true); setRun(null); setUndo(null); openSide('chat');
     try {
       const result: Run = await request('/api/codex/runs', { instruction: text, base_commit_id: head.id, snapshot });
       setRun(result); setRunId(result.id); localStorage.setItem(RUN_KEY, result.id);
@@ -174,6 +203,12 @@ function App() {
     const title = head.snapshot.entities.length ? null : (run.patch.operations.find(op => op.op === 'set_title') as { title?: string } | undefined)?.title?.slice(0, 40) ?? null;
     newCommit(next, run.patch.message, 'codex', run.patch, title);
     setRun(null); setRunId(null); localStorage.removeItem(RUN_KEY); setInstruction('');
+  }
+  function closeRun() {
+    if (!run) return;
+    const previous = run;
+    setRun(null); setRunId(null); localStorage.removeItem(RUN_KEY);
+    if (previous.patch) { setUndo(() => () => { setRun(previous); setRunId(previous.id); localStorage.setItem(RUN_KEY, previous.id); }); setNotice('変更案を破棄しました'); }
   }
   const lineage = new Set<string>();
   function visit(id: string) { if (lineage.has(id)) return; lineage.add(id); workspace.commits.find(c => c.id === id)?.parents.forEach(visit); }
@@ -197,10 +232,11 @@ function App() {
   const activeCategory = categoryFilter !== 'all' && keywords.some(k => k.category === categoryFilter) ? categoryFilter : 'all';
   const shownKeywords = keywords.filter(k => (activeCategory === 'all' || k.category === activeCategory)).sort((a, b) => keywordOrder.indexOf(a.category) - keywordOrder.indexOf(b.category) || a.label.localeCompare(b.label));
   function removeCollection(id: string) {
-    guard(() => { const previous = workspace; save(deleteBranch(workspace, id)); setViewId(null); setSelected(''); setUndo(previous); setNotice('コレクションを削除しました'); });
+    guard(() => { const previous = workspace; save(deleteBranch(workspace, id)); setViewId(null); setSelected(''); setUndo(() => () => save(previous)); setNotice('コレクションを削除しました'); });
   }
   const startingSurvey = !snapshot.entities.length && !historical;
   const chatHistory = [...history].reverse().filter(c => c.source === 'codex' && c.instruction);
+  const runTrace = run?.trace?.length ? <details className="run-trace" open={run.status === 'running'}><summary><Icon name="chevron"/><span>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.searches ?? run.trace.filter(t => t.kind === 'search').length}回`}</span></summary><ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details> : null;
   const sideRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (selected) setSide('detail'); }, [selected]);
   useEffect(() => { if (side === 'chat' && sideRef.current) sideRef.current.scrollTop = sideRef.current.scrollHeight; }, [side, run?.status, run?.trace?.length, chatHistory.length]);
@@ -248,14 +284,7 @@ function App() {
           {entity.type === 'Keyword' && (entity.definition_excerpt || entity.source_url) && <div className="detail-section">{entity.definition_excerpt && <blockquote>{entity.definition_excerpt}</blockquote>}{entity.locator && <dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl>}{entity.source_url && <div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div>}</div>}
           {entity.type === 'Evidence' && <div className="detail-section"><dl><dt>出典の位置</dt><dd>{entity.locator}</dd></dl><div className="detail-links"><a href={entity.source_url} target="_blank" rel="noreferrer">出典 ↗</a></div></div>}
           {connections.length > 0 && <div className="detail-section related"><h3>関連 <span>{connections.length}</span></h3>{connections.map(c => <button key={c.entity.id} onClick={() => setSelected(c.entity.id)}><span className={`connection-dot t-${c.entity.type}`}/><span><small>{linkLabel(c)}{c.entity.type === 'Paper' && ` · ${c.entity.year ?? '年未取得'}`}</small>{display(c.entity)}</span><span aria-hidden="true">→</span></button>)}</div>}
-        </> : tab === 'issues' && roots.length ? <nav className="issue-tree" aria-label="課題ツリー"><h3>課題ツリー</h3><ul>{roots.map(e => tree(e.id))}</ul></nav> : <div className="empty">未選択</div>}</div> : <div className="chat">{chatHistory.map(c => <div key={c.id} className="chat-turn"><div className="chat-msg user">{c.instruction}</div><div className="chat-msg codex"><small>{stamp(c.created_at)} · 保存済み</small><p>{c.message}</p></div></div>)}{run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}</div>}{run && <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.message}</span>{run.status === 'running' && <button onClick={() => void request(`/api/codex/runs/${run.id}/cancel`, {}).then(setRun).catch(e => setNotice(e.message))} className="run-cancel"><Icon name="stop"/>取消</button>}{run.status !== 'running' && !run.patch && <button onClick={() => { setRun(null); setRunId(null); localStorage.removeItem(RUN_KEY); }}>閉じる</button>}</div>{!!run.trace?.length && <details className="run-trace" open={run.status === 'running'}><summary>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.trace.filter(t => t.kind === 'search').length}回`}</summary><ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details>}{run.patch && <><h3>{run.patch.message}</h3><div className="patch-operations">{run.patch.operations.map((op, i) => {
-            const id = 'entity' in op ? op.entity.id : 'relation' in op ? op.relation.id : 'id' in op ? op.id : null;
-            const base = head.snapshot;
-            const before = id ? base.entities.find(e => e.id === id) ?? base.relations.find(r => r.id === id) : base.title;
-            const after = 'entity' in op ? op.entity : 'relation' in op ? op.relation : 'title' in op ? op.title : null;
-            const labels = {add_entity:'追加',replace_entity:'変更',remove_entity:'削除',add_relation:'関連を追加',replace_relation:'関連を変更',remove_relation:'関連を削除',set_title:'調査名を変更'};
-            return <details key={i}><summary><span className="change-label">{labels[op.op]}</span> {'entity' in op ? op.entity.label : 'title' in op ? op.title : 'relation' in op ? `${proposalLabel(op.relation.from)} → ${proposalLabel(op.relation.to)}` : id ? linked(id)?.label ?? '関連情報' : ''}</summary><div className="diff"><div><small>変更前</small><p>{describeValue(before,proposalLabel)}</p></div><div><small>変更後</small><p>{describeValue(after,proposalLabel)}</p></div></div></details>;
-          })}</div><div className="review-actions"><button onClick={() => { setRun(null); setRunId(null); localStorage.removeItem(RUN_KEY); }}>提案を閉じる</button><button className="primary" disabled={historical || run.patch.base_commit_id !== head.id} onClick={() => guard(acceptPatch)}>差分を適用して新しい版を保存</button></div>{run.patch.base_commit_id !== head.id && <p className="validation-errors">baseが変わったため適用できません。</p>}</>}</div>}</div>}{!chatHistory.length && !run && <div className="empty">チャットなし</div>}</div>}</div>{!startingSurvey && <div className="side-composer"><div className="agent-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={composerRef} aria-label="調べたいこと" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="調べたいこと"/><button className="primary" disabled={!canResearch} onClick={() => void askCodex()}>{submitting || run?.status === 'running' ? '調査中…' : '調査'}</button></div><p className="agent-status">{agent}</p></div>}</aside>}</div>
+        </> : tab === 'issues' && roots.length ? <nav className="issue-tree" aria-label="課題ツリー"><h3>課題ツリー</h3><ul>{roots.map(e => tree(e.id))}</ul></nav> : <div className="empty">未選択</div>}</div> : <div className="chat">{chatHistory.map(c => <div key={c.id} className="chat-turn"><div className="chat-msg user">{c.instruction}</div><div className="chat-msg codex"><small>{stamp(c.created_at)} · 保存済み</small><p>{c.message}</p></div></div>)}{run && <div className="chat-turn">{run.instruction && <div className="chat-msg user">{run.instruction}</div>}{run.patch ? <>{runTrace}<Proposal key={run.id} patch={run.patch} base={head.snapshot} lookup={proposalLabel} stale={run.patch.base_commit_id !== head.id} disabled={historical || run.patch.base_commit_id !== head.id} onDiscard={closeRun} onSave={() => guard(acceptPatch)}/></> : <div className={`run-result ${run.status}`} role="status"><div className="run-title"><span>{run.status === 'running' ? '◌' : run.status === 'succeeded' ? '✓' : '—'} {run.message}</span>{run.status === 'running' ? <button onClick={() => void request(`/api/codex/runs/${run.id}/cancel`, {}).then(setRun).catch(e => setNotice(e.message))} className="run-cancel"><Icon name="stop"/>取消</button> : <button onClick={closeRun}>閉じる</button>}</div>{runTrace}</div>}</div>}{!chatHistory.length && !run && <div className="empty">チャットなし</div>}</div>}</div>{!startingSurvey && <div className="side-composer"><div className="agent-input"><span className="agent-icon"><Icon name="spark"/></span><textarea ref={composerRef} aria-label="調べたいこと" value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="調べたいこと"/><button className="primary" disabled={!canResearch} onClick={() => void askCodex()}>{submitting || run?.status === 'running' ? '調査中…' : '調査'}</button></div><p className="agent-status">{agent}</p></div>}</aside>}</div>
       </main>
     </div>{figurePaper && <FigureExtractor paper={figurePaper} preview={reviewPreview} onClose={()=>setFigurePaper(null)} onSave={figure=>{const next=structuredClone(snapshot);const paper=next.entities.find(e=>e.id===figurePaper.id && e.type==='Paper');if(!paper || paper.type!=='Paper')throw Error('論文が見つかりません');paper.representative_figure=figure;newCommit(next,`${paper.label}の代表Figを保存`);}}/>}{editing && <EntityEditor entity={editing} entities={snapshot.entities} onClose={() => setEditing(null)} onSave={value => {
       const next = structuredClone(snapshot); const index = next.entities.findIndex(e => e.id === value.id);
@@ -265,7 +294,7 @@ function App() {
         if (value.type === 'Method' && entity?.type === 'Issue') next.relations.push({id:crypto.randomUUID(),type:'addresses',from:value.id,to:entity.id});
       }
       newCommit(next, `${value.label}を${index >= 0 ? '編集' : '追加'}`);setEditing(null);
-    }}/>} {notice && <div className="toast" role="status"><span>{notice}</span>{undo && <button className="toast-action" onClick={() => { const previous = undo; save(previous); setNotice('元に戻しました'); }}>元に戻す</button>}<button aria-label="通知を閉じる" onClick={() => { setNotice(''); setUndo(null); }}><CloseIcon/></button></div>}
+    }}/>} {notice && <div className="toast" role="status"><span>{notice}</span>{undo && <button className="toast-action" onClick={() => { undo(); setUndo(null); setNotice('元に戻しました'); }}>元に戻す</button>}<button aria-label="通知を閉じる" onClick={() => { setNotice(''); setUndo(null); }}><CloseIcon/></button></div>}
   </div>;
 }
 createRoot(document.getElementById('root')!).render(location.pathname.replace(/\/$/,'') === '/lab' ? <Lab/> : <App/>);
