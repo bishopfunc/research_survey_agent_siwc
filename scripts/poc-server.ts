@@ -19,7 +19,7 @@ import { singleFlight } from './single-flight';
 import { busyRuns, requestFailure, requestIdentity, repeatedRequest } from './run-request';
 import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, budgetInstructions, checkpointInstructions, deadlineSteer, SUBMIT_PATCH_TOOL, submitReply, timeBudget, type CodexTransport } from '../packages/agent/src/time-budget';
-import { AppServerHost } from './codex-app-server';
+import { AppServerHost, isolationProblems } from './codex-app-server';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
 import { settleCheckpoints, streamCheckpoints, type Checkpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
@@ -122,12 +122,15 @@ async function warmArxiv(ids: string[]) {
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** design 0036: app-server unless CODEX_TRANSPORT=exec (the fallback while the app-server API is experimental). */
 const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ? 'exec' : 'app-server';
-/** app-server has no --ignore-user-config: every MCP server Codex lists is replaced by a disabled entry. A plugin's server is
- * not in config.toml, so setting only `enabled=false` would leave an entry without a transport, which Codex rejects. */
-const userMcpServers = (() => {
-  if (CODEX_TRANSPORT === 'exec') return [];
-  try { return (JSON.parse(spawnSync('codex', ['mcp', 'list', '--json'], { encoding: 'utf8', timeout: 15_000 }).stdout) as { name?: unknown }[]).flatMap(server => typeof server.name === 'string' && /^[\w-]+$/.test(server.name) ? [server.name] : []); } catch { return []; }
-})();
+/** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
+ * of its own transport (a plugin's server is not in config.toml, and a bare enabled=false would leave it without a transport),
+ * and the host then verifies the effective config before any thread starts, failing closed. Listed again for each run. */
+function mcpOverrides(env: NodeJS.ProcessEnv): string[] {
+  let servers: { name?: unknown; transport?: { type?: unknown } }[] = [];
+  try { servers = JSON.parse(spawnSync('codex', ['mcp', 'list', '--json'], { encoding: 'utf8', timeout: 15_000, env }).stdout); } catch { return []; }
+  return servers.flatMap(server => typeof server.name === 'string' && /^[\w-]+$/.test(server.name)
+    ? ['-c', `mcp_servers.${server.name}=${server.transport?.type === 'stdio' ? '{command="true",enabled=false}' : '{url="http://127.0.0.1:9/",enabled=false}'}`] : []);
+}
 /** One app-server process per run (design 0037): its steps are threads in it, so many run side by side in little memory. */
 const hosts = new Map<string, { host: AppServerHost; workdir: string }>();
 function hostFor(run: Run, env: NodeJS.ProcessEnv) {
@@ -138,7 +141,7 @@ function hostFor(run: Run, env: NodeJS.ProcessEnv) {
   const directory = join(storage, run.id);
   let stderr = 0;
   const host = new AppServerHost({
-    args: [...codexSettings(CODEX_EXECUTION.webSearch), '-c', 'notify=[]', ...userMcpServers.flatMap(name => ['-c', `mcp_servers.${name}={command="true",enabled=false}`])], env, cwd: workdir,
+    args: [...codexSettings(CODEX_EXECUTION.webSearch), '-c', 'notify=[]', ...mcpOverrides(env)], env, cwd: workdir, verify: isolationProblems,
     onStderr: chunk => { if (stderr < MAX_LOG_BYTES) { stderr += chunk.length; appendFileSync(join(directory, 'codex-stderr.log'), redact(chunk), { mode: 0o600 }); } },
   });
   hosts.set(run.id, { host, workdir });

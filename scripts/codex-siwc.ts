@@ -54,5 +54,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!('token' in result)) { console.error(`ChatGPTのトークンを取得できません（${result.error}）。サイトでChatGPTにログインし直してください`); process.exit(1); }
     const env = { ...process.env, ACCESS_TOKEN: result.token, CODEX_HOME: process.env.SIWC_CODEX_HOME ?? `${process.env.HOME}/.codex-siwc` };
     run(real, siwcExecArgs(args, process.env.CODEX_CATALOG ?? `${process.env.HOME}/codex-catalog.json`), env);
-  } else run(real, args, process.env);
+  // Every other command (mcp list…) sees the same Codex home as exec and app-server, so their config matches.
+  } else run(real, args, { ...process.env, CODEX_HOME: process.env.SIWC_CODEX_HOME ?? `${process.env.HOME}/.codex-siwc` });
 }

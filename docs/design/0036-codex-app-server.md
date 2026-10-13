@@ -27,7 +27,7 @@
 
 ## 契約とデータ
 
-- **起動：** `codex app-server --listen stdio://` に、execと同じ設定（モデル、推論の強さと要約、Web検索、承認なし、read-onlyのsandbox、無効化する機能、`project_doc_max_bytes=0`、`skills.include_instructions=false`）を `-c` と `--disable` で渡す。app-serverには `--ignore-user-config` が無いので、ユーザー設定から入りうるものを明示的に止める：`notify=[]`、`codex mcp list --json` で得たMCPサーバーをすべて無効の項目（`{command="true",enabled=false}`）で置き換える。プラグインが足すMCPサーバーはconfig.tomlに無く、`enabled=false` だけを足すとtransportの無い項目になり、Codexが起動を拒むため。API keyの環境変数は渡さない。作業ディレクトリはリポジトリ外の一時ディレクトリ。
+- **起動：** `codex app-server --listen stdio://` に、execと同じ設定（モデル、推論の強さと要約、Web検索、承認なし、read-onlyのsandbox、無効化する機能、`project_doc_max_bytes=0`、`skills.include_instructions=false`）を `-c` と `--disable` で渡す。app-serverには `--ignore-user-config` が無いので、ユーザー設定から入りうるものを明示的に止める：`notify=[]`、runごとに `codex mcp list --json` で得たMCPサーバーを、同じtransportの無効の項目（stdioは `{command="true",enabled=false}`、URLは `{url="http://127.0.0.1:9/",enabled=false}`）で置き換える。プラグインが足すMCPサーバーはconfig.tomlに無く、`enabled=false` だけを足すとtransportの無い項目になり、Codexが起動を拒むため。そのうえで最初のthreadの前に `config/read` で実際の設定を確かめ、有効なMCPサーバーかユーザーの指示（instructions、developer_instructions、model_instructions_file）が残っていれば、そのrunのCodexを始めずに失敗にする（隔離できないまま動かさない）。API keyの環境変数は渡さない。作業ディレクトリはリポジトリ外の一時ディレクトリ。
 - **初期化：** `initialize`（`experimentalApi: true`）→ `initialized` → `thread/start`（model、cwd、sandbox `read-only`、approvalPolicy `never`、`ephemeral: true`、途中保存がある段階だけ `dynamicTools`）→ `turn/start`（入力は今と同じbudgetとプロンプト、`outputSchema`、effort、summary）。
 - **ツール `submit_patch`：** 引数は `{message, operations}`。入力スキーマは小さく保つ（Codexは5,000バイトを超えるツールのスキーマを省略して送り、`strict:false` で渡す）。操作の形は最終応答のスキーマと同じ。サーバーは `schema_version` と `base_commit_id` を補い、正規化（[0012](0012-codex-research-modes.md)）、省略形の差し替えの補完、型・参照検証、累積保存を行う。返答は次の3つ：
   - saved：保存した。それまでの操作数を返す。
@@ -51,7 +51,7 @@
 
 - 既定はapp-server。`CODEX_TRANSPORT=exec` で従来の起動に戻す。
 - Codex CLIは0.162.1で確認した。版を上げるときは、`codex app-server generate-ts` の型と、このクライアントが使うメソッド・通知（`initialize`、`thread/start`、`turn/start`、`turn/steer`、`turn/interrupt`、`item/tool/call`、`item/completed`、`turn/completed`、`error`）を照合する。
-- VPSは `scripts/deploy-vps.sh` で配る。戻すときは `--rollback`、または `CODEX_TRANSPORT=exec`。
+- VPSは `scripts/deploy-vps.sh` で配る。戻すときは `--rollback`、またはVPSの `~/apps/survey/.env` に `CODEX_TRANSPORT=exec` を書いて `docker compose up -d`（`compose.yaml` が渡し、デプロイの書き換えでも残る）。
 
 ## 検証と完了条件
 

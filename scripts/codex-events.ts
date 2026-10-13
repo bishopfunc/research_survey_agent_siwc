@@ -37,7 +37,7 @@ export function readCodexEvent(state: CodexEventState, line: string): CodexEvent
 type AppItem = { type?: unknown; text?: unknown; phase?: unknown; query?: unknown; action?: { type?: unknown; query?: unknown; queries?: unknown; url?: unknown; pattern?: unknown } | null; summary?: unknown; tool?: unknown; success?: unknown };
 const WEB_ACTIONS: Record<string, string> = { search: 'search', openPage: 'open_page', findInPage: 'find_in_page', other: 'other' };
 /** An app-server notification (design 0036) as the `exec --json` event line it corresponds to, so the same readers, trace and
- * events.jsonl serve both transports. `usage` is the turn's last token count, carried into turn.completed as exec does. */
+ * events.jsonl serve both transports. `usage` is the turn's total token count, carried into turn.completed as exec does. */
 export function appServerEventLine(method: string, params: unknown, usage: Record<string, number> | null = null): string | null {
   const p = (params ?? {}) as { item?: AppItem; turn?: { status?: unknown; error?: { message?: unknown } | null }; error?: { message?: unknown }; willRetry?: unknown };
   if (method === 'item/completed' && p.item) {
@@ -63,10 +63,10 @@ export function appServerEventLine(method: string, params: unknown, usage: Recor
 }
 /** exec's usage keys from an app-server token breakdown. */
 export function execUsage(last: unknown): Record<string, number> | null {
-  const u = last as { inputTokens?: unknown; cachedInputTokens?: unknown; outputTokens?: unknown; reasoningOutputTokens?: unknown } | undefined;
+  const u = last as { inputTokens?: unknown; cachedInputTokens?: unknown; cacheWriteInputTokens?: unknown; outputTokens?: unknown; reasoningOutputTokens?: unknown } | undefined;
   if (!u || typeof u !== 'object') return null;
   const n = (v: unknown) => typeof v === 'number' ? v : 0;
-  return { input_tokens: n(u.inputTokens), cached_input_tokens: n(u.cachedInputTokens), output_tokens: n(u.outputTokens), reasoning_output_tokens: n(u.reasoningOutputTokens) };
+  return { input_tokens: n(u.inputTokens), cached_input_tokens: n(u.cachedInputTokens), cache_write_input_tokens: n(u.cacheWriteInputTokens), output_tokens: n(u.outputTokens), reasoning_output_tokens: n(u.reasoningOutputTokens) };
 }
 
 /** Short, single-line reason for the UI. API errors arrive as JSON inside the message string. */

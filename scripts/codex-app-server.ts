@@ -49,6 +49,9 @@ export interface HostOptions {
   env: NodeJS.ProcessEnv;
   cwd: string;
   onStderr?(chunk: string): void;
+  /** Checks the effective config (config/read) before any thread starts; a problem fails every turn (design 0036: app-server has
+   * no --ignore-user-config, so the isolation exec had is verified instead of assumed). */
+  verify?(config: Record<string, unknown>): string[];
   command?: string;
   spawn?: typeof nodeSpawn;
   now?: () => number;
@@ -108,6 +111,10 @@ export class AppServerHost {
     this.ready = (async () => {
       await this.rpc.request('initialize', { clientInfo: { name: 'speedrun_survey', title: 'Speedrun Survey', version: '0.1.0' }, capabilities: { experimentalApi: true } });
       this.rpc.notify('initialized');
+      if (!o.verify) return;
+      const read = await this.rpc.request('config/read', { cwd: o.cwd }) as { config?: Record<string, unknown> };
+      const problems = o.verify(read.config ?? {});
+      if (problems.length) throw Error(`Codexの設定から研究用のAgentを隔離できません（${problems.join('、')}）。設定を見直すか、CODEX_TRANSPORT=execで起動してください`);
     })();
     this.ready.catch(() => {});
   }
@@ -179,7 +186,8 @@ export class AppServerHost {
       t.lastMessage = p.item.text;
       if (p.item.phase === 'final_answer') t.finalAnswer = p.item.text;
     }
-    if (method === 'thread/tokenUsage/updated') t.usage = execUsage(p.tokenUsage?.last) ?? t.usage;
+    // The thread is ephemeral with one turn, so its total is the turn's total, which exec reports.
+    if (method === 'thread/tokenUsage/updated') t.usage = execUsage((p.tokenUsage as { total?: unknown } | undefined)?.total) ?? t.usage;
     const line = appServerEventLine(method, params, t.usage);
     if (line) t.o.onLine(line);
     if (method === 'turn/completed') {
@@ -199,6 +207,19 @@ export class AppServerHost {
     if (method === 'currentTime/read') return { currentTimeAt: Math.floor((this.o.now?.() ?? Date.now()) / 1000) };
     throw Error(`${method} is not supported by this client`);
   }
+}
+
+/** What in the effective config would reach the research agent although exec's --ignore-user-config kept it out: an enabled MCP
+ * server, or instructions from the user's config. */
+export function isolationProblems(config: Record<string, unknown>): string[] {
+  const problems: string[] = [];
+  const servers = (config.mcp_servers ?? {}) as Record<string, { enabled?: unknown }>;
+  for (const [name, server] of Object.entries(servers)) if (server?.enabled !== false) problems.push(`MCPサーバー ${name} が有効`);
+  for (const key of ['instructions', 'developer_instructions', 'model_instructions_file', 'experimental_compact_prompt_file']) {
+    const value = config[key];
+    if (typeof value === 'string' ? value.trim() : value !== null && value !== undefined) problems.push(`${key} が設定されている`);
+  }
+  return problems;
 }
 
 /** One step in a process of its own, closed when the step ends. */

@@ -4,6 +4,8 @@
 日付: 2026-10-12 JST
 関連: [0029](0029-four-wave-survey.md)、[0012](0012-codex-research-modes.md)
 
+2026-10-14追記：既定のapp-server（[0036](0036-codex-app-server.md)）では、途中保存はcommentaryの `SURVEY_CHECKPOINT` ではなくツール `submit_patch` で受け取り、調査期限はサーバーが `turn/steer` で、強制終了は `turn/interrupt` で行う。以下のcommentary・SIGTERMの記述は `CODEX_TRANSPORT=exec` のときの動作。新規調査の時間と手順は [0037](0037-ten-minute-survey.md) に置き換えた。
+
 ## 目的と実行契約
 
 時間切れで成果を失うことと「終了コード0」の誤解を防ぐ。全体像の強制終了期限を330秒から480秒へ延長し、最初の300秒を調査、残り180秒を書き出しに割り当てる。他の実行も上限の中に書き出し時間を予約する。各Codexの開始時に秒数と絶対時刻の両方を伝える。調査期限はAgentに協調的な終了を指示する期限であり、サーバーがWeb検索を強制的に無効化するものではない。期限到達を経過に記録し、強制終了期限まで書き出しを待つ。
