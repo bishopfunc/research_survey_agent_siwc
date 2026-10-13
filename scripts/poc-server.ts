@@ -19,7 +19,7 @@ import { singleFlight } from './single-flight';
 import { busyRuns, requestFailure, requestIdentity, repeatedRequest } from './run-request';
 import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, budgetInstructions, checkpointInstructions, deadlineSteer, SUBMIT_PATCH_TOOL, submitReply, timeBudget, type CodexTransport } from '../packages/agent/src/time-budget';
-import { startAppServerStep } from './codex-app-server';
+import { AppServerHost } from './codex-app-server';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
 import { settleCheckpoints, streamCheckpoints, type Checkpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
@@ -128,6 +128,33 @@ const userMcpServers = (() => {
   if (CODEX_TRANSPORT === 'exec') return [];
   try { return (JSON.parse(spawnSync('codex', ['mcp', 'list', '--json'], { encoding: 'utf8', timeout: 15_000 }).stdout) as { name?: unknown }[]).flatMap(server => typeof server.name === 'string' && /^[\w-]+$/.test(server.name) ? [server.name] : []); } catch { return []; }
 })();
+/** One app-server process per run (design 0037): its steps are threads in it, so many run side by side in little memory. */
+const hosts = new Map<string, { host: AppServerHost; workdir: string }>();
+function hostFor(run: Run, env: NodeJS.ProcessEnv) {
+  const existing = hosts.get(run.id);
+  if (existing) return existing.host;
+  // Outside the repository and without project docs or user skills, so the developer AGENTS.md and skills never reach the research agent.
+  const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
+  const directory = join(storage, run.id);
+  let stderr = 0;
+  const host = new AppServerHost({
+    args: [...codexSettings(CODEX_EXECUTION.webSearch), '-c', 'notify=[]', ...userMcpServers.flatMap(name => ['-c', `mcp_servers.${name}={command="true",enabled=false}`])], env, cwd: workdir,
+    onStderr: chunk => { if (stderr < MAX_LOG_BYTES) { stderr += chunk.length; appendFileSync(join(directory, 'codex-stderr.log'), redact(chunk), { mode: 0o600 }); } },
+  });
+  hosts.set(run.id, { host, workdir });
+  stopChildren.set(`${run.id}:host`, () => closeHost(run.id));
+  return host;
+}
+function closeHost(runId: string) {
+  const entry = hosts.get(runId); if (!entry) return;
+  hosts.delete(runId); stopChildren.delete(`${runId}:host`);
+  entry.host.close();
+  setTimeout(() => rmSync(entry.workdir, { recursive: true, force: true }), 10_000).unref();
+}
+/** The Codex settings both transports pass; app-server applies them to every thread of the run's process. */
+function codexSettings(webSearch: string) {
+  return ['-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature])];
+}
 type StepCheckpoints = { chunks: Checkpoints; step?: number };
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process.
  * With `checkpoints`, results saved as they go (design 0034) arrive through submit_patch (app-server) or commentary (exec). */
@@ -141,7 +168,6 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     const webSearch = options.webSearch ?? (step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch);
     const output = join(directory, options.output ?? outputs[step as keyof typeof outputs] ?? `stage-${step}.json`);
     const schemaFile = join(directory, options.schema ?? 'output-schema.json');
-    const settings = ['-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature])];
     const text = `${budgetInstructions(timeoutSeconds, startedAt, undefined, CODEX_TRANSPORT)}\n\n${prompt}`;
     const key = `${run.id}:${step}`;
     const log = join(directory, 'events.jsonl');
@@ -168,10 +194,11 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     let proc: { stop(signal: 'SIGTERM' | 'SIGKILL'): void; steer?(text: string): Promise<boolean> };
     let ended: Promise<{ code: number | null; signal?: NodeJS.Signals | null; spawnError?: boolean }>;
     if (CODEX_TRANSPORT === 'app-server') {
-      const appServer = startAppServerStep({
-        args: [...settings, '-c', 'notify=[]', ...userMcpServers.flatMap(name => ['-c', `mcp_servers.${name}={command="true",enabled=false}`])], env, cwd: workdir,
+      const appServer = hostFor(run, env).turn({
         model: CODEX_EXECUTION.model, effort: CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
-        outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine, onStderr,
+        // The process searches the web live; a step that must not (the repair) turns it off for its own thread.
+        config: webSearch === CODEX_EXECUTION.webSearch ? undefined : { web_search: webSearch },
+        outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine,
         async onToolCall(tool, args) {
           if (tool !== SUBMIT_PATCH_TOOL.name || !cp) return { text: `unknown tool ${tool}`, success: false };
           const result = run.status === 'running' && !supervisor.timedOut ? cp.chunks.submit(args) : { status: 'stopped' as const, operations: 0 };
@@ -183,7 +210,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       proc = appServer;
       ended = appServer.done.then(result => { if (result.finalMessage !== undefined) writeFileSync(output, result.finalMessage, { mode: 0o600 }); return result; });
     } else {
-      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, ...settings, '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, ...codexSettings(webSearch), '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
       if (child.stdout) createInterface({ input: child.stdout }).on('line', onLine);
       child.stderr?.on('data', (chunk: Buffer) => onStderr(chunk.toString('utf8')));
       child.stdin?.on('error', () => {});
@@ -332,7 +359,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     else { run.status = 'failed'; run.message = outcome.message.slice(0, 1600); }
     save(run);
   }).catch(error => { if (run.status === 'running') { run.status = 'failed'; run.message = error instanceof Error ? error.message.slice(0, 1600) : '調査に失敗しました'; save(run); } })
-    .finally(() => logged.delete(id));
+    .finally(() => { logged.delete(id); closeHost(id); });
   return run;
 }
 const vite = await createVite({ configFile: resolve('apps/web/vite.config.ts'), server: { middlewareMode: true }, appType: 'spa' });

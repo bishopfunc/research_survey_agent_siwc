@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough, Writable } from 'node:stream';
-import { JsonRpc, startAppServerStep, type AppServerStepOptions } from '../scripts/codex-app-server';
+import { AppServerHost, JsonRpc, startAppServerStep } from '../scripts/codex-app-server';
+type AppServerStepOptions = Parameters<typeof startAppServerStep>[0];
 import { appServerEventLine, initialCodexState, readCodexEvent, traceItem } from '../scripts/codex-events';
 
 type Message = { id?: number | string; method?: string; params?: Record<string, unknown>; result?: unknown; error?: unknown };
 /** A stand-in for `codex app-server`: answers the client's requests and lets the test push notifications and server requests. */
-function fakeServer(script: { onTurn?(server: ReturnType<typeof fakeServer>): void; startError?: string } = {}) {
+function fakeServer(script: { onTurn?(server: ReturnType<typeof fakeServer>, thread: string): void; startError?: string } = {}) {
+  let threads = 0;
   const stdout = new PassThrough(), stderr = new PassThrough();
   const received: Message[] = [];
   const child = Object.assign(new EventEmitter(), { stdout, stderr, killed: [] as string[], stdin: null as unknown as Writable, kill(signal: string) { child.killed.push(signal); end(); return true; } });
@@ -16,7 +18,7 @@ function fakeServer(script: { onTurn?(server: ReturnType<typeof fakeServer>): vo
   const send = (message: unknown) => stdout.write(JSON.stringify(message) + '\n');
   const server = {
     child, received, send,
-    notify: (method: string, params: unknown) => send({ method, params }),
+    notify: (method: string, params: Record<string, unknown>) => send({ method, params: { threadId: 'th-1', ...params } }),
     request: (id: number, method: string, params: unknown) => send({ id, method, params }),
     responses: () => received.filter(m => m.method === undefined),
   };
@@ -25,10 +27,10 @@ function fakeServer(script: { onTurn?(server: ReturnType<typeof fakeServer>): vo
       for (const line of String(chunk).split('\n').filter(Boolean)) {
         const message = JSON.parse(line) as Message; received.push(message);
         if (message.method === 'initialize') send({ id: message.id, result: { userAgent: 'fake' } });
-        if (message.method === 'thread/start') send(script.startError ? { id: message.id, error: { message: script.startError } } : { id: message.id, result: { thread: { id: 'th-1' } } });
-        if (message.method === 'turn/start') { send({ id: message.id, result: { turn: { id: 'tu-1', status: 'inProgress' } } }); server.notify('turn/started', { threadId: 'th-1', turn: { id: 'tu-1' } }); setImmediate(() => script.onTurn?.(server)); }
+        if (message.method === 'thread/start') { threads++; send(script.startError ? { id: message.id, error: { message: script.startError } } : { id: message.id, result: { thread: { id: `th-${threads}` } } }); }
+        if (message.method === 'turn/start') { const th = String(message.params!.threadId), tu = th.replace('th', 'tu'); send({ id: message.id, result: { turn: { id: tu, status: 'inProgress' } } }); send({ method: 'turn/started', params: { threadId: th, turn: { id: tu } } }); setImmediate(() => script.onTurn?.(server, th)); }
         if (message.method === 'turn/steer') send({ id: message.id, result: { turnId: 'tu-1' } });
-        if (message.method === 'turn/interrupt') send({ id: message.id, result: {} });
+        if (message.method === 'turn/interrupt') { send({ id: message.id, result: {} }); send({ method: 'turn/completed', params: { threadId: message.params!.threadId, turn: { id: message.params!.turnId, status: 'interrupted', error: null } } }); }
       }
       callback();
     },
@@ -137,4 +139,33 @@ test('app-server notifications read like exec events: retried errors are not fat
   assert.equal(appServerEventLine('item/agentMessage/delta', { delta: 'x' }), null);
   assert.deepEqual(JSON.parse(appServerEventLine('item/completed', { item: { type: 'webSearch', query: '', action: { type: 'findInPage', url: 'https://x.org/a', pattern: 'SPL' } } })!).item.action.type, 'find_in_page');
   assert.equal(read('item/completed', { item: { type: 'webSearch', query: '', action: { type: 'findInPage', url: 'https://x.org/a', pattern: 'SPL' } } }).opened[0], 'https://x.org/a');
+});
+
+test('one process serves several threads at once: notifications and tool calls reach their own turn; closing fails the rest', async () => {
+  const server = fakeServer({ onTurn(s, thread) {
+    if (thread === 'th-2') {
+      s.request(21, 'item/tool/call', { threadId: 'th-2', turnId: 'tu-2', callId: 'c', tool: 'submit_patch', arguments: { n: 2 } });
+      setTimeout(() => {
+        s.send({ method: 'item/completed', params: { threadId: 'th-2', item: { type: 'agentMessage', id: 'a2', text: 'two', phase: 'final_answer' } } });
+        s.send({ method: 'turn/completed', params: { threadId: 'th-2', turn: { id: 'tu-2', status: 'completed', error: null } } });
+      }, 5);
+    }
+  } });
+  const host = new AppServerHost({ args: [], env: {}, cwd: '/tmp', spawn: (() => server.child) as unknown as AppServerStepOptions['spawn'] });
+  const seen: Record<string, unknown[]> = { a: [], b: [] };
+  const turn = (name: 'a' | 'b', config?: Record<string, unknown>) => host.turn({ model: 'm', effort: 'low', summary: 'concise', text: name, config, onLine: () => {}, onToolCall: async (_tool, args) => { seen[name].push(args); return { text: 'ok', success: true }; } });
+  const a = turn('a'), b = turn('b', { web_search: 'disabled' });
+  const second = await b.done;
+  assert.equal(second.code, 0); assert.equal(second.finalMessage, 'two');
+  assert.deepEqual(seen, { a: [], b: [{ n: 2 }] });
+  const starts = server.received.filter(m => m.method === 'thread/start').map(m => m.params!);
+  assert.equal(starts.length, 2); assert.deepEqual(starts.find(p => p.config)?.config, { web_search: 'disabled' });
+  assert.equal(server.received.filter(m => m.method === 'initialize').length, 1);
+  assert.equal(host.busy, 1);
+  host.close();
+  const first = await a.done;
+  assert.equal(first.code, 1); assert.match(first.error!, /run ended/);
+  assert.equal(host.busy, 0);
+  // A turn asked for after the end fails at once instead of waiting.
+  assert.equal((await turn('a').done).code, 1);
 });

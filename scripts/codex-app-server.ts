@@ -1,6 +1,8 @@
-// One Codex step through `codex app-server` (design 0036, ADR 0025): JSON-RPC over stdio instead of `codex exec`, so the server
-// can steer the running turn at the research deadline, interrupt it at the hard stop and take results through a client tool.
-// Notifications are handed on as `exec --json` event lines, so the readers, trace and events.jsonl serve both transports.
+// Codex through `codex app-server` (designs 0036 and 0037, ADR 0025): JSON-RPC over stdio instead of `codex exec`, so the
+// server can steer a running turn at the research deadline, interrupt it at the hard stop and take results through a client
+// tool. One process serves a whole run; every Codex step is its own thread in it (20 concurrent threads used about 200 MB,
+// one process per step about 105 MB each). Notifications are handed on as `exec --json` event lines, so the readers, trace
+// and events.jsonl serve both transports.
 import { spawn as nodeSpawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { appServerEventLine, execUsage } from './codex-events';
@@ -41,111 +43,168 @@ export class JsonRpc {
 }
 
 export interface ClientTool { name: string; description: string; inputSchema: Record<string, unknown> }
-export interface AppServerStepOptions {
-  /** `codex` flags after `app-server`: the same -c and --disable settings exec gets. */
+export interface HostOptions {
+  /** `codex` flags after `app-server`: the -c and --disable settings every thread shares. */
   args: string[];
   env: NodeJS.ProcessEnv;
   cwd: string;
+  onStderr?(chunk: string): void;
+  command?: string;
+  spawn?: typeof nodeSpawn;
+  now?: () => number;
+}
+export interface TurnOptions {
   model: string;
   effort: string;
   summary: string;
   text: string;
   outputSchema?: unknown;
+  /** Per-thread config overrides, e.g. { web_search: 'disabled' } for a repair. */
+  config?: Record<string, unknown>;
   tools?: ClientTool[];
   onToolCall?(tool: string, args: unknown): Promise<{ text: string; success: boolean }>;
   /** exec-format event lines (see appServerEventLine). */
   onLine(line: string): void;
-  onStderr?(chunk: string): void;
-  command?: string;
-  spawn?: typeof nodeSpawn;
-  now?: () => number;
 }
 export interface AppServerResult { code: number | null; signal: NodeJS.Signals | null; spawnError?: boolean; finalMessage?: string; status?: string; error?: string }
 export interface AppServerStep {
   /** Adds input to the running turn; false when there is no turn, it ended, or its final answer has already started (a steer
    * then throws the half-written answer away). */
   steer(text: string): Promise<boolean>;
-  /** SIGTERM interrupts the turn and ends the process; SIGKILL kills it. */
+  /** SIGTERM interrupts the turn (and ends it after a short wait); SIGKILL gives it up at once. The process keeps serving the
+   * run's other threads. */
   stop(signal: 'SIGTERM' | 'SIGKILL'): void;
   done: Promise<AppServerResult>;
 }
 
 const text = (value: string) => [{ type: 'text', text: value, text_elements: [] }];
-const INTERRUPT_GRACE_MS = 1_000;
+const INTERRUPT_WAIT_MS = 3_000, EXIT_GRACE_MS = 1_000;
+type Turn = {
+  o: TurnOptions; threadId?: string; turnId?: string; status?: string; error?: string; usage: Record<string, number> | null;
+  finalStarted: boolean; ended: boolean; settled: boolean; lastMessage?: string; finalAnswer?: string; resolve(result: AppServerResult): void;
+};
 
-export function startAppServerStep(o: AppServerStepOptions): AppServerStep {
-  const child = (o.spawn ?? nodeSpawn)(o.command ?? 'codex', ['app-server', '--listen', 'stdio://', ...o.args], { env: o.env, cwd: o.cwd, stdio: ['pipe', 'pipe', 'pipe'] });
-  let threadId: string | undefined, turnId: string | undefined, status: string | undefined, error: string | undefined;
-  let finalStarted = false, ended = false, closed = false, usage: Record<string, number> | null = null;
-  let lastMessage: string | undefined, finalAnswer: string | undefined;
-  const write = (line: string) => { if (!closed && child.stdin?.writable) child.stdin.write(line + '\n'); };
-  const shutdown = () => { if (closed) return; child.stdin?.end(); setTimeout(() => { if (!closed) child.kill('SIGTERM'); }, INTERRUPT_GRACE_MS).unref?.(); };
-  const rpc = new JsonRpc(write, {
-    notification(method, params) {
-      const p = params as { turn?: { id?: string; status?: string; error?: { message?: string } | null }; item?: { type?: string; phase?: string | null; text?: string }; tokenUsage?: { last?: unknown } };
-      if (method === 'turn/started' && p.turn?.id) turnId = p.turn.id;
-      if (method === 'item/started' && p.item?.type === 'agentMessage' && p.item.phase === 'final_answer') finalStarted = true;
-      if (method === 'item/completed' && p.item?.type === 'agentMessage' && typeof p.item.text === 'string') {
-        lastMessage = p.item.text;
-        if (p.item.phase === 'final_answer') finalAnswer = p.item.text;
-      }
-      if (method === 'thread/tokenUsage/updated') usage = execUsage(p.tokenUsage?.last) ?? usage;
-      const line = appServerEventLine(method, params, usage);
-      if (line) o.onLine(line);
-      if (method === 'turn/completed') { ended = true; status = p.turn?.status; if (status === 'failed') error = p.turn?.error?.message ?? 'turn failed'; shutdown(); }
-    },
-    async request(method, params) {
-      if (method === 'item/tool/call') {
-        const call = params as { tool?: string; arguments?: unknown };
-        const answer = o.onToolCall ? await o.onToolCall(String(call.tool), call.arguments) : { text: 'unknown tool', success: false };
-        return { contentItems: [{ type: 'inputText', text: answer.text }], success: answer.success };
-      }
-      if (method === 'currentTime/read') return { currentTimeAt: Math.floor((o.now?.() ?? Date.now()) / 1000) };
-      throw Error(`${method} is not supported by this client`);
-    },
-  });
-  if (child.stdout) createInterface({ input: child.stdout }).on('line', line => rpc.receive(line));
-  child.stderr?.on('data', (chunk: Buffer) => o.onStderr?.(chunk.toString('utf8')));
-  child.stdin?.on('error', () => {});
-
-  const done = new Promise<AppServerResult>(resolve => {
-    // A spawn failure may be followed by close; the first one settles the step.
-    const settle = (result: AppServerResult) => { if (closed) return; closed = true; rpc.close('the app-server process ended'); resolve(result); };
-    child.on('error', () => settle({ code: null, signal: null, spawnError: true, error }));
-    child.on('close', (code, signal) => {
-      const ok = ended && status === 'completed';
-      settle({ code: ok ? 0 : code === 0 || code === null ? 1 : code, signal, status, error, finalMessage: ok ? finalAnswer ?? lastMessage : undefined });
+/** One `codex app-server` process for a run; `turn` starts a thread with one turn in it. */
+export class AppServerHost {
+  private rpc!: JsonRpc;
+  private child: ReturnType<typeof nodeSpawn>;
+  private ready: Promise<void>;
+  private turns = new Map<string, Turn>();
+  private live = new Set<Turn>();
+  private closed = false;
+  private spawnError = false;
+  private failure?: string;
+  constructor(private o: HostOptions) {
+    this.child = (o.spawn ?? nodeSpawn)(o.command ?? 'codex', ['app-server', '--listen', 'stdio://', ...o.args], { env: o.env, cwd: o.cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.rpc = new JsonRpc(line => { if (!this.closed && this.child.stdin?.writable) this.child.stdin.write(line + '\n'); }, {
+      notification: (method, params) => this.notification(method, params),
+      request: (method, params) => this.request(method, params),
     });
-  });
-
-  void (async () => {
-    try {
-      await rpc.request('initialize', { clientInfo: { name: 'speedrun_survey', title: 'Speedrun Survey', version: '0.1.0' }, capabilities: { experimentalApi: true } });
-      rpc.notify('initialized');
-      const thread = await rpc.request('thread/start', { model: o.model, cwd: o.cwd, sandbox: 'read-only', approvalPolicy: 'never', ephemeral: true, ...(o.tools?.length ? { dynamicTools: o.tools.map(tool => ({ type: 'function', ...tool })) } : {}) }) as { thread?: { id?: string } };
-      threadId = thread.thread?.id;
-      if (!threadId) throw Error('thread/start returned no thread');
-      const turn = await rpc.request('turn/start', { threadId, input: text(o.text), effort: o.effort, summary: o.summary, ...(o.outputSchema ? { outputSchema: o.outputSchema } : {}) }) as { turn?: { id?: string } };
-      turnId ??= turn.turn?.id;
-    } catch (e) {
-      if (closed) return;
-      error = e instanceof Error ? e.message : 'app-server failed to start the turn';
-      o.onLine(JSON.stringify({ type: 'error', message: error }));
-      shutdown();
+    if (this.child.stdout) createInterface({ input: this.child.stdout }).on('line', line => this.rpc.receive(line));
+    this.child.stderr?.on('data', (chunk: Buffer) => o.onStderr?.(chunk.toString('utf8')));
+    this.child.stdin?.on('error', () => {});
+    this.child.on('error', () => { this.spawnError = true; this.end('Codex CLIを起動できません'); });
+    this.child.on('close', () => this.end('the app-server process ended'));
+    this.ready = (async () => {
+      await this.rpc.request('initialize', { clientInfo: { name: 'speedrun_survey', title: 'Speedrun Survey', version: '0.1.0' }, capabilities: { experimentalApi: true } });
+      this.rpc.notify('initialized');
+    })();
+    this.ready.catch(() => {});
+  }
+  /** Threads that have not finished. */
+  get busy() { return this.live.size; }
+  turn(o: TurnOptions): AppServerStep {
+    let resolve!: (result: AppServerResult) => void;
+    const done = new Promise<AppServerResult>(r => { resolve = r; });
+    const t: Turn = { o, usage: null, finalStarted: false, ended: false, settled: false, resolve };
+    this.live.add(t);
+    void (async () => {
+      try {
+        if (this.closed) throw Error(this.failure ?? 'the app-server process ended');
+        await this.ready;
+        const thread = await this.rpc.request('thread/start', { model: o.model, cwd: this.o.cwd, sandbox: 'read-only', approvalPolicy: 'never', ephemeral: true, ...(o.config ? { config: o.config } : {}), ...(o.tools?.length ? { dynamicTools: o.tools.map(tool => ({ type: 'function', ...tool })) } : {}) }) as { thread?: { id?: string } };
+        if (t.settled) return;
+        t.threadId = thread.thread?.id;
+        if (!t.threadId) throw Error('thread/start returned no thread');
+        this.turns.set(t.threadId, t);
+        const turn = await this.rpc.request('turn/start', { threadId: t.threadId, input: text(o.text), effort: o.effort, summary: o.summary, ...(o.outputSchema ? { outputSchema: o.outputSchema } : {}) }) as { turn?: { id?: string } };
+        t.turnId ??= turn.turn?.id;
+      } catch (e) {
+        if (t.settled) return;
+        t.error = e instanceof Error ? e.message : 'app-server failed to start the turn';
+        o.onLine(JSON.stringify({ type: 'error', message: t.error }));
+        this.settle(t, { code: this.spawnError ? null : 1, signal: null, spawnError: this.spawnError, error: t.error });
+      }
+    })();
+    return {
+      steer: async input => {
+        if (!t.threadId || !t.turnId || t.ended || t.finalStarted || t.settled || this.closed) return false;
+        try { await this.rpc.request('turn/steer', { threadId: t.threadId, expectedTurnId: t.turnId, input: text(input) }); return true; } catch { return false; }
+      },
+      stop: signal => {
+        if (t.settled) return;
+        if (signal === 'SIGKILL' || !t.threadId || !t.turnId || t.ended) { this.settle(t, { code: null, signal: signal === 'SIGKILL' ? 'SIGKILL' : 'SIGTERM', error: t.error }); return; }
+        void this.rpc.request('turn/interrupt', { threadId: t.threadId, turnId: t.turnId }).catch(() => {});
+        setTimeout(() => this.settle(t, { code: 1, signal: 'SIGTERM', status: 'interrupted', error: t.error }), INTERRUPT_WAIT_MS).unref?.();
+      },
+      done,
+    };
+  }
+  /** Ends the process: every unfinished turn fails, then the process gets stdin EOF, SIGTERM and SIGKILL. */
+  close() {
+    if (this.closed) return;
+    this.end('the run ended');
+    this.child.stdin?.end();
+    setTimeout(() => { this.child.kill('SIGTERM'); setTimeout(() => this.child.kill('SIGKILL'), 5_000).unref?.(); }, EXIT_GRACE_MS).unref?.();
+  }
+  private end(reason: string) {
+    if (this.closed) return;
+    this.closed = true; this.failure = reason;
+    this.rpc.close(reason);
+    for (const t of [...this.live]) this.settle(t, { code: this.spawnError ? null : 1, signal: null, spawnError: this.spawnError, status: t.status, error: t.error ?? reason });
+  }
+  private settle(t: Turn, result: AppServerResult) {
+    if (t.settled) return;
+    t.settled = true; this.live.delete(t);
+    if (t.threadId) this.turns.delete(t.threadId);
+    t.resolve(result);
+  }
+  private notification(method: string, params: unknown) {
+    const p = params as { threadId?: string; turn?: { id?: string; status?: string; error?: { message?: string } | null }; item?: { type?: string; phase?: string | null; text?: string }; tokenUsage?: { last?: unknown } };
+    const t = p?.threadId ? this.turns.get(p.threadId) : undefined;
+    if (!t) return;
+    if (method === 'turn/started' && p.turn?.id) t.turnId = p.turn.id;
+    if (method === 'item/started' && p.item?.type === 'agentMessage' && p.item.phase === 'final_answer') t.finalStarted = true;
+    if (method === 'item/completed' && p.item?.type === 'agentMessage' && typeof p.item.text === 'string') {
+      t.lastMessage = p.item.text;
+      if (p.item.phase === 'final_answer') t.finalAnswer = p.item.text;
     }
-  })();
+    if (method === 'thread/tokenUsage/updated') t.usage = execUsage(p.tokenUsage?.last) ?? t.usage;
+    const line = appServerEventLine(method, params, t.usage);
+    if (line) t.o.onLine(line);
+    if (method === 'turn/completed') {
+      t.ended = true; t.status = p.turn?.status;
+      if (t.status === 'failed') t.error = p.turn?.error?.message ?? 'turn failed';
+      const ok = t.status === 'completed';
+      this.settle(t, { code: ok ? 0 : 1, signal: null, status: t.status, error: t.error, finalMessage: ok ? t.finalAnswer ?? t.lastMessage : undefined });
+    }
+  }
+  private async request(method: string, params: unknown): Promise<unknown> {
+    const p = params as { threadId?: string; tool?: string; arguments?: unknown };
+    if (method === 'item/tool/call') {
+      const t = p.threadId ? this.turns.get(p.threadId) : undefined;
+      const answer = t?.o.onToolCall ? await t.o.onToolCall(String(p.tool), p.arguments) : { text: 'unknown tool', success: false };
+      return { contentItems: [{ type: 'inputText', text: answer.text }], success: answer.success };
+    }
+    if (method === 'currentTime/read') return { currentTimeAt: Math.floor((this.o.now?.() ?? Date.now()) / 1000) };
+    throw Error(`${method} is not supported by this client`);
+  }
+}
 
-  return {
-    async steer(input) {
-      if (!threadId || !turnId || ended || finalStarted || closed) return false;
-      try { await rpc.request('turn/steer', { threadId, expectedTurnId: turnId, input: text(input) }); return true; } catch { return false; }
-    },
-    stop(signal) {
-      if (closed) return;
-      if (signal === 'SIGKILL') { child.kill('SIGKILL'); return; }
-      if (threadId && turnId && !ended) void rpc.request('turn/interrupt', { threadId, turnId }).catch(() => {});
-      shutdown();
-    },
-    done,
-  };
+/** One step in a process of its own, closed when the step ends. */
+export function startAppServerStep(o: HostOptions & TurnOptions): AppServerStep {
+  const host = new AppServerHost(o);
+  const step = host.turn(o);
+  void step.done.finally(() => host.close());
+  return step;
 }
