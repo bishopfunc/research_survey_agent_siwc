@@ -25,3 +25,9 @@ test('the gate token is fetched with the minimum validity, and failures carry th
   assert.deepEqual(await gateToken('http://g/token', 0, reply(409, { error: 'RELOGIN_REQUIRED' })), { error: 'RELOGIN_REQUIRED' });
   assert.deepEqual(await gateToken('http://g/token', 0, (async () => { throw new TypeError('refused'); }) as typeof fetch), { error: 'GATE_UNAVAILABLE' });
 });
+test('app-server gets the same provider and catalog as exec', () => {
+  const args = siwcExecArgs(['app-server', '--listen', 'stdio://', '-c', 'web_search="live"'], '/home/node/codex-catalog.json');
+  assert.equal(args[0], 'app-server');
+  assert.ok(args.includes(`model_provider="${PROVIDER}"`) && args.includes('model_catalog_json="/home/node/codex-catalog.json"'));
+  assert.deepEqual(args.slice(-4), ['--listen', 'stdio://', '-c', 'web_search="live"']);
+});

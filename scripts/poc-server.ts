@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,9 +18,10 @@ import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } 
 import { singleFlight } from './single-flight';
 import { busyRuns, requestFailure, requestIdentity, repeatedRequest } from './run-request';
 import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
-import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, budgetInstructions, timeBudget } from '../packages/agent/src/time-budget';
+import { BUDGET_PROMPT_VERSION, budgetInstructions, checkpointInstructions, deadlineSteer, SUBMIT_PATCH_TOOL, submitReply, timeBudget, type CodexTransport } from '../packages/agent/src/time-budget';
+import { startAppServerStep } from './codex-app-server';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
-import { settleCheckpoints, streamCheckpoints } from './stream-checkpoints';
+import { settleCheckpoints, streamCheckpoints, type Checkpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch, stageStep, stageTraceText } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
@@ -42,7 +43,7 @@ type Run = { id: string; mode: ResearchMode; status: 'running' | 'succeeded' | '
 const MAX_TRACE = 120;
 function addTrace(run: Run, item: TraceItem) { run.trace = [...run.trace, { ...item, at: new Date().toISOString() }].slice(-MAX_TRACE); }
 const runs = new Map<string, Run>();
-const children = new Map<string, ChildProcess>();
+const children = new Map<string, unknown>();
 const stopChildren = new Map<string, () => void>();
 function save(run: Run) { writeFileSync(join(storage, run.id, 'status.json'), JSON.stringify(run), { mode: 0o600 }); }
 for (const id of readdirSync(storage)) {
@@ -119,8 +120,17 @@ async function warmArxiv(ids: string[]) {
   return missing.length;
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
-/** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process. */
-function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; checkpoint?: (line: string) => void } = {}): Promise<CodexAttempt> {
+/** design 0036: app-server unless CODEX_TRANSPORT=exec (the fallback while the app-server API is experimental). */
+const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ? 'exec' : 'app-server';
+/** app-server has no --ignore-user-config: the MCP servers of the user's Codex config are turned off by name. */
+const userMcpServers = (() => {
+  if (CODEX_TRANSPORT === 'exec') return [];
+  try { return (JSON.parse(spawnSync('codex', ['mcp', 'list', '--json'], { encoding: 'utf8', timeout: 15_000 }).stdout) as { name?: unknown }[]).flatMap(server => typeof server.name === 'string' && /^[\w-]+$/.test(server.name) ? [server.name] : []); } catch { return []; }
+})();
+type StepCheckpoints = { chunks: Checkpoints; step?: number };
+/** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process.
+ * With `checkpoints`, results saved as they go (design 0034) arrive through submit_patch (app-server) or commentary (exec). */
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
   return startWhileActive(run.status === 'running', () => new Promise(done => {
     const startedAt = Date.now();
     const budget = timeBudget(timeoutSeconds);
@@ -128,26 +138,65 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     // Run outside the repository and without project docs or user skills, so the developer AGENTS.md and skills never reach the research agent.
     const workdir = mkdtempSync(join(tmpdir(), 'survey-studio-codex-'));
     const webSearch = options.webSearch ?? (step === 'repair' ? 'disabled' : CODEX_EXECUTION.webSearch);
-    const output = options.output ?? outputs[step as keyof typeof outputs] ?? `stage-${step}.json`;
-    const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, '-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature]), '--json', '--cd', workdir, '--output-schema', join(directory, options.schema ?? 'output-schema.json'), '--output-last-message', join(directory, output), '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-    children.set(`${run.id}:${step}`, child);
+    const output = join(directory, options.output ?? outputs[step as keyof typeof outputs] ?? `stage-${step}.json`);
+    const schemaFile = join(directory, options.schema ?? 'output-schema.json');
+    const settings = ['-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature])];
+    const text = `${budgetInstructions(timeoutSeconds, startedAt, undefined, CODEX_TRANSPORT)}\n\n${prompt}`;
+    const key = `${run.id}:${step}`;
     const log = join(directory, 'events.jsonl');
-    appendFileSync(log, JSON.stringify({ type: 'app.step', step }) + '\n', { mode: 0o600 });
+    const record = (line: string) => { if (logged.get(run.id)! < MAX_LOG_BYTES) { appendFileSync(log, redact(line) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + line.length + 1); } };
+    record(JSON.stringify({ type: 'app.step', step, transport: CODEX_TRANSPORT }));
     let state = initialCodexState(); let stderr = ''; const before = run.searches;
-    if (child.stdout) createInterface({ input: child.stdout }).on('line', line => {
-      if (logged.get(run.id)! < MAX_LOG_BYTES) { appendFileSync(log, redact(line) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + line.length + 1); }
-      if (run.status === 'running' && !supervisor.timedOut) options.checkpoint?.(line);
+    const cp = options.checkpoints;
+    const noted = (outcome: string) => {
+      if (run.status !== 'running') return;
+      if (outcome === 'rejected') { addTrace(run, { kind: 'error', text: `${step}：途中保存の変更案が検証に通りませんでした` }); save(run); }
+      if (outcome === 'held') { addTrace(run, { kind: 'step', step: cp?.step, text: `${step}：途中保存を後の出力と合わせて検証します` }); save(run); }
+    };
+    const onLine = (line: string) => {
+      record(line);
+      if (CODEX_TRANSPORT === 'exec' && cp && run.status === 'running' && !supervisor.timedOut) noted(cp.chunks.accept(line));
       const next = readCodexEvent(state, line);
       const item = run.status === 'running' ? traceItem(line) : null;
       if (item) addTrace(run, item);
       if (next.searches !== state.searches && run.status === 'running') { run.searches = before + next.searches; run.message = `Codexが調査しています · Web検索 ${run.searches}回`; }
       if (item || next.searches !== state.searches) save(run);
       state = next;
-    });
-    child.stderr?.on('data', (chunk: Buffer) => { if (stderr.length < MAX_LOG_BYTES) stderr += chunk.toString('utf8'); });
-    const supervisor = superviseProcess(signal => { child.kill(signal); }, budget.researchSeconds * 1000, timeoutSeconds * 1000, {
+    };
+    const onStderr = (chunk: string) => { if (stderr.length < MAX_LOG_BYTES) stderr += chunk; };
+    let proc: { stop(signal: 'SIGTERM' | 'SIGKILL'): void; steer?(text: string): Promise<boolean> };
+    let ended: Promise<{ code: number | null; signal?: NodeJS.Signals | null; spawnError?: boolean }>;
+    if (CODEX_TRANSPORT === 'app-server') {
+      const appServer = startAppServerStep({
+        args: [...settings, '-c', 'notify=[]', ...userMcpServers.flatMap(name => ['-c', `mcp_servers.${name}.enabled=false`])], env, cwd: workdir,
+        model: CODEX_EXECUTION.model, effort: CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
+        outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine, onStderr,
+        async onToolCall(tool, args) {
+          if (tool !== SUBMIT_PATCH_TOOL.name || !cp) return { text: `unknown tool ${tool}`, success: false };
+          const result = run.status === 'running' && !supervisor.timedOut ? cp.chunks.submit(args) : { status: 'stopped' as const, operations: 0 };
+          record(JSON.stringify({ type: 'app.tool', tool, status: result.status, operations: result.operations, error: result.error?.split('\n')[0] }));
+          noted(result.status);
+          return { text: submitReply(result), success: result.status === 'saved' || result.status === 'held' };
+        },
+      });
+      proc = appServer;
+      ended = appServer.done.then(result => { if (result.finalMessage !== undefined) writeFileSync(output, result.finalMessage, { mode: 0o600 }); return result; });
+    } else {
+      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, ...settings, '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+      if (child.stdout) createInterface({ input: child.stdout }).on('line', onLine);
+      child.stderr?.on('data', (chunk: Buffer) => onStderr(chunk.toString('utf8')));
+      child.stdin?.on('error', () => {});
+      child.stdin?.end(text);
+      proc = { stop: signal => { child.kill(signal); } };
+      ended = new Promise(resolve => { child.on('error', () => resolve({ code: null, spawnError: true })); child.on('close', (code, signal) => resolve({ code, signal })); });
+    }
+    children.set(key, proc);
+    const supervisor = superviseProcess(signal => proc.stop(signal), budget.researchSeconds * 1000, timeoutSeconds * 1000, {
       research: () => {
-        if (run.status === 'running') { addTrace(run, { kind: 'step', text: `${step}：調査期限・書き出し猶予 ${budget.writeSeconds}秒` }); save(run); }
+        if (run.status !== 'running') return;
+        addTrace(run, { kind: 'step', text: `${step}：調査期限・書き出し猶予 ${budget.writeSeconds}秒` }); save(run);
+        // app-server: the server ends the research instead of relying on the prompt (design 0036).
+        void proc.steer?.(deadlineSteer(!!cp)).then(sent => { if (sent && run.status === 'running') { addTrace(run, { kind: 'step', text: `${step}：調査期限を伝え、書き出しを指示しました` }); save(run); } });
       },
       timeout: () => {
         if (run.status !== 'running') return;
@@ -157,19 +206,13 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
         save(run);
       },
     });
-    stopChildren.set(`${run.id}:${step}`, supervisor.stop);
-    let settled = false;
-    const finish = (attempt: CodexAttempt) => {
-      if (settled) return; settled = true;
-      supervisor.close(); children.delete(`${run.id}:${step}`); stopChildren.delete(`${run.id}:${step}`);
+    stopChildren.set(key, supervisor.stop);
+    void ended.then(result => {
+      supervisor.close(); children.delete(key); stopChildren.delete(key);
       appendFileSync(join(directory, 'codex-stderr.log'), `--- ${step}\n${redact(stderr.slice(0, MAX_LOG_BYTES))}\n`, { mode: 0o600 });
       rmSync(workdir, { recursive: true, force: true });
-      done(attempt);
-    };
-    child.on('error', () => finish({ code: null, state, spawnError: true, timedOut: supervisor.timedOut }));
-    child.on('close', (code, signal) => finish({ code, signal, state, timedOut: supervisor.timedOut }));
-    child.stdin?.on('error', () => {});
-    child.stdin?.end(`${budgetInstructions(timeoutSeconds, startedAt)}\n\n${prompt}`);
+      done({ code: result.code, signal: result.signal ?? null, state, spawnError: result.spawnError, timedOut: supervisor.timedOut });
+    });
   }));
 }
 const outputs = { research: 'patch.json', repair: 'patch-repair.json' } as const;
@@ -199,7 +242,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
     return result.patch;
   };
-  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: `${instructions}\n\n${CHECKPOINT_INSTRUCTIONS}` });
+  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` });
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
     run: async (stage, prompt, snapshot = input.snapshot) => {
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
@@ -212,11 +255,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       }, () => run.status === 'running');
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
-      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: outputFile, failRunOnTimeout: false, checkpoint: line => {
-        const outcome = chunks.accept(line);
-        if (outcome === 'rejected') { addTrace(run, { kind: 'error', text: `${stage}：途中保存の変更案を読めませんでした` }); save(run); }
-        if (outcome === 'held') { addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存を最終出力と合わせて検証します` }); save(run); }
-      } });
+      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: outputFile, failRunOnTimeout: false, checkpoints: { chunks, step: stageStep(stage) } });
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const merged = chunks.finish(readFileSync(join(directory, outputFile), 'utf8')); writeFileSync(join(directory, `stage-${stage}.json`), merged, { mode: 0o600 }); output = merged; } catch (error) { outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
@@ -259,10 +298,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
           writeFileSync(join(directory, `checkpoint-research-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
           addTrace(run, { kind: 'step', text: `research：途中保存 ${sequence}` }); save(run);
         }, () => run.status === 'running');
-        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${CHECKPOINT_INSTRUCTIONS}` }), skill.timeoutSeconds, { checkpoint: line => {
-          const accepted = chunks.accept(line);
-          if (accepted === 'rejected' || accepted === 'held') { addTrace(run, { kind: accepted === 'rejected' ? 'error' : 'step', text: `research：途中保存の変更案を${accepted === 'rejected' ? '読めませんでした' : '後の出力と合わせて検証します'}` }); save(run); }
-        }, failRunOnTimeout: false });
+        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` }), skill.timeoutSeconds, { checkpoints: { chunks }, failRunOnTimeout: false });
         const file = join(directory, outputs.research);
         const settled = settleCheckpoints(chunks, attemptError(attempt), { read: () => readFileSync(file, 'utf8'), write: text => writeFileSync(file, text, { mode: 0o600 }), active: () => run.status === 'running' });
         if (settled.partial) { addTrace(run, { kind: 'step', text: 'research：途中保存までの結果を使います' }); save(run); }

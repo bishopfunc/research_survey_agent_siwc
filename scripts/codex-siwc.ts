@@ -1,4 +1,4 @@
-/** `codex` on the self-hosted VPS (design 0032). `codex exec` runs on the owner's ChatGPT plan token, taken from the gate's
+/** `codex` on the self-hosted VPS (design 0032). `codex exec` and `codex app-server` (design 0036) run on the owner's ChatGPT plan token, taken from the gate's
  * Sign in with ChatGPT login, through the custom provider documented for Codex app-server; `codex login status` reports
  * whether the gate holds that token; anything else goes to the real Codex unchanged.
  * Codex 0.162 treats the current models as "Responses Lite", whose web search calls /v1/alpha/search, and that endpoint
@@ -8,13 +8,15 @@ import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 export const PROVIDER = 'survey_siwc';
-/** Inserts the provider and catalog right after `exec`; the caller's own flags stay as they are. */
+/** The subcommands that run the model on the plan token. */
+export const MODEL_COMMANDS = ['exec', 'app-server'];
+/** Inserts the provider and catalog right after `exec` or `app-server`; the caller's own flags stay as they are. */
 export function siwcExecArgs(args: string[], catalog: string): string[] {
-  if (args[0] !== 'exec') return args;
+  if (!MODEL_COMMANDS.includes(args[0])) return args;
   const config = [`model_provider="${PROVIDER}"`, `model_providers.${PROVIDER}.name="ChatGPT plan"`, `model_providers.${PROVIDER}.base_url="https://api.openai.com/v1"`,
     `model_providers.${PROVIDER}.wire_api="responses"`, `model_providers.${PROVIDER}.env_key="ACCESS_TOKEN"`, `model_providers.${PROVIDER}.requires_openai_auth=false`,
     `model_providers.${PROVIDER}.supports_websockets=false`, `model_catalog_json=${JSON.stringify(catalog)}`];
-  return ['exec', ...config.flatMap(value => ['-c', value]), ...args.slice(1)];
+  return [args[0], ...config.flatMap(value => ['-c', value]), ...args.slice(1)];
 }
 /** An access token valid for at least `minValid` seconds, or the gate's reason for not having one. */
 export async function gateToken(url: string, minValid: number, fetcher: typeof fetch = fetch): Promise<{ token: string } | { error: string }> {
@@ -47,7 +49,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const result = await gateToken(url, minValid);
     if ('token' in result) { console.log('Logged in using ChatGPT (Sign in with ChatGPT on this site)'); process.exit(0); }
     console.error(`Not logged in (${result.error})`); process.exit(1);
-  } else if (args[0] === 'exec') {
+  } else if (MODEL_COMMANDS.includes(args[0])) {
     const result = await gateToken(url, minValid);
     if (!('token' in result)) { console.error(`ChatGPTのトークンを取得できません（${result.error}）。サイトでChatGPTにログインし直してください`); process.exit(1); }
     const env = { ...process.env, ACCESS_TOKEN: result.token, CODEX_HOME: process.env.SIWC_CODEX_HOME ?? `${process.env.HOME}/.codex-siwc` };

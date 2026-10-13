@@ -2,7 +2,7 @@
 // how its limit splits into research and writing, and what it writes. Built from the runtime constants and prompt builders;
 // the wave order mirrors scripts/staged-run.ts by hand.
 import { DIVERGE_MAX_PAPERS, EXTEND_PER_WORKER, EXTEND_WORKERS, FILL_DEADLINE_SECONDS, MAX_GAPS, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS, deepenInstructions, divergeInstructions, fillInstructions, integrateInstructions, tutorialInstructions } from '../../../packages/agent/src/research-prompt';
-import { CHECKPOINT_INSTRUCTIONS, timeBudget } from '../../../packages/agent/src/time-budget';
+import { TOOL_CHECKPOINT_INSTRUCTIONS, timeBudget } from '../../../packages/agent/src/time-budget';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, skillInstructions } from '../../../packages/agent/src/skills/index';
 import { REPAIR_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { DEEP_PER_WORKER } from '../../../scripts/staged-run';
@@ -24,7 +24,7 @@ const codex = (start: number, seconds: number, label: string): Segment => { cons
 const memory = { queries: [], opened: [] };
 const examplePapers = fixture.entities.filter(e => e.type === 'Paper').map(e => e.id);
 const exampleIssues = fixture.entities.filter(e => e.type === 'Issue').map(e => e.id);
-const withCheckpoints = (instructions: string) => `${instructions}\n\n${CHECKPOINT_INSTRUCTIONS}`;
+const withCheckpoints = (instructions: string) => `${instructions}\n\n${TOOL_CHECKPOINT_INSTRUCTIONS}`;
 
 /** Every stage as if it used its whole limit, as the real runs on 2026-10-13 did. */
 export function newSurveyTimeline(): Timeline {

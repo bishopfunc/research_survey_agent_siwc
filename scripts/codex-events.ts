@@ -1,4 +1,5 @@
-// Reads `codex exec --json` events. Pure functions so the server's success/failure rules are testable.
+// Reads `codex exec --json` events, and app-server notifications converted to them. Pure functions so the server's
+// success/failure rules are testable.
 /** `queries` and `opened` are the search memory of the step (design 0028): what was searched and which pages were opened. */
 export interface CodexEventState { searches: number; completed: boolean; error: string | null; usage: Record<string, number> | null; queries: string[]; opened: string[] }
 export const initialCodexState = (): CodexEventState => ({ searches: 0, completed: false, error: null, usage: null, queries: [], opened: [] });
@@ -31,6 +32,41 @@ export function readCodexEvent(state: CodexEventState, line: string): CodexEvent
   // A failed turn is never complete; a plain `error` event may be a retry the turn recovers from.
   if (event.type === 'turn.failed') return { ...state, completed: false, error: errorText(typeof event.error?.message === 'string' ? event.error.message : 'turn.failed') };
   return state;
+}
+
+type AppItem = { type?: unknown; text?: unknown; phase?: unknown; query?: unknown; action?: { type?: unknown; query?: unknown; queries?: unknown; url?: unknown; pattern?: unknown } | null; summary?: unknown; tool?: unknown; success?: unknown };
+const WEB_ACTIONS: Record<string, string> = { search: 'search', openPage: 'open_page', findInPage: 'find_in_page', other: 'other' };
+/** An app-server notification (design 0036) as the `exec --json` event line it corresponds to, so the same readers, trace and
+ * events.jsonl serve both transports. `usage` is the turn's last token count, carried into turn.completed as exec does. */
+export function appServerEventLine(method: string, params: unknown, usage: Record<string, number> | null = null): string | null {
+  const p = (params ?? {}) as { item?: AppItem; turn?: { status?: unknown; error?: { message?: unknown } | null }; error?: { message?: unknown }; willRetry?: unknown };
+  if (method === 'item/completed' && p.item) {
+    const item = p.item;
+    if (item.type === 'webSearch') {
+      const action = item.action ?? {};
+      return JSON.stringify({ type: 'item.completed', item: { type: 'web_search', query: item.query, action: { ...action, type: WEB_ACTIONS[String(action.type)] ?? action.type } } });
+    }
+    if (item.type === 'reasoning') return JSON.stringify({ type: 'item.completed', item: { type: 'reasoning', text: Array.isArray(item.summary) ? item.summary.join('\n') : '' } });
+    if (item.type === 'agentMessage') return JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: item.text, phase: item.phase ?? null } });
+    if (item.type === 'dynamicToolCall') return JSON.stringify({ type: 'item.completed', item: { type: 'tool_call', tool: item.tool, success: item.success ?? null } });
+    return null;
+  }
+  if (method === 'turn/completed') {
+    const status = p.turn?.status;
+    if (status === 'completed') return JSON.stringify({ type: 'turn.completed', usage });
+    if (status === 'failed') return JSON.stringify({ type: 'turn.failed', error: { message: typeof p.turn?.error?.message === 'string' ? p.turn.error.message : 'turn failed' } });
+    return JSON.stringify({ type: 'turn.interrupted' });
+  }
+  // A retried error is reported like exec's transient "Reconnecting..." event; only a failed turn is fatal.
+  if (method === 'error' && typeof p.error?.message === 'string') return JSON.stringify({ type: 'error', message: p.error.message });
+  return null;
+}
+/** exec's usage keys from an app-server token breakdown. */
+export function execUsage(last: unknown): Record<string, number> | null {
+  const u = last as { inputTokens?: unknown; cachedInputTokens?: unknown; outputTokens?: unknown; reasoningOutputTokens?: unknown } | undefined;
+  if (!u || typeof u !== 'object') return null;
+  const n = (v: unknown) => typeof v === 'number' ? v : 0;
+  return { input_tokens: n(u.inputTokens), cached_input_tokens: n(u.cachedInputTokens), output_tokens: n(u.outputTokens), reasoning_output_tokens: n(u.reasoningOutputTokens) };
 }
 
 /** Short, single-line reason for the UI. API errors arrive as JSON inside the message string. */

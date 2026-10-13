@@ -13,6 +13,11 @@ const remainderShape = ajv.compile<SurveyPatch>(remainderSchema);
 const MARKER = 'SURVEY_CHECKPOINT';
 const isObject = (text: string) => { try { const value = JSON.parse(text); return !!value && typeof value === 'object' && !Array.isArray(value); } catch { return false; } };
 const blank = (value: unknown) => typeof value !== 'string' || !value.trim();
+const parseJson = (text: string): unknown => { try { return JSON.parse(text); } catch { return undefined; } };
+/** The validator's errors, short enough to hand back to the model. */
+const reason = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n').slice(0, 12).join('\n').slice(0, 1500);
+const errorOf = (check: () => unknown) => { try { check(); return undefined; } catch (error) { return reason(error); } };
+export type Submission = { status: 'saved' | 'held' | 'rejected' | 'stopped'; error?: string; operations: number };
 /** The stage's prepare (enrichPatch) runs after this check: it fills a Paper's missing abstract or drops the translation it
  * cannot back. Validation sees that drop in advance; the returned patch keeps the translation for prepare. */
 function relax(patch: SurveyPatch): SurveyPatch {
@@ -54,6 +59,25 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       accepted = next; sequence++;
       save(next, sequence);
       return 'saved';
+    },
+    /** A submit_patch tool call (design 0036): the same checks as a checkpoint, answered at once so the model can fix what was
+     * rejected. A rejected call saves nothing and, unlike an unreadable commentary checkpoint, does not spoil the final response. */
+    submit(args: unknown): Submission {
+      const total = () => accepted?.operations.length ?? 0;
+      if (!active()) return { status: 'stopped', operations: total() };
+      const input = (typeof args === 'string' ? parseJson(args) : args) as { message?: unknown; operations?: unknown } | undefined;
+      const operations = typeof input?.operations === 'string' ? parseJson(input.operations) : input?.operations;
+      if (!Array.isArray(operations) || !operations.length) return { status: 'rejected', error: 'operations must be a non-empty array of operations', operations: total() };
+      let patch: SurveyPatch;
+      try { patch = keepStored(normalize({ schema_version: '0.1.0', base_commit_id: baseId, message: typeof input?.message === 'string' && input.message.trim() ? input.message : 'checkpoint', operations }) as SurveyPatch); }
+      catch (error) { return { status: 'rejected', error: reason(error), operations: total() }; }
+      if (!shape(patch)) return { status: 'rejected', error: errorOf(() => validate(patch)) ?? 'the operations do not match the patch schema', operations: total() };
+      all = merge(all, patch);
+      const alone = merge(accepted, patch), next = valid(all) ? all : valid(alone) ? alone : undefined;
+      if (!next) return { status: 'held', error: errorOf(() => validate(alone)), operations: total() };
+      accepted = next; sequence++;
+      save(next, sequence);
+      return { status: 'saved', operations: total() };
     },
     /** Whether the process sent any checkpoint (saved, held or unreadable). */
     used(): boolean {

@@ -215,3 +215,31 @@ test('the Map sends a Resource without links first and adds its links last with 
   const out = applyPatch(base, JSON.parse(chunks.partial()!), 'b').entities.find(e => e.id === resource.id);
   assert.deepEqual(out, resource);
 });
+test('a submit_patch call is answered at once: saved, held until what it refers to arrives, rejected without spoiling the final', () => {
+  const saved: SurveyPatch[] = [];
+  const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, p => saved.push(p));
+  const issue = { id: 'i', type: 'Issue', kind: 'fundamental', label: 'I', description: 'I', provenance: 'codex' };
+  // A relation to a Domain not submitted yet is kept and validated again later.
+  const held = chunks.submit({ message: 'issue', operations: [{ op: 'add_entity', entity: issue }, { op: 'add_relation', relation: { id: 'r', type: 'part_of', from: 'i', to: 'd' } }] });
+  assert.equal(held.status, 'held'); assert.match(held.error!, /d/); assert.equal(saved.length, 0);
+  // Operations sent as a JSON string (tools are not strict) are read too.
+  assert.deepEqual(chunks.submit({ message: 'domain', operations: JSON.stringify([{ op: 'add_entity', entity: domain }]) }), { status: 'saved', operations: 3 });
+  const rejected = chunks.submit({ message: 'bad', operations: [{ op: 'add_entity', entity: { id: 'x', type: 'Paper' } }] });
+  assert.equal(rejected.status, 'rejected'); assert.ok(rejected.error);
+  assert.equal(chunks.submit({ message: 'empty', operations: [] }).status, 'rejected');
+  assert.equal(chunks.submit('not json').status, 'rejected');
+  // A rejected call saved nothing and does not spoil the final remainder, unlike an unreadable commentary checkpoint.
+  const result = JSON.parse(chunks.finish(JSON.stringify(patch([], 'final'))));
+  assert.equal(result.message, 'final'); assert.equal(applyPatch(emptySurvey('t'), result, 'b').entities.length, 2);
+  assert.equal(saved.at(-1)!.base_commit_id, 'b'); assert.equal(saved.at(-1)!.schema_version, '0.1.0');
+});
+test('a submit_patch after the run ended saves nothing; a sparse replace keeps the stored values', () => {
+  let active = true; const saved: SurveyPatch[] = [];
+  const chunks = streamCheckpoints(emptySurvey('t'), 'b', p => p, p => saved.push(p), () => active);
+  assert.equal(chunks.submit({ message: 'd', operations: [{ op: 'add_entity', entity: domain }] }).status, 'saved');
+  assert.equal(chunks.submit({ message: 'fix', operations: [{ op: 'replace_entity', entity: { id: 'd', type: 'Domain', description: 'Better' } }] }).status, 'saved');
+  assert.deepEqual(JSON.parse(chunks.partial()!).operations[0].entity, { ...domain, description: 'Better' });
+  active = false;
+  assert.deepEqual(chunks.submit({ message: 'late', operations: [{ op: 'set_title', title: 'late' }] }), { status: 'stopped', operations: 1 });
+  assert.equal(saved.length, 2);
+});

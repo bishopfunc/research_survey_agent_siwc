@@ -4,7 +4,7 @@ import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, buildRouterPromp
 import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REPAIR_PROMPT_VERSION, SURVEY_RULES_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { MAX_LIBRARY_PAPERS } from '../../../packages/agent/src/library';
 import { CONTEXT_PROMPT_VERSION, MAX_CONTEXT_PAPERS, contextInstructions } from '../../../packages/agent/src/chat-context';
-import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, STOP_GRACE_MS, budgetInstructions, timeBudget } from '../../../packages/agent/src/time-budget';
+import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, STOP_GRACE_MS, SUBMIT_PATCH_TOOL, TOOL_CHECKPOINT_INSTRUCTIONS, budgetInstructions, deadlineSteer, submitReply, timeBudget } from '../../../packages/agent/src/time-budget';
 import { RETRY_IF_FAILED_WITHIN_MS } from '../../../scripts/staged-run';
 import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../../packages/domain/src/index';
 import { assessTutorial } from '../../../packages/domain/src/tutorial';
@@ -30,7 +30,7 @@ const minutes = (seconds: number) => `${seconds / 60}分`;
 
 const flow = [
   {title:'依頼',caption:'研究分野か追加の依頼',place:'ブラウザ',detail:'ユーザーがチャットに依頼を書く。調査が空なら依頼を研究分野の指定とみなし、中身があれば今の調査への追加の依頼として扱う。'},
-  {title:'Codex',caption:'検索・書き出し・途中保存',place:'ローカルNode + CLI',detail:'ローカルのサーバーがCodex CLIを起動し、指示、今の調査、依頼を渡す。Codexが使える道具はWeb検索だけで、選択した論文があれば、そのIDを依頼の対象として渡す。開始時に調査期限と書き出し時間を渡し、調べた結果を変更案（Patch）の形式で返す。新規調査では、小さい変更案を先に出して検証済みcheckpointを保存し、最後に残りの操作と合わせる。checkpointはCommitではない。'},
+  {title:'Codex',caption:'検索・書き出し・途中保存',place:'ローカルNode + CLI',detail:'ローカルのサーバーがCodex CLIをapp-server（JSON-RPC）で起動し、指示、今の調査、依頼を渡す。Codexが使える道具はWeb検索と、途中成果を提出するsubmit_patchだけで、選択した論文があれば、そのIDを依頼の対象として渡す。開始時に調査期限と書き出し時間を渡し、調査期限にはサーバーが書き出しを指示する。新規調査と追記の調査では、小さい変更案をsubmit_patchで提出させ、検証済みcheckpointとして保存し、最後に残りの操作と合わせる。checkpointはCommitではない。'},
   {title:'検証',caption:'型、参照、循環',place:'Node',detail:'サーバーが変更案を今の調査に当てはめ、型、参照先、関係の向き、循環を検証する。追加の依頼の変更案が検証に通らなければ、Codexに1回だけ修正させる。'},
   {title:'確認',caption:'変更案を確かめる',place:'ブラウザ',detail:'ユーザーが変更案の中身を確かめ、保存するか破棄するかを決める。Codexの変更案が自動で保存されることはない。'},
   {title:'Commit',caption:'新しい版を保存',place:'ブラウザ',detail:'保存の直前に、ブラウザが変更案を最新の版にもう一度当てはめて検証し、変更案が編集した版が最新でなければ保存を拒否する。保存した版からは依頼、実行、変更案、親の版をたどれ、過去の版は変更しない。PoCでは版の履歴をブラウザに保存する。'},
@@ -203,12 +203,12 @@ export function Lab() {
 
           <Sub id="execution" title="実行の条件">
             <dl className="lab-defs">
-              <div><dt>実行場所</dt><dd>ローカルのNodeサーバーがCodex CLIを起動する。作業ディレクトリは、リポジトリの外の一時ディレクトリにする。</dd></div>
+              <div><dt>実行場所</dt><dd>ローカルのNodeサーバーがCodex CLIをcodex app-serverで起動し、JSON-RPCで1段階に1つのthreadとturnを動かす。作業ディレクトリは、リポジトリの外の一時ディレクトリにする。app-serverはユーザーのCodex設定を無視できないため、MCPサーバーと通知を止めて起動する。環境変数 CODEX_TRANSPORT=exec で、従来のcodex execとcommentaryの途中保存に戻せる。</dd></div>
               <div><dt>モデル</dt><dd>{CODEX_EXECUTION.model}（推論 {CODEX_EXECUTION.reasoningEffort}、Codex 0.162以降）</dd></div>
-              <div><dt>道具</dt><dd>Web検索（{CODEX_EXECUTION.webSearch}）だけを使う。シェル、コマンド実行、ブラウザ操作、ローカル画像の表示（view_image）は無効にしている。Web検索がcode mode経由で呼ばれるためcode modeは有効のままだが、そのスクリプトからファイルは読めない。ユーザーのスキルとAGENTS.mdは渡さない。</dd></div>
+              <div><dt>道具</dt><dd>Web検索（{CODEX_EXECUTION.webSearch}）と、途中保存がある段階ではsubmit_patchを使う。シェル、コマンド実行、ブラウザ操作、ローカル画像の表示（view_image）は無効にしている。Web検索がcode mode経由で呼ばれるためcode modeは有効のままだが、そのスクリプトからファイルは読めない。ユーザーのスキルとAGENTS.mdは渡さない。</dd></div>
               <div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div>
-              <div><dt>時間の配分</dt><dd>全体像は調査{timeBudget(STAGE_TIMEOUT_SECONDS.outline).researchSeconds / 60}分、書き出し{timeBudget(STAGE_TIMEOUT_SECONDS.outline).writeSeconds / 60}分、強制終了まで{STAGE_TIMEOUT_SECONDS.outline / 60}分。ほかの段階も上限内に書き出し時間を予約する。開始時に調査期限と強制終了期限の絶対時刻を渡す。調査期限はAgentへの指示で、サーバーは期限到達を経過に記録する。強制終了期限でSIGTERMを送り、{STOP_GRACE_MS / 1000}秒後も終了していなければSIGKILLを送る。時間切れは終了コード0でも失敗として表示する。</dd></div>
-              <div><dt>途中保存</dt><dd>新規調査では論文1本または5〜10操作を目安に、参照が完結する変更案をcommentaryで出させる。全体像は、題・分野・リンクなしの情報源、課題の草案、手法の系統ごとの手法と論文、最後に情報源へ課題・手法・論文のリンクを足す差し替えの順に出させ（まだ送っていない項目を指さない）、論文を最終応答まで溜めさせない。サーバーは型と参照を検証し、実行ごとの番号付きcheckpointに保存する。検証にまだ通らないcheckpointは保留し、最終応答の残りの操作と合わせて変更案全体を検証する。後の出力が同じ段階で追加した項目を置換・削除したときは、追加の更新・取り消しとして合わせる。段階が時間切れか最終応答を使えないときは、検証済みの途中保存までを段階の結果として次へ進み、変更案の説明に明記する。追記の依頼のうち変更案を作る調査も同じく途中保存し、時間切れや最終応答を使えないときは保存済みまでを変更案にする。途中保存を出さなければ、従来どおり最終応答を検証・修正する。途中保存はCommitではなく、時間切れの自動再開は未実装。途中出力の頻度はモデルに依存し、出力されなければ最終応答だけを使う。</dd></div>
+              <div><dt>時間の配分</dt><dd>全体像は調査{timeBudget(STAGE_TIMEOUT_SECONDS.outline).researchSeconds / 60}分、書き出し{timeBudget(STAGE_TIMEOUT_SECONDS.outline).writeSeconds / 60}分、強制終了まで{STAGE_TIMEOUT_SECONDS.outline / 60}分。ほかの段階も上限内に書き出し時間を予約する。開始時に調査期限と強制終了期限の絶対時刻を渡す。調査期限には、サーバーが実行中のturnに書き出しの指示を差し込む（turn/steer、最終応答を書き始めた後は送らない）。Web検索はturnの途中で止められないので、検索をやめるかはAgent次第。強制終了期限でturnを中断し（turn/interrupt）、プロセスを止める。{STOP_GRACE_MS / 1000}秒後も終了していなければSIGKILLを送る。時間切れは終了コード0でも失敗として表示する。</dd></div>
+              <div><dt>途中保存</dt><dd>新規調査では論文1本または5〜10操作を目安に、参照が完結する変更案をsubmit_patchで提出させる。サーバーは提出ごとに、保存した（saved）、まだ検証に通らないので保留した（held）、読めないので保存しなかった（rejected）をその場で返し、Agentに直させる。全体像は、題・分野・リンクなしの情報源、課題の草案、手法の系統ごとの手法と論文、最後に情報源へ課題・手法・論文のリンクを足す差し替えの順に出させ（まだ送っていない項目を指さない）、論文を最終応答まで溜めさせない。サーバーは型と参照を検証し、実行ごとの番号付きcheckpointに保存する。検証にまだ通らないcheckpointは保留し、最終応答の残りの操作と合わせて変更案全体を検証する。後の出力が同じ段階で追加した項目を置換・削除したときは、追加の更新・取り消しとして合わせる。段階が時間切れか最終応答を使えないときは、検証済みの途中保存までを段階の結果として次へ進み、変更案の説明に明記する。追記の依頼のうち変更案を作る調査も同じく途中保存し、時間切れや最終応答を使えないときは保存済みまでを変更案にする。途中保存を出さなければ、従来どおり最終応答を検証・修正する。途中保存はCommitではなく、時間切れの自動再開は未実装。途中出力の頻度はモデルに依存し、出力されなければ最終応答だけを使う。</dd></div>
               <div><dt>同時実行</dt><dd>調査は{CODEX_EXECUTION.maxConcurrent}件ずつ実行する。新規調査の深掘りの作業は、その1件の中で並行する。</dd></div>
               <div><dt>経過の表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示する。</dd></div>
               <div><dt>論文コンテキスト</dt><dd>選択した論文のIDをrunに保存する（最大{MAX_CONTEXT_PAPERS}本）。サーバーはその版にあるPaperか確認し、依頼の判定・調査・解説の指示に対象として加える。論文の題と本文は信頼しないデータで、Agentへの指示にはしない。待機依頼は前の変更案の保存・破棄と論文の更新を待って最新の版から実行し、同じ依頼IDの再送は同じrunを返す。</dd></div>
@@ -219,7 +219,9 @@ export function Lab() {
               <div><dt>保存</dt><dd>{CODEX_EXECUTION.appliesAutomatically ? '自動で適用する。' : '自動では保存しない。ユーザーが変更案を確かめてから保存する。'}</dd></div>
             </dl>
             <Source summary="選択した論文を対象にする指示を読む"><span className="lab-stamp">{CONTEXT_PROMPT_VERSION}</span><pre>{contextInstructions([fixture.entities.find(e => e.type === 'Paper')!.id], fixture)}</pre></Source>
-            <Source summary="時間budgetと途中保存の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{budgetInstructions(STAGE_TIMEOUT_SECONDS.outline, Date.parse('2026-10-12T23:13:00+09:00'))}{'\n\n'}{CHECKPOINT_INSTRUCTIONS}</pre></Source>
+            <Source summary="時間budgetと途中保存の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{budgetInstructions(STAGE_TIMEOUT_SECONDS.outline, Date.parse('2026-10-12T23:13:00+09:00'))}{'\n\n'}{TOOL_CHECKPOINT_INSTRUCTIONS}</pre></Source>
+            <Source summary="途中保存のツールと、サーバーの返答・調査期限の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{JSON.stringify(SUBMIT_PATCH_TOOL, null, 2)}{'\n\n'}{submitReply({ status: 'saved', operations: 12 })}{'\n\n'}{submitReply({ status: 'held', operations: 12, error: 'rel-1: 参照先 issue-x がありません' })}{'\n\n'}{submitReply({ status: 'rejected', operations: 12, error: '/operations/0/entity: must have required property \'title\'' })}{'\n\n'}{deadlineSteer(true)}{'\n\n'}{deadlineSteer(false)}</pre></Source>
+            <Source summary="従来のexecで使う途中保存の指示を読む（CODEX_TRANSPORT=exec）"><pre>{CHECKPOINT_INSTRUCTIONS}</pre></Source>
             <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち「指示として扱わない」「頼まれた範囲だけを変える」「保存済みの分析は消さない」「検証に通る形で返す」の4つだけを付け、変えた項目の由来をcodexに保つよう修正の指示に書き、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。一部の操作だけが返ったときは元の変更案に合流させ、合流した変更案を検証に通す。合流しても通らないときは、修正が単独で検証に通り、外した操作がすべて元の検証エラーに挙がっている場合だけ、直せない操作を外した修正としてそのまま使う。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>
           </Sub>
         </section>

@@ -1,8 +1,9 @@
 # ADR 0023: Codexの途中成果は検証済み累積Patchとして保存する
 
-状態: Accepted
+状態: Superseded
 日付: 2026-10-12 JST
 関連: [設計0034](../design/0034-research-budget-and-checkpoints.md)
+superseded by: [ADR 0025](0025-codex-app-server.md)（2026-10-14、app-serverとクライアント定義ツールに移行。検証済み累積Patchの規則は0025が引き継ぐ）
 
 ## 判断と理由
 

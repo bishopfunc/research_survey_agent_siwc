@@ -26,5 +26,6 @@ Acceptedは採用方針を表す。実装状態はdesign docとstatusで管理�
 | [0020](0020-self-hosted-vps.md) | 自分だけが使う環境は自分のVPSで動かし、URLの入口をSIWCで絞る | Accepted |
 | [0021](0021-access-users-and-siwc-plan-link.md) | 複数の利用者にするときは、利用者をCloudflare Accessで作り、SIWCはChatGPTプランの接続にだけ使う | Proposed |
 | [0022](0022-per-user-storage-and-shared-paper-meta.md) | 複数の利用者にするときは、利用者ごとのDurable Object（SQLite）とR2のprefix、共通の論文メタはD1 | Proposed |
-| [0023](0023-validated-stream-checkpoints.md) | Codexの途中成果は検証済み累積Patchとして保存する | Accepted |
+| [0023](0023-validated-stream-checkpoints.md) | Codexの途中成果は検証済み累積Patchとして保存する | Superseded |
 | [0024](0024-browser-chat-queue.md) | PoCの待機依頼はコレクションごとにブラウザ保存する | Accepted |
+| [0025](0025-codex-app-server.md) | Codexはapp-serverで動かし、途中成果はクライアント定義ツールで受け取る | Accepted |

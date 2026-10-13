@@ -69,3 +69,14 @@ test('local process integration: an uncooperative child is killed after the TERM
     assert.equal(supervisor?.timedOut, true); assert.equal(result.signal, 'SIGKILL'); assert.equal(result.code, null);
   } finally { supervisor?.close(); child.kill('SIGKILL'); }
 });
+test('with app-server the prompt announces the server message at the research deadline; exec keeps the old prompt', async () => {
+  const { budgetInstructions: budget, checkpointInstructions, deadlineSteer, submitReply, SUBMIT_PATCH_TOOL } = await import('../packages/agent/src/time-budget');
+  const at = Date.parse('2026-10-12T00:00:00Z');
+  assert.match(budget(270, at), /server also sends you a message/);
+  assert.doesNotMatch(budget(270, at, undefined, 'exec'), /server also sends/);
+  assert.match(checkpointInstructions('app-server'), /submit_patch/); assert.match(checkpointInstructions('exec'), /SURVEY_CHECKPOINT/);
+  assert.match(deadlineSteer(true), /submit_patch/); assert.doesNotMatch(deadlineSteer(false), /submit_patch/);
+  assert.match(submitReply({ status: 'rejected', operations: 0, error: 'E1' }), /rejected[\s\S]*E1/);
+  // Codex shortens tool schemas over 5,000 bytes.
+  assert.ok(JSON.stringify(SUBMIT_PATCH_TOOL.inputSchema).length < 5000);
+});
