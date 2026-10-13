@@ -232,8 +232,10 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   let resolveOutline!: () => void, resolveDiscovery!: () => void;
   const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
   const discoveryApplied = new Promise<void>(resolve => { resolveDiscovery = resolve; });
+  // A paper is queued once, whatever ID another lister gave it (the later one is dropped when its lister's result is applied).
+  const queuedKeys = new Set<string>();
   const enqueue = (view: SurveySnapshot) => {
-    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id)) { queued.add(e.id); queue.push({ paper: e.id, view }); }
+    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id) && !queuedKeys.has(paperKey(e))) { queued.add(e.id); queuedKeys.add(paperKey(e)); queue.push({ paper: e.id, view }); }
     pump();
   };
   const pump = () => {
@@ -263,6 +265,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     await serial(async () => {
       try {
         const own = await parse(stage, result, false);
+        if (!own.operations?.length) throw Error(own.message ? `読んだ結果がありません（${own.message.slice(0, 120)}）` : '読んだ結果がありません');
         const applied = applyReading(snapshot, own, paper, stage);
         snapshot = applied.snapshot;
         if (applied.read) count.read++; else count.failed++;

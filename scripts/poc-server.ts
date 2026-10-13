@@ -187,7 +187,8 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       if (outcome === 'held') { addTrace(run, { kind: 'step', step: cp?.step, text: `${step}：途中保存を後の出力と合わせて検証します` }); save(run); }
     };
     const onLine = (line: string) => {
-      record(line);
+      // Many steps of a run share events.jsonl at once (design 0037); each line names its step.
+      record(CODEX_TRANSPORT === 'app-server' ? line.replace(/^\{/, `{"step":${JSON.stringify(step)},`) : line);
       if (CODEX_TRANSPORT === 'exec' && cp && run.status === 'running' && !supervisor.timedOut) noted(cp.chunks.accept(line));
       const next = readCodexEvent(state, line);
       const item = run.status === 'running' ? traceItem(line) : null;
