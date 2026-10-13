@@ -122,7 +122,8 @@ async function warmArxiv(ids: string[]) {
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** design 0036: app-server unless CODEX_TRANSPORT=exec (the fallback while the app-server API is experimental). */
 const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ? 'exec' : 'app-server';
-/** app-server has no --ignore-user-config: the MCP servers of the user's Codex config are turned off by name. */
+/** app-server has no --ignore-user-config: every MCP server Codex lists is replaced by a disabled entry. A plugin's server is
+ * not in config.toml, so setting only `enabled=false` would leave an entry without a transport, which Codex rejects. */
 const userMcpServers = (() => {
   if (CODEX_TRANSPORT === 'exec') return [];
   try { return (JSON.parse(spawnSync('codex', ['mcp', 'list', '--json'], { encoding: 'utf8', timeout: 15_000 }).stdout) as { name?: unknown }[]).flatMap(server => typeof server.name === 'string' && /^[\w-]+$/.test(server.name) ? [server.name] : []); } catch { return []; }
@@ -168,7 +169,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     let ended: Promise<{ code: number | null; signal?: NodeJS.Signals | null; spawnError?: boolean }>;
     if (CODEX_TRANSPORT === 'app-server') {
       const appServer = startAppServerStep({
-        args: [...settings, '-c', 'notify=[]', ...userMcpServers.flatMap(name => ['-c', `mcp_servers.${name}.enabled=false`])], env, cwd: workdir,
+        args: [...settings, '-c', 'notify=[]', ...userMcpServers.flatMap(name => ['-c', `mcp_servers.${name}={command="true",enabled=false}`])], env, cwd: workdir,
         model: CODEX_EXECUTION.model, effort: CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
         outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine, onStderr,
         async onToolCall(tool, args) {
