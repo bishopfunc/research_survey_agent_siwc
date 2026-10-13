@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { DEFAULT_EXTRACT_CONCURRENCY, listInstructions, papersPerFamily, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -163,7 +163,7 @@ function codexSettings(webSearch: string) {
 type StepCheckpoints = { chunks: Checkpoints; step?: number };
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process.
  * With `checkpoints`, results saved as they go (design 0034) arrive through submit_patch (app-server) or commentary (exec). */
-function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; effort?: string; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; effort?: string; nudge?: { seconds: number; text: string; unless(): boolean }; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
   return startWhileActive(run.status === 'running', () => new Promise(done => {
     const startedAt = Date.now();
     const budget = timeBudget(timeoutSeconds);
@@ -240,7 +240,14 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       },
     });
     stopChildren.set(key, supervisor.stop);
+    // A message into the running turn at a set time (the map is told to submit its families), unless it is no longer needed.
+    const nudge = options.nudge;
+    const nudgeTimer = nudge ? setTimeout(() => {
+      if (run.status !== 'running' || nudge.unless()) return;
+      void proc.steer?.(nudge.text).then(sent => { if (sent && run.status === 'running') { addTrace(run, { kind: 'step', text: `${step}：${nudge.seconds}秒で途中提出を促しました` }); save(run); } });
+    }, nudge.seconds * 1000) : undefined;
     void ended.then(result => {
+      clearTimeout(nudgeTimer);
       supervisor.close(); children.delete(key); stopChildren.delete(key);
       appendFileSync(join(directory, 'codex-stderr.log'), `--- ${step}\n${redact(stderr.slice(0, MAX_LOG_BYTES))}\n`, { mode: 0o600 });
       rmSync(workdir, { recursive: true, force: true });
@@ -295,7 +302,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       }, () => run.status === 'running') : undefined;
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
-      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, checkpoints: chunks ? { chunks, step: stageStep(stage) } : undefined });
+      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage) } : undefined });
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
@@ -309,7 +316,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library, true),
-      list: (snapshot, family, n) => { const families = familiesOf(snapshot); return stagePrompt(listInstructions(family, families.get(family) ?? [], papersPerFamily(families.size), n), snapshot, input.library, true); },
+      list: (snapshot, family, n, angle) => { const families = familiesOf(snapshot); return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle), snapshot, input.library, true); },
       extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot),
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),

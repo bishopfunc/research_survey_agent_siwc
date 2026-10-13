@@ -4,7 +4,7 @@
 // Results from parallel agents change the survey one at a time; the user sees a single proposal against the empty base.
 import { applyPatch, validateSnapshot, type Entity, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { assessSurvey, findGaps, type SurveyGap } from '../packages/domain/src/survey-assessment';
-import { FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SURVEY_TIMING, type SearchMemory } from '../packages/agent/src/research-prompt';
+import { FAMILY_NUDGE, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SCOUT_ANGLES, SURVEY_TIMING, type SearchMemory } from '../packages/agent/src/research-prompt';
 import type { ResearchOutcome } from './research-run';
 import { dropInvalid } from './drop-invalid';
 
@@ -33,6 +33,8 @@ export interface StageOptions {
   /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
   checkpoints?: boolean;
   onSaved?(patch: SurveyPatch): void;
+  /** A message sent into the running turn after `seconds`, unless `unless()` holds by then. */
+  nudge?: { seconds: number; text: string; unless(): boolean };
 }
 /** A reading that failed this quickly (a model at capacity) is tried once more if its step still has time. */
 export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
@@ -40,8 +42,8 @@ export interface StagedSteps {
   run(stage: StageId, prompt: string, snapshot: SurveySnapshot, options: StageOptions): Promise<StageResult>;
   prompt: {
     outline(): string;
-    /** One agent per method family: lists its papers. */
-    list(snapshot: SurveySnapshot, family: string, n: number): string;
+    /** One agent per method family lists its papers; a scout (family null) lists the field's papers from one angle. */
+    list(snapshot: SurveySnapshot, family: string | null, n: number, angle?: string): string;
     extract(snapshot: SurveySnapshot, paper: string, n: number): string;
     diverge(snapshot: SurveySnapshot, memory: SearchMemory): string;
     integrate(snapshot: SurveySnapshot, candidates: string[]): string;
@@ -82,7 +84,11 @@ export function applyReading(snapshot: SurveySnapshot, patch: SurveyPatch, paper
   if (!current) throw Error(`論文 ${paper} が調査にありません`);
   const sent = patch.operations.flatMap(op => (op.op === 'replace_entity' || op.op === 'add_entity') && op.entity.id === paper && op.entity.type === 'Paper' ? [op.entity as Paper] : [])[0];
   const others = restrictToWorker(patch, snapshot, []).operations.filter(op => !(op.op === 'add_entity' && op.entity.type === 'Paper'));
-  const merged: Paper = { ...current,
+  // A paper listed without a place (a scout's) takes the methods and issues its reader names, when they exist.
+  const exists = (type: string) => (id: string) => snapshot.entities.some(e => e.id === id && e.type === type);
+  const proposes = current.proposes.length ? current.proposes : (sent?.proposes ?? []).filter(exists('Method'));
+  const addresses = current.addresses.length ? current.addresses : (sent?.addresses ?? []).filter(exists('Issue'));
+  const merged: Paper = { ...current, proposes, addresses,
     ...(sent?.reading ? { reading: sent.reading } : {}),
     ...(sent?.abstract_ja && current.abstract ? { abstract_ja: sent.abstract_ja } : {}),
     claims: [...new Set([...current.claims, ...(sent?.claims ?? [])])], evidence: [...new Set([...current.evidence, ...(sent?.evidence ?? [])])] };
@@ -253,13 +259,13 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // starts being read at once. The listers' and the explore's results reach the survey after the map's.
   const listers = new Map<string, Promise<void>>();
   let listIndex = 0;
-  const startLister = (family: string, view: SurveySnapshot) => {
+  const startLister = (family: string, view: SurveySnapshot, angle?: string) => {
     if (listers.has(family) || !steps.active()) return;
     const seconds = Math.min(T.list, left(T.listEnd));
     if (seconds < 40) return;
     const n = ++listIndex, stage: StageId = `list-${n}`;
     listers.set(family, (async () => {
-      const result = await steps.run(stage, steps.prompt.list(view, family, n), view, { seconds, checkpoints: true, effort: 'low',
+      const result = await steps.run(stage, steps.prompt.list(view, angle ? null : family, n, angle), view, { seconds, checkpoints: true, effort: 'low',
         onSaved: patch => { try { enqueue(applyPatch(view, { ...newPapersOnly(restrictToWorker(patch, view, []), view), base_commit_id: stage }, stage)); } catch { /* applied below */ } } });
       await outlineApplied;
       await serial(async () => {
@@ -273,10 +279,17 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       });
     })());
   };
-  const startListers = (view: SurveySnapshot) => { for (const family of familiesOf(view).keys()) startLister(family, view); };
+  let mapView = base;
+  const startListers = (view: SurveySnapshot) => { mapView = view; for (const family of familiesOf(view).keys()) startLister(family, view); };
+  // Without a family in time, scouts list the field's papers from several angles; the readers place them in methods and issues.
+  const startScouts = () => { if (listers.size || !steps.active()) return; SCOUT_ANGLES.forEach(angle => startLister(`scout:${angle}`, mapView, angle)); };
+  const scoutTimer = setTimeout(startScouts, Math.max(0, (T.scoutStart - elapsed()) * 1000));
+  scoutTimer.unref?.();
   steps.progress(`1/${total} Map：分野の全体像を調べ、系統ごとに論文を挙げて、挙がった論文から読み始めています`);
   const mapResult = await steps.run('outline', steps.prompt.outline(), base, { seconds: Math.min(T.map, left(T.listEnd - 40)), checkpoints: true,
+    nudge: { seconds: T.familyNudge, text: FAMILY_NUDGE, unless: () => listers.size > 0 },
     onSaved: patch => { try { const view = applyPatch(base, { ...patch, base_commit_id: baseId }, baseId); startListers(view); enqueue(view); } catch { /* the final map is applied below */ } } });
+  clearTimeout(scoutTimer);
   let outlinePatch: SurveyPatch;
   try { outlinePatch = await parse('outline', mapResult); }
   catch (e) { return steps.active() ? { status: 'failed', message: `Map（全体像）の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
@@ -286,6 +299,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   keep(outlinePatch);
   const outline = snapshot;
   startListers(outline);
+  startScouts();
   enqueue(outline);
   resolveOutline();
 

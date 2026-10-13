@@ -63,7 +63,7 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
       } finally { if (stage.startsWith('extract')) running--; }
     },
     prompt: {
-      outline: () => 'outline', list: (_s, family, n) => { familyOfList[n] = family; calls.push(`list:${n}:${family}`); return `list ${family}`; }, extract: (_s, paper, n) => { paperOf[n] = paper; calls.push(`paper:${n}:${paper}`); return `extract ${paper}`; },
+      outline: () => 'outline', list: (_s, family, n, angle) => { familyOfList[n] = family ?? ''; calls.push(`list:${n}:${family ?? `scout ${angle}`}`); return `list ${family}`; }, extract: (_s, paper, n) => { paperOf[n] = paper; calls.push(`paper:${n}:${paper}`); return `extract ${paper}`; },
       diverge: (_s, memory) => { calls.push(`diverge-memory:${memory.queries.join(',')}`); return 'diverge'; },
       integrate: (_s, candidates) => { calls.push(`candidates:${candidates.join(',')}`); return 'integrate'; },
       tutorial: () => 'tutorial',
@@ -261,4 +261,29 @@ test('steps are numbered 1–6 in the trace; the search memory has no duplicates
 test('the merged snapshot as a patch rebuilds the same snapshot', () => {
   const rebuilt = applyPatch(emptySurvey('x'), snapshotAsPatch(fixture, 'b', 'm'), 'b');
   assert.equal(rebuilt.entities.length, fixture.entities.length);
+});
+
+test('the map is told to submit its families; without any, scouts list the field and readers place the papers', async () => {
+  // A map that never submits a family: scouts start once the map is over, one per angle.
+  const familyless = { ...map, operations: map.operations.filter(op => !(op.op === 'add_relation' && op.relation.type === 'instance_of')) } as SurveyPatch;
+  const scoutPapers = outlineSnapshot.entities.filter(e => e.type === 'Paper').slice(0, 3).map(e => ({ ...e, proposes: [], addresses: [] }));
+  const run = steps({ onRun: (stage, o) => {
+    if (stage === 'outline') { assert.equal(o.nudge?.seconds, SURVEY_TIMING.familyNudge); assert.equal(o.nudge?.unless(), false); return ok(familyless); }
+    if (stage === 'list-1') return ok(patch('scouted', scoutPapers.map(entity => ({ op: 'add_entity', entity }))));
+    if (stage.startsWith('extract')) {
+      const n = Number(stage.split('-')[1]), paper = run.calls.find(c => c.startsWith(`paper:${n}:`))!.split(':')[2];
+      const out = readingOf(paper, n) as { operations: { entity?: Record<string, unknown> }[] };
+      out.operations[0].entity = { ...out.operations[0].entity, proposes: ['cbs', 'no-such-method'], addresses: ['collision'] };
+      return ok(out);
+    }
+    return stage.startsWith('list') ? ok(patch('none', [])) : undefined;
+  } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.equal(run.calls.filter(c => c.startsWith('list:') && c.includes('scout')).length, 5);
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
+  const placed = final.entities.find(e => e.id === scoutPapers[0].id) as Paper;
+  assert.deepEqual(placed.proposes, ['cbs'], 'only existing methods are kept');
+  assert.ok(placed.addresses.includes('collision'));
 });

@@ -64,7 +64,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:24+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:25+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -73,6 +73,9 @@ export const SURVEY_TIMING = {
   map: 150,
   /** One lister per family: its limit, and when every lister must be over so its papers can still be read. */
   list: 150, listEnd: 330,
+  /** Without a submitted family by `familyNudge` the map is told to submit them; without one by `scoutStart` scouts list the
+   * field's papers from several angles instead. */
+  familyNudge: 60, scoutStart: 90,
   /** One paper per agent: its limit, the least worth starting, and when every reading must be over. */
   extract: 150, extractMin: 60, extractEnd: 400,
   /** Explore starts after the map, beside the readings, and must leave its papers time to be read. */
@@ -83,6 +86,9 @@ export const SURVEY_TIMING = {
 export const DIVERGE_MAX_PAPERS = 10;
 /** Papers the listers find in all, shared over the families (design 0037: fifty read in depth). */
 export const TARGET_PAPERS = 55;
+/** Where the scouts look when the map has submitted no family in time. */
+export const SCOUT_ANGLES = ['surveys and the papers they cite', 'curated reading lists and awesome repositories', 'leaderboards and official benchmark pages', 'the main venues and arXiv of the last two years', 'the seminal and most cited papers'] as const;
+export const FAMILY_NUDGE = 'Server message: submit the method families you have now, each with its Methods (submit_patch), before anything else; their papers are listed while you continue.';
 export function papersPerFamily(families: number) { return Math.min(15, Math.max(6, Math.ceil(TARGET_PAPERS / Math.max(1, families)))); }
 /** The server's check lists at most MAX_GAPS gaps; the validate agent chooses at most MAX_CHOSEN_GAPS of them to fill. */
 export const MAX_GAPS = 40;
@@ -99,14 +105,17 @@ export const OUTLINE_INSTRUCTIONS = [
   EXHAUSTIVE_SCOPE,
   `1. ${RESEARCH_STEPS[0].instruction}`,
   'Output: a concise Japanese survey title; one Domain whose description ([overview]) says what the field studies and where it is heading, naming its main venues by acronym; at least three Resources ([guide]): two or more surveys, tutorials or reading lists (one a survey) whose contents and taxonomies define the field, and the leaderboards and official dataset or benchmark pages you opened; 4–10 draft Issues (kind, part_of, english_terms, description) and 3–6 method families with about 6–15 Methods ([methods]), drafts without Evidence that later steps source and rebuild from the papers. No Papers, Keywords, Claims, Evidence or Tutorial, and leave follow_ups empty.',
-  'Submission order, so that nothing points to what is not sent yet: within about the first minute, after a few searches, the title and the Domain; then the draft Issues; then one submission per method family with its Methods, their instance_of and addresses relations, as soon as the family is decided (its papers are listed while you work); last the Resources with the issues and methods they cover. Keep every description to one sentence and omit fields you leave null: only what was submitted is kept when the time runs out.',
+  'Submission order, so that nothing points to what is not sent yet: within about the first minute, after a few searches, the title, the Domain and the method families, one submission per family with its Methods and their instance_of relations (its papers are listed while you work); then the draft Issues with the addresses relations from the Methods; last the Resources with the issues and methods they cover. Keep every description to one sentence and omit fields you leave null: only what was submitted is kept when the time runs out.',
 ].join('\n\n');
-/** Step 1, one agent per method family (design 0037): lists the family's papers in small submissions, each read at once. */
-export function listInstructions(family: string, methods: string[], target: number, n: number) {
+/** Step 1, one agent per method family (design 0037): lists the family's papers in small submissions, each read at once. A scout
+ * (no family) lists the field's papers from one angle when the map has submitted no family in time. */
+export function listInstructions(family: string | null, methods: string[], target: number, n: number, angle?: string) {
   return [
-    `Mode: new survey, step 1 of 6 (list the papers of one method family). Another agent mapped the field; you list the primary papers of the family ${family} (its Methods: ${methods.join(', ') || 'none yet'}) while other agents read each paper as soon as you submit it.`,
-    `List about ${target} primary papers of this family, from its first paper to the state of the art (seminal, most cited, recent turning points, strong baselines), taking them from surveys, curated lists, leaderboards and proceedings rather than from memory ([guide]); open list pages rather than each paper.`,
-    `Submit with submit_patch in batches of 2–4 papers as soon as you have them, most important first: each Paper with an id prefixed m${n}-, title, one identifier you saw (arxiv_id, doi or url), year, a one-sentence Japanese one_line_summary, proposes (Methods of this family; add a Method of the family with instance_of only when none fits) and addresses (Issues of the snapshot). Omit every other field: the server fills the bibliography. Never add a paper the snapshot already has. No reading, Claims, Evidence or Tutorial; leave follow_ups empty.`,
+    family
+      ? `Mode: new survey, step 1 of 6 (list the papers of one method family). Another agent maps the field; you list the primary papers of the family ${family} (its Methods: ${methods.join(', ') || 'none yet'}) while other agents read each paper as soon as you submit it.`
+      : `Mode: new survey, step 1 of 6 (scout the papers of the field). Another agent maps the field and other scouts look elsewhere; you list the field's primary papers found through ${angle ?? 'surveys'} while other agents read each paper as soon as you submit it.`,
+    `List about ${target} primary papers ${family ? 'of this family, from its first paper to the state of the art' : 'of the field'} (seminal, most cited, recent turning points, strong baselines), taking them from surveys, curated lists, leaderboards and proceedings rather than from memory ([guide]); open list pages rather than each paper.`,
+    `Submit with submit_patch in batches of 2–4 papers as soon as you have them, most important first: each Paper with an id prefixed m${n}-, title, one identifier you saw (arxiv_id, doi or url), year, a one-sentence Japanese one_line_summary, proposes (${family ? 'Methods of this family; add a Method of the family with instance_of only when none fits' : 'Methods of the snapshot that fit, or empty'}) and addresses (Issues of the snapshot that fit, or empty). Omit every other field: the server fills the bibliography. Never add a paper the snapshot already has. No reading, Claims, Evidence or Tutorial; leave follow_ups empty.`,
   ].join('\n\n');
 }
 /** Step 2: one agent reads one paper (design 0037). The server copies only the paper's reading and abstract_ja into the survey. */
@@ -116,7 +125,7 @@ export function extractInstructions(paper: string, n: number) {
     `Mode: new survey, step 2 of 6 (read one paper in depth). You are one of many agents reading in parallel; each reads one paper. Your paper: ${paper}. The snapshot holds the field, its issues and methods, and your paper.`,
     `2. ${RESEARCH_STEPS[1].instruction}`,
     'Issue candidates (the first step of [issues]): add one Issue per distinct problem the paper says it works on (kind, english_terms as the paper words them, description), citing new Evidence from the paper ([paperparts] says where to read). Add a candidate even when an Issue of the snapshot already names the problem (the integration merges them; an exception to the reuse in [locality]). Do not merge them, relate them, put them in addresses or write achievement Claims for them.',
-    `Output only: replace_entity for your paper with its reading and abstract_ja (the server takes only these two fields from it; its other fields may stay as in the snapshot); at most 2 issue candidates; at most 3 Claims for its main results with about and supports, and only the Evidence they and the reading cite (at most 5). No other Paper, no Tutorial and no follow_ups. Prefix every new ID with ${prefix}. Be quick and short: open the paper's page and full text directly (at most about 6 web actions), keep every reading field to one or two sentences and every excerpt short, and write the final response as soon as you have the facts; it must be done within the time.`,
+    `Output only: replace_entity for your paper with its reading and abstract_ja (the server takes only these two fields from it; its other fields may stay as in the snapshot); at most 2 issue candidates; at most 3 Claims for its main results with about and supports, and only the Evidence they and the reading cite (at most 5). No other Paper, no Tutorial and no follow_ups. If your paper has no proposes or addresses yet, set them to the Methods and Issues of the snapshot it belongs to (the server keeps them only then). Prefix every new ID with ${prefix}. Be quick and short: open the paper's page and full text directly (at most about 6 web actions), keep every reading field to one or two sentences and every excerpt short, and write the final response as soon as you have the facts; it must be done within the time.`,
   ].join('\n\n');
 }
 function issueHierarchy(candidates: string[]) {

@@ -221,7 +221,8 @@ test('a new survey lists fifty to sixty papers family by family and reads them i
   const list = listInstructions('family-cbs', ['cbs', 'ecbs'], 11, 3);
   assert.match(list, /list the primary papers of the family family-cbs \(its Methods: cbs, ecbs\)[\s\S]*List about 11 primary papers of this family, from its first paper to the state of the art/);
   assert.match(list, /batches of 2–4 papers as soon as you have them, most important first: each Paper with an id prefixed m3-[\s\S]*Omit every other field: the server fills the bibliography\. Never add a paper the snapshot already has/);
-  assert.match(OUTLINE_INSTRUCTIONS, /one submission per method family with its Methods[\s\S]*as soon as the family is decided \(its papers are listed while you work\)/);
+  assert.match(OUTLINE_INSTRUCTIONS, /the title, the Domain and the method families, one submission per family with its Methods and their instance_of relations \(its papers are listed while you work\); then the draft Issues/);
+  assert.match(listInstructions(null, [], 11, 2, 'leaderboards'), /scout the papers of the field[\s\S]*found through leaderboards[\s\S]*Methods of the snapshot that fit, or empty/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /never add the same paper twice/);
   assert.equal(SURVEY_TIMING.total, 600);
   assert.ok(SURVEY_TIMING.listEnd < SURVEY_TIMING.extractEnd && SURVEY_TIMING.extractEnd + SURVEY_TIMING.synthesize + SURVEY_TIMING.validate + SURVEY_TIMING.fill + SURVEY_TIMING.tail <= SURVEY_TIMING.total);
