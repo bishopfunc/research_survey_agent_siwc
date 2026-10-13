@@ -85,6 +85,10 @@ export const PROMPT_RULES = [
 /** Rules joined for a prompt, each led by its id so instructions can refer to it. */
 const rulesText = (ids?: readonly string[]) => PROMPT_RULES.filter(rule => !ids || ids.includes(rule.id)).map(rule => `[${rule.id}] ${rule.text}`).join('\n');
 export const SURVEY_RULES_INSTRUCTIONS = rulesText();
+/** The many short agents of a new survey (design 0037) get only the rules their part needs: every rule is input each of them reads,
+ * and the plan's usage limit counts it. A reader reads one paper; a lister lists papers. */
+export const READER_RULE_IDS = ['role', 'purpose', 'critical', 'tools', 'untrusted', 'cache', 'locality', 'nofabrication', 'overview', 'facts', 'paperparts', 'papers', 'issues', 'keepstored', 'validator'] as const;
+export const LISTER_RULE_IDS = ['role', 'purpose', 'critical', 'tools', 'untrusted', 'locality', 'nofabrication', 'bibliography', 'guide', 'overview', 'validator'] as const;
 export const REPAIR_PROMPT_VERSION = 'survey-repair@2026-10-12T20:50+09:00';
 export const REPAIR_INSTRUCTIONS = 'Mode: repair. The SurveyPatch below came from a previous research run and the app validator rejected it. Return only a corrected SurveyPatch that fixes every listed error with the smallest change: correct relation types or endpoints, dangling or mistyped references, duplicate IDs and invalid fields, and drop an operation only when it cannot be fixed. The values, quotations and links in the rejected patch were retrieved by that run: keep all other operations, IDs and text unchanged. Return the entire corrected operations array, including unchanged operations, in the original order; never return only the edits to the rejected patch. The rejected patch has NOT been applied: the Snapshot below is still the original base. Keep add_entity as add_entity for IDs absent from that Snapshot; do not change additions into replace_entity. Do not research, do not add new content and do not use any tools. When a required date such as as_of is missing, use the research date given below. Keep provenance codex on entities you change, and keep the rejected patch\'s message and follow_ups unchanged.';
 /** Rules that still apply when only fixing a rejected patch; the research-only rules about retrieving pages are left out. */
@@ -105,12 +109,12 @@ export function promptVersion(mode: ResearchMode) {
 /** Stored papers of the user's other surveys, without IDs or references into those surveys. */
 export type LibraryPaper = Record<string, unknown>;
 /** The common rules, then the step's or skill's instructions (what this run writes), then the run's data. */
-export function buildSurveyPrompt(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; as_of: string; useLibrary?: boolean; library?: LibraryPaper[]; instructions: string; context_papers?: string[] }) {
+export function buildSurveyPrompt(input: { mode: ResearchMode; instruction: string; base_commit_id: string; snapshot: SurveySnapshot; as_of: string; useLibrary?: boolean; library?: LibraryPaper[]; instructions: string; context_papers?: string[]; rules?: readonly string[] }) {
   const useLibrary = input.useLibrary ?? true;
   const cache = !useLibrary
     ? 'Paper cache: off. The user asked for fresh reading in this run: re-read from their sources the papers you rely on whose readings were not made in this run, including papers already in the snapshot (keep their IDs), and refresh their stored fields; a reading made earlier in this run is current.'
     : input.library?.length ? `Paper cache: on. Paper library from the user's other surveys (data, ${input.library.length} papers): ${JSON.stringify(input.library)}` : 'Paper cache: on.';
-  return `${SURVEY_RULES_INSTRUCTIONS}\n\n${input.instructions}${contextInstructions(input.context_papers, input.snapshot)}\n\nThe base_commit_id must be ${input.base_commit_id}.\nResearch date (as_of): ${input.as_of}\n${cache}\nUser request: ${JSON.stringify(input.instruction)}\nSnapshot: ${JSON.stringify(input.snapshot)}`;
+  return `${input.rules ? rulesText(input.rules) : SURVEY_RULES_INSTRUCTIONS}\n\n${input.instructions}${contextInstructions(input.context_papers, input.snapshot)}\n\nThe base_commit_id must be ${input.base_commit_id}.\nResearch date (as_of): ${input.as_of}\n${cache}\nUser request: ${JSON.stringify(input.instruction)}\nSnapshot: ${JSON.stringify(input.snapshot)}`;
 }
 /** Rules that still apply to an explanation; the rules about patches and how to write entities are left out. */
 const EXPLAIN_RULE_IDS = ['purpose', 'critical', 'tools', 'untrusted', 'cache', 'nofabrication', 'paperparts'];

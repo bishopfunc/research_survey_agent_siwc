@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OUTLINE_INSTRUCTIONS, RESEARCH_STEPS, SURVEY_TIMING, TARGET_PAPERS, listInstructions, papersPerFamily, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, stageLabel, tutorialInstructions, validateInstructions } from '../packages/agent/src/research-prompt';
-import { CODEX_DISABLED_FEATURES, PROMPT_RULES, SURVEY_RULES_INSTRUCTIONS, buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
+import { CODEX_DISABLED_FEATURES, LISTER_RULE_IDS, READER_RULE_IDS, PROMPT_RULES, SURVEY_RULES_INSTRUCTIONS, buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { ROUTED_SKILLS, skillById, skillInstructions } from '../packages/agent/src/skills/index';
 import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
 /** The instructions of the revise skill (the former additional research) and the step builders with empty data. */
@@ -292,4 +292,14 @@ test('the contradiction audit: candidates merge only into non-candidates, relati
   const off = buildSurveyPrompt({ mode: 'new', instruction: 'x', base_commit_id: 'b', snapshot: fixture, as_of: '2026-10-12', useLibrary: false, instructions: 'Mode: x.' });
   assert.match(off, /a reading made earlier in this run is current/);
   assert.match(buildRepairPrompt({ base_commit_id: 'b', snapshot: fixture, patch: {}, errors: 'e', as_of: '2026-10-12' }), /keep the rejected patch's message and follow_ups unchanged/);
+});
+test('the many short agents of a new survey get only the rules their part needs; every id they name exists', () => {
+  const ids = new Set(PROMPT_RULES.map(r => r.id));
+  for (const id of [...READER_RULE_IDS, ...LISTER_RULE_IDS]) assert.ok(ids.has(id), id);
+  const reader = buildSurveyPrompt({ mode: 'new', instruction: 'x', base_commit_id: 'b', snapshot: fixture, as_of: '2026-10-14', instructions: extractInstructions('p', 1), rules: READER_RULE_IDS });
+  assert.ok(reader.includes('[papers] ') && reader.includes('[facts] ') && !reader.includes('[tutorial] ') && !reader.includes('[knowledge] '));
+  // Every rule a reader's or lister's instructions refer to is given to it.
+  for (const [text, rules] of [[extractInstructions('p', 1), READER_RULE_IDS], [listInstructions('f', [], 10, 1), LISTER_RULE_IDS]] as const) {
+    for (const ref of text.match(/\[([a-z]+)\]/g) ?? []) assert.ok((rules as readonly string[]).includes(ref.slice(1, -1)), `${ref} is not given`);
+  }
 });

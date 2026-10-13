@@ -8,7 +8,7 @@ import { createInterface } from 'node:readline';
 import { createServer as createVite } from 'vite';
 import { applyPatch, snapshotSchema, validateSnapshot, type SurveySnapshot, type SurveyPatch } from '../packages/domain/src/index';
 import { patchSchema } from '../packages/domain/src/index';
-import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
+import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, LISTER_RULE_IDS, READER_RULE_IDS, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
 import { DEFAULT_EXTRACT_CONCURRENCY, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
@@ -286,7 +286,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   };
   // The map, the listers, the explore, the integration, the tutorial and the fill submit as they go; a reader and the validate write
   // a short final response.
-  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
+  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false, rules?: readonly string[]) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, rules, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
   // A request's limit counts from now, the routing included (design 0037).
   const requestStarted = Date.now();
   const secondsLeft = (limit: number, keep = 0) => Math.floor(limit - keep - (Date.now() - requestStarted) / 1000);
@@ -317,8 +317,8 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library, true),
-      list: (snapshot, family, n, angle) => { const families = familiesOf(snapshot); return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle), snapshot, input.library, true); },
-      extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot),
+      list: (snapshot, family, n, angle) => { const families = familiesOf(snapshot); return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle), snapshot, input.library, true, LISTER_RULE_IDS); },
+      extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot, [], false, READER_RULE_IDS),
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
       tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot, [], true),

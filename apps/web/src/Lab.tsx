@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { DEFAULT_EXTRACT_CONCURRENCY, RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, SURVEY_TIMING, stageLabel } from '../../../packages/agent/src/research-prompt';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, buildRouterPrompt, skillInstructions } from '../../../packages/agent/src/skills/index';
-import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REPAIR_PROMPT_VERSION, SURVEY_RULES_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
+import { CODEX_EXECUTION, LISTER_RULE_IDS, PROMPT_RULES, READER_RULE_IDS, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REPAIR_PROMPT_VERSION, SURVEY_RULES_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { MAX_LIBRARY_PAPERS } from '../../../packages/agent/src/library';
 import { CONTEXT_PROMPT_VERSION, MAX_CONTEXT_PAPERS, contextInstructions } from '../../../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, CHECKPOINT_INSTRUCTIONS, STOP_GRACE_MS, SUBMIT_PATCH_TOOL, TOOL_CHECKPOINT_INSTRUCTIONS, budgetInstructions, deadlineSteer, submitReply, timeBudget } from '../../../packages/agent/src/time-budget';
@@ -196,7 +196,7 @@ export function Lab() {
           </Sub>
 
           <Sub id="rules" title="共通のルール" stamp={PROMPT_VERSION}>
-            <div className="lab-prose"><p>変更案を返す実行では、スキルや手順の指示の前に、次の{PROMPT_RULES.length}個のルールを付けてCodexに渡す。ルールが決めるのは書き方で、1つの事柄の書き方は1つのルールにだけ書く。何を書くかは、ルールの後ろに続くスキルや手順の指示が決め、両者の制限が食い違うときは指示を優先する。各ルールは「[id]」で始まる1行で、スキルや手順の指示はこのidでルールを参照する（例：[facts]は事実と出典、[cache]は論文キャッシュ）。</p></div>
+            <div className="lab-prose"><p>変更案を返す実行では、スキルや手順の指示の前に、次の{PROMPT_RULES.length}個のルールを付けてCodexに渡す。ルールが決めるのは書き方で、1つの事柄の書き方は1つのルールにだけ書く。何を書くかは、ルールの後ろに続くスキルや手順の指示が決め、両者の制限が食い違うときは指示を優先する。各ルールは「[id]」で始まる1行で、スキルや手順の指示はこのidでルールを参照する（例：[facts]は事実と出典、[cache]は論文キャッシュ）。新規調査で論文を1本読むAgentと論文を挙げるAgentは数が多いので、その役に要るルールだけを付ける（読む：{READER_RULE_IDS.map(id => `[${id}]`).join('')}、挙げる：{LISTER_RULE_IDS.map(id => `[${id}]`).join('')}）。プランの利用量はAgentが読む入力にもかかるため。</p></div>
             <div className="lab-rules">{PROMPT_RULES.map((r,i) => <details key={r.id}><summary><span className="lab-card-number">{String(i+1).padStart(2,'0')}</span><span>{r.title}<code className="lab-rule-id">[{r.id}]</code></span></summary><p>{r.explanation}</p></details>)}</div>
             <Source summary="英語の指示を読む"><p>実際には、このルールの後ろにスキルや手順の指示、編集する版（base_commit_id）、調査日、依頼、今の調査を続けて渡す。認証情報や実データはここに表示しない。</p><pre>{SURVEY_RULES_INSTRUCTIONS}</pre></Source>
           </Sub>
