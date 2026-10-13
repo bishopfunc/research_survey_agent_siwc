@@ -2,9 +2,9 @@ import type { Concept, Paper, SurveySnapshot } from './snapshot.types';
 import { assessTutorial } from './tutorial';
 import { overviewOf } from './overview';
 
-/** Test requirements for a new survey of tens to about a hundred papers (design 0019). Structural checks only:
+/** Test requirements for a new survey of tens to about a hundred papers (design 0019); fifty papers read in depth (design 0037). Structural checks only:
  * they show that the survey reached the intended breadth and depth, not that its statements are correct. */
-export const SURVEY_TARGETS = { papers: 30, deepRead: 10, methods: 6, families: 3, issuesMin: 4, issuesMax: 30, knowledgeLayers: 5, yearSpan: 8 } as const;
+export const SURVEY_TARGETS = { papers: 50, deepRead: 50, methods: 6, families: 3, issuesMin: 4, issuesMax: 30, knowledgeLayers: 5, yearSpan: 8 } as const;
 const LAYERS = ['dataset', 'benchmark', 'hardware', 'simulator', 'metric', 'sota', 'model', 'architecture', 'baseline'];
 export interface SurveyCheck { id: string; label: string; pass: boolean; detail: string }
 

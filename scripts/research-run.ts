@@ -1,6 +1,7 @@
 // Research run orchestration: one Codex research step, then at most one repair step when the app validator rejects the patch.
 import type { SurveyPatch, SurveySnapshot } from '../packages/domain/src/index';
 import { attemptSucceeded, attemptError } from './codex-supervisor';
+import { dropInvalid } from './drop-invalid';
 import type { CodexEventState } from './codex-events';
 
 export interface CodexAttempt { code: number | null; state: CodexEventState; spawnError?: boolean; timedOut?: boolean; signal?: string | null }
@@ -21,6 +22,8 @@ export interface ResearchSteps {
   validate(patch: SurveyPatch): void;
   /** False once the run was cancelled or timed out. */
   active(): boolean;
+  /** False when the request's time limit leaves no room for a repair run. */
+  canRepair?(): boolean;
   progress(message: string): void;
 }
 export type ResearchOutcome =
@@ -89,6 +92,13 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches, ...followUps(result.patch) };
   if (!result.error) return { status: 'succeeded', patch: result.patch as SurveyPatch, repaired: false, searches };
   if (result.patch === undefined) return { status: 'failed', message: result.error, searches };
+  // Without time for a repair run (a one-minute revise, design 0037), the operations the validator names are dropped instead.
+  if (steps.canRepair && !steps.canRepair()) {
+    const kept = dropInvalid(result.patch as SurveyPatch, patch => steps.validate(patch));
+    if (!kept) return { status: 'failed', message: `検証に失敗し、修正する時間がありませんでした：\n${result.error}`, searches };
+    const p = kept.patch;
+    return { status: 'succeeded', patch: { ...p, message: [p.message, `検証に通らない操作${kept.dropped}件を外しました（修正する時間がないため）`].filter(Boolean).join('\n') }, repaired: false, searches };
+  }
   steps.progress(`検証エラーを修正しています（${result.error.split('\n').length}件）`);
   const second = await steps.repair(result.patch, result.error);
   if (!steps.active()) return { status: 'stopped' };

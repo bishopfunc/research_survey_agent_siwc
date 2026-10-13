@@ -4,12 +4,12 @@ import { fixture, validateSnapshot, type Entity } from '../packages/domain/src/i
 import { assessSurvey, findGaps, readingSources } from '../packages/domain/src/survey-assessment';
 
 const failing = (snapshot: typeof fixture) => assessSurvey(snapshot).filter(c => !c.pass).map(c => c.id);
-/** The sample grown to the target scale: about 50 papers across 2008–2024, achievement for every issue. */
+/** The sample grown to the target scale: about 60 papers across 2008–2024, 50 or more read in depth, achievement for every issue. */
 function scaled() {
   const s = structuredClone(fixture);
   const methodIds = ['cbs', 'ecbs', 'icbs', 'eecbs', 'pibt', 'lacam'];
-  for (let i = 0; i < 35; i++) s.entities.push({ id: `p${i}`, label: `P${i}`, provenance: 'user', type: 'Paper', title: `Paper number ${i} on path finding`, year: 2008 + (i % 17), venue: 'AAAI', venue_type: 'conference', one_line_summary: '要約', citation_count: null, citation_source: null, citation_as_of: null, doi: `10.1000/p${i}`, arxiv_id: null, url: null, authors: [], proposes: [methodIds[i % methodIds.length]], addresses: [], claims: [], evidence: [],
-    ...(i < 10 ? { reading: { contributions: ['貢献'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: `https://doi.org/10.1000/p${i}`, locator: 'Section 3' }] } } : {}) } as Entity);
+  for (let i = 0; i < 50; i++) s.entities.push({ id: `p${i}`, label: `P${i}`, provenance: 'user', type: 'Paper', title: `Paper number ${i} on path finding`, year: 2008 + (i % 17), venue: 'AAAI', venue_type: 'conference', one_line_summary: '要約', citation_count: null, citation_source: null, citation_as_of: null, doi: `10.1000/p${i}`, arxiv_id: null, url: null, authors: [], proposes: [methodIds[i % methodIds.length]], addresses: [], claims: [], evidence: [],
+    ...(i < 45 ? { reading: { contributions: ['貢献'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: `https://doi.org/10.1000/p${i}`, locator: 'Section 3' }] } } : {}) } as Entity);
   for (const issue of ['collision']) {
     s.entities.push({ id: `claim-${issue}`, label: '達成度', provenance: 'user', type: 'Claim', statement: '到達点（数値は未確認）', status: 'unknown', scope: { task: 'MAPF', setting: '', metric: '', assumptions: [], limitations: [] }, as_of: null, evidence: [] });
     s.relations.push({ id: `about-${issue}`, type: 'about', from: `claim-${issue}`, to: issue });
@@ -18,7 +18,7 @@ function scaled() {
 }
 
 test('the small sample misses the scale requirements but keeps its quality ones', () => {
-  assert.deepEqual(failing(fixture), ['papers', 'issues']);
+  assert.deepEqual(failing(fixture), ['papers', 'deep', 'issues']);
 });
 test('a survey at the target scale meets every survey requirement', () => {
   const s = scaled();

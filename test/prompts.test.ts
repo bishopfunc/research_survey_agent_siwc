@@ -1,34 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { OUTLINE_INSTRUCTIONS, RESEARCH_STEPS, STAGE_TIMEOUT_SECONDS, deepenInstructions, divergeInstructions, fillInstructions, integrateInstructions, stageLabel, tutorialInstructions } from '../packages/agent/src/research-prompt';
+import { OUTLINE_INSTRUCTIONS, RESEARCH_STEPS, SURVEY_TIMING, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, stageLabel, tutorialInstructions, validateInstructions } from '../packages/agent/src/research-prompt';
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, SURVEY_RULES_INSTRUCTIONS, buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { ROUTED_SKILLS, skillById, skillInstructions } from '../packages/agent/src/skills/index';
 import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
 /** The instructions of the revise skill (the former additional research) and the step builders with empty data. */
 const REVISE = skillInstructions(skillById('revise'));
 const memory = { queries: [], opened: [] };
-test('a new survey alternates abstract, concrete, abstract, divergent, concrete, abstract, then checks and fills, without a separate venue step', () => {
-  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['integrate', 3, '抽象'], ['diverge', 4, '発散'], ['primary2', 5, '具体'], ['integrate2', 6, '抽象'], ['check', 7, '点検'], ['fill', 8, '具体']]);
-  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6', '7', '8']);
-  assert.deepEqual(RESEARCH_STEPS.map(s => s.short), ['Map', 'Extract', 'Synthesize', 'Explore', 'Expand', 'Resynthesize', 'Validate', 'Fill gaps']);
+test('a new survey maps, reads each paper, explores, integrates, then validates and fills, without a separate venue step', () => {
+  assert.deepEqual(RESEARCH_STEPS.map(s => [s.id, s.stage, s.level]), [['sources', 1, '抽象'], ['primary', 2, '具体'], ['diverge', 3, '発散'], ['integrate', 4, '抽象'], ['check', 5, '点検'], ['fill', 6, '具体']]);
+  assert.deepEqual(RESEARCH_STEPS.map(stageLabel), ['1', '2', '3', '4', '5', '6']);
+  assert.deepEqual(RESEARCH_STEPS.map(s => s.short), ['Map', 'Extract', 'Explore', 'Synthesize', 'Validate', 'Fill']);
   assert.equal(RESEARCH_STEPS[1].title, '一次論文から事実と出典を整理する');
   assert.match(RESEARCH_STEPS[1].instruction, /Everything you take from a paper is a fact with its source \(\[facts\]\), and nearly every piece of information in it counts/);
-  // Each step runs as its own process and is told which of the eight steps it is.
-  for (const [prompt, step] of [[OUTLINE_INSTRUCTIONS, 'step 1 of 8'], [deepenInstructions(1, 2, ['p'], []), 'step 2 of 8'], [divergeInstructions(memory), 'step 4 of 8'], [deepenInstructions(1, 2, ['p'], [], 5), 'step 5 of 8'], [integrateInstructions([]), 'steps 3 and 6 of 8'], [tutorialInstructions(), 'step 6 of 8'], [fillInstructions([], memory), 'step 8 of 8']]) assert.ok(prompt.includes(step), step);
+  // Each step runs as its own agent and is told which of the six steps it is.
+  for (const [prompt, step] of [[OUTLINE_INSTRUCTIONS, 'step 1 of 6'], [extractInstructions('p', 1), 'step 2 of 6'], [divergeInstructions(memory), 'step 3 of 6'], [integrateInstructions([]), 'step 4 of 6'], [tutorialInstructions(), 'step 4 of 6'], [validateInstructions([]), 'step 5 of 6'], [fillInstructions([], memory), 'step 6 of 6']]) assert.ok(prompt.includes(step), step);
   assert.ok(!(RESEARCH_STEPS as readonly { id: string }[]).some(s => s.id === 'venues'));
-  assert.deepEqual(RESEARCH_STEPS.slice(0, 6).map(s => s.instruction.split(':')[0]), ['Abstract', 'Concrete', 'Abstract', 'Divergent', 'Concrete', 'Abstract']);
+  assert.deepEqual(RESEARCH_STEPS.slice(0, 4).map(s => s.instruction.split(':')[0]), ['Abstract', 'Concrete', 'Divergent', 'Abstract']);
   assert.match(OUTLINE_INSTRUCTIONS, /1\. Abstract: map the field before collecting papers\. Start with broad web searches/);
   assert.match(OUTLINE_INSTRUCTIONS, /List the primary papers of the field broadly/);
-  assert.match(divergeInstructions(memory), /4\. Divergent: look for what is still missing/);
+  assert.match(divergeInstructions(memory), /3\. Divergent: look for what is still missing/);
   assert.match(divergeInstructions(memory), /adjacent fields that solved a similar problem and whose ideas could transfer/);
-  assert.match(integrateInstructions([]), /6\. Abstract: integrate everything again/);
+  assert.match(integrateInstructions([]), /4\. Abstract: integrate the facts across the papers/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Blogs, tutorials, lecture notes, articles, slides and talks are leads, never Evidence/);
-  assert.match(OUTLINE_INSTRUCTIONS, /30–60 Papers \(never fewer than 30/);
+  assert.match(OUTLINE_INSTRUCTIONS, /50–60 Papers \(never fewer than 50/);
 });
 test('every issue gets an achievement claim; without a number it is qualitative and unknown, never invented', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Write an achievement Claim for every Issue, with an about relation to it/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /still write the Claim: status unknown and a statement of what the papers report qualitatively/);
-  assert.match(RESEARCH_STEPS[2].instruction, /write an achievement Claim for every Issue/);
+  assert.match(RESEARCH_STEPS[3].instruction, /write an achievement Claim for every Issue/);
 });
 test('the paper cache can be turned off per run, and when on a library from the other surveys is supplied as data', () => {
   const on = buildSurveyPrompt({ mode: 'additional', instruction: 'x', base_commit_id: 'b', snapshot: fixture, as_of: '2026-10-12', useLibrary: true, library: [{ title: 'Stored paper', abstract: 'A.' }], instructions: 'Mode: x.' });
@@ -78,7 +78,7 @@ test('the validator rule in the prompt is generated from the domain relation con
   assert.match(SURVEY_RULES_INSTRUCTIONS, /about goes from Claim to Issue\/Method\/Concept\/Domain/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /use only these relation types/);
   for (const old of ['introduces_issue goes', 'related_to may', 'depends_on may']) assert.ok(!SURVEY_RULES_INSTRUCTIONS.includes(old), old);
-  for (const prompt of [OUTLINE_INSTRUCTIONS, deepenInstructions(1, 2, ['p'], []), integrateInstructions([]), divergeInstructions(memory), fillInstructions([], memory), ...ROUTED_SKILLS.map(skillInstructions)]) assert.ok(!/related_to|introduces_issue/.test(prompt));
+  for (const prompt of [OUTLINE_INSTRUCTIONS, extractInstructions('p', 1), integrateInstructions([]), divergeInstructions(memory), validateInstructions([]), fillInstructions([], memory), ...ROUTED_SKILLS.map(skillInstructions)]) assert.ok(!/related_to|introduces_issue/.test(prompt));
 });
 test('rules define a no-change answer, method derivation cycles, and research keeps source text', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /If nothing needs to change, return an empty operations array/);
@@ -99,7 +99,7 @@ test('the repair prompt keeps the rejected values and leaves out the retrieve-in
   assert.ok(prompt.includes('The app rejects the whole patch if any rule fails'));
 });
 test('both modes build knowledge from papers; new subtopics start from surveys, awesome lists and blogs or articles', () => {
-  assert.match(RESEARCH_STEPS[2].instruction, /build the knowledge items \(\[knowledge\]\)/);
+  assert.match(RESEARCH_STEPS[3].instruction, /build the knowledge items \(\[knowledge\]\)/);
   assert.match(integrateInstructions([]), /Keywords from the readings and Resources/);
   assert.match(REVISE, /search its surveys, awesome repositories and blogs or articles in parallel with the generic terms of \[guide\]/);
   assert.match(REVISE, /use the stored abstracts, summaries and titles without re-reading unless asked/);
@@ -139,7 +139,8 @@ test('every run ends with three follow-up requests and long reading gets more ti
   assert.match(fillInstructions([], memory), /end with the three follow_ups built from them/);
   assert.match(OUTLINE_INSTRUCTIONS, /leave follow_ups empty/);
   assert.match(REVISE, /classifying methods into families, quantifying how far issues are achieved, translating abstracts or organizing existing readings, work from the stored entities/);
-  assert.ok(skillById('revise').timeoutSeconds >= 1200 && skillById('deepen').timeoutSeconds >= 1200);
+  // The limits the user set (design 0037): one minute to revise, ten minutes to deepen.
+  assert.ok(skillById('revise').timeoutSeconds === 60 && skillById('deepen').timeoutSeconds === 600);
 });
 test('numbers, SoTA and paper reading come only from text retrieved in this run; stored analysis survives replacement', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Never fabricate venues, papers, URLs, citation counts, code releases, figures, reported numbers or results/);
@@ -151,7 +152,8 @@ test('numbers, SoTA and paper reading come only from text retrieved in this run;
   assert.match(SURVEY_RULES_INSTRUCTIONS, /from an abstract alone, validation, discussion and key_figures are usually empty/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /whether it comes from a leaderboard or results page retrieved in this run or is only the best among the surveyed papers/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /copy its stored english_terms, abstract_ja and reading unchanged/);
-  assert.ok(ROUTED_SKILLS.filter(s => s.output === 'patch').every(s => s.repairTimeoutSeconds >= 600));
+  // A repair fits inside the request's limit; the one-minute revise has none and drops what fails instead.
+  assert.ok(ROUTED_SKILLS.filter(s => s.output === 'patch').every(s => s.repairTimeoutSeconds < s.timeoutSeconds / 2) && skillById('revise').repairTimeoutSeconds === 0);
 });
 test('a library paper is re-read only after the user sends the follow-up that asks for it', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When the stored fields are not enough for the request, do not re-read: make one of the follow_ups a request to re-read the named papers/);
@@ -166,24 +168,24 @@ test('readings cite their original pages, arXiv papers are read in full text, an
 test('issues are built bottom-up: per-paper candidates with sources, then a hierarchy of at least three levels', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Issues: build them bottom-up from the papers\. First take, paper by paper, the problems each paper says it works on as facts with sources/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /a hierarchy of at least three levels wherever the literature supports it/);
-  assert.match(deepenInstructions(1, 4, ['p1'], []), /Issue candidates \(the first step of \[issues\]\): for each paper you read, add one Issue per distinct problem it says it works on/);
-  const integrate = integrateInstructions(['w1-cand-a', 'w2-cand-b']);
-  assert.match(integrate, /the Issues w1-cand-a, w2-cand-b are per-paper issue candidates/);
+  assert.match(extractInstructions('p1', 1), /Issue candidates \(the first step of \[issues\]\): add one Issue per distinct problem the paper says it works on/);
+  const integrate = integrateInstructions(['p1-cand-a', 'p2-cand-b']);
+  assert.match(integrate, /the Issues p1-cand-a, p2-cand-b are per-paper issue candidates/);
   assert.match(integrate, /so the tree has at least three levels wherever the papers support it/);
 });
-test('the eight steps in four waves: separate agents for the divergent search and the tutorial, search memory as data', () => {
+test('one agent per paper; separate agents for the explore, the tutorial, the validate and each fill part; search memory as data', () => {
   const memory = { queries: ['MAPF survey'], opened: ['https://example.org/a'] };
-  assert.match(deepenInstructions(2, 4, ['p1'], []), /step 2 of 8[\s\S]*prefix every new ID with w2-/);
-  const extend = deepenInstructions(1, 2, ['d-p'], [], 5);
-  assert.match(extend, /step 5 of 8[\s\S]*divergent search's additions \(step 4\), which found your papers[\s\S]*2\. Concrete: read your papers in full[\s\S]*prefix every new ID with x1-/);
-  assert.match(integrateInstructions(['w1-c']), /steps 3 and 6 of 8 together[\s\S]*write no Tutorial[\s\S]*the Issues w1-c are per-paper issue candidates[\s\S]*the three follow_ups/);
+  const extract = extractInstructions('paper-lacam', 7);
+  assert.match(extract, /step 2 of 6[\s\S]*Your paper: paper-lacam[\s\S]*2\. Concrete: read your paper in full[\s\S]*the server takes only these two fields[\s\S]*No other Paper[\s\S]*Prefix every new ID with p7-/);
+  assert.match(integrateInstructions(['p1-c']), /step 4 of 6[\s\S]*write no Tutorial[\s\S]*the Issues p1-c are per-paper issue candidates[\s\S]*the three follow_ups/);
   assert.match(tutorialInstructions(), /beside the integration[\s\S]*add_entity one Tutorial \(id tutorial\)[\s\S]*no other operation and no follow_ups[\s\S]*Reference tutorial \(the app's MAPF sample/);
   const diverge = divergeInstructions(memory);
-  assert.match(diverge, /You are a separate agent: the snapshot is the outline from step 1[\s\S]*4\. Divergent:/);
+  assert.match(diverge, /You are a separate agent: the snapshot is the map from step 1[\s\S]*submit each paper[\s\S]*3\. Divergent:/);
   assert.match(diverge, /Search memory of this run \(data, newest first\)\. Searches already made, do not repeat them: \["MAPF survey"\]/);
-  assert.match(diverge, /Output additions only: at most 8 Papers[\s\S]*Replace or remove nothing/);
-  const fill = fillInstructions([], memory);
-  assert.match(fill, /step 8 of 8 \(fill\)[\s\S]*remove nothing[\s\S]*end with the three follow_ups/);
+  assert.match(diverge, /Output additions only: at most 10 Papers[\s\S]*Replace or remove nothing/);
+  assert.match(validateInstructions([{ target: 'x' }]), /Do not search the web[\s\S]*The server's check \(data, most important first\): \[\{"target":"x"\}\][\s\S]*at most 12 gaps/);
+  const fill = fillInstructions([], memory, 2, 3);
+  assert.match(fill, /step 6 of 6 \(fill\), part 2 of 3[\s\S]*change only the entities your gaps name[\s\S]*prefixed f2-[\s\S]*Remove nothing[\s\S]*end with the three follow_ups/);
 });
 test('a method is named after its approach group, never after a paper or system alone', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /A Method names a group of approaches sharing one approach/);
@@ -208,21 +210,21 @@ test('a new survey ends with a newcomer tutorial modeled on a good field tutoria
   assert.match(SURVEY_RULES_INSTRUCTIONS, /definition \(a formal problem statement with notation and at least one display equation/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /every section after the first opens with the limitation of the previous approach/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Cite entities in the body as \[@ID\]/);
-  assert.match(RESEARCH_STEPS[5].instruction, /a separate agent writes the Tutorial \(\[tutorial\]\)/);
+  assert.match(RESEARCH_STEPS[3].instruction, /a separate agent writes the Tutorial \(\[tutorial\]\)/);
   assert.match(tutorialInstructions(), /add_entity one Tutorial \(id tutorial\) as \[tutorial\] describes/);
   assert.match(integrateInstructions([]), /write no Tutorial/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When methods, issues or papers change, update the matching sections and citations/);
 });
-test('a new survey lists tens to a hundred papers and reads ten to twenty in depth, with time to write them', () => {
-  // The server picks the papers each worker reads in depth (design 0027); the outline lists them in order of importance.
-  assert.match(OUTLINE_INSTRUCTIONS, /30–60 Papers \(never fewer than 30: keep taking them from survey bibliographies, curated lists and proceedings until there are 30\) covering every family and the latest year/);
-  assert.match(OUTLINE_INSTRUCTIONS, /listed within each family from the most important, because the first ones are read in depth next/);
+test('a new survey lists fifty to sixty papers and reads them in parallel as they are listed, within ten minutes', () => {
+  assert.match(OUTLINE_INSTRUCTIONS, /50–60 Papers \(never fewer than 50: keep taking them from survey bibliographies, curated lists and proceedings until there are 50\) covering every family and the latest year/);
+  assert.match(OUTLINE_INSTRUCTIONS, /listed within each family from the most important, because papers are read in the order you submit them/);
+  assert.match(OUTLINE_INSTRUCTIONS, /Submit each family as soon as its papers are listed/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /never add the same paper twice/);
-  assert.match(deepenInstructions(1, 2, ['p'], []), /Your papers \(read each in full; one that already has a reading is cached: \[cache\]\)/);
-  assert.ok(STAGE_TIMEOUT_SECONDS.outline >= 300 && STAGE_TIMEOUT_SECONDS.deepen >= 240);
+  assert.equal(SURVEY_TIMING.total, 600);
+  assert.ok(SURVEY_TIMING.extractEnd + SURVEY_TIMING.synthesize + SURVEY_TIMING.validate + SURVEY_TIMING.fill + SURVEY_TIMING.tail <= SURVEY_TIMING.total);
 });
-test('the paper list does not stop below thirty, every tutorial method section cites a paper and no method is unclassified', () => {
-  assert.match(OUTLINE_INSTRUCTIONS, /never fewer than 30/);
+test('the paper list does not stop below fifty, every tutorial method section cites a paper and no method is unclassified', () => {
+  assert.match(OUTLINE_INSTRUCTIONS, /never fewer than 50/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /every section cites at least one Paper, the naive baseline included/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
 });
@@ -277,12 +279,12 @@ test('details restored after the consolidation check: venue fallback, figure ass
   assert.ok(fillInstructions([{ target: 'survey', field: 'tutorial' }], memory).includes('Reference tutorial') && !fillInstructions([{ target: 'p', field: 'year' }], memory).includes('Reference tutorial'));
 });
 test('the contradiction audit: candidates merge only into non-candidates, relations are not repeated, exceptions are listed once', () => {
-  const integrate = integrateInstructions(['w1-a']);
+  const integrate = integrateInstructions(['p1-a']);
   assert.match(integrate, /never one of the candidates, because the server removes only candidates whose Evidence a non-candidate Issue cites/);
   assert.match(integrate, /never repeat a \(type, from, to\) already in the snapshot/);
-  assert.match(deepenInstructions(1, 2, ['p'], []), /Add a candidate even when an outline Issue already names the problem[\s\S]*write achievement Claims for them/);
+  assert.match(extractInstructions('p', 1), /Add a candidate even when an Issue of the snapshot already names the problem[\s\S]*write achievement Claims for them/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /The only exceptions are the unknown achievement Claim of \[issues\], a reading copied by \[keepstored\], and entities a step's instructions call drafts/);
-  assert.match(tutorialInstructions(), /cite Issues that are not worker candidates/);
+  assert.match(tutorialInstructions(), /cite Issues that are not reading candidates/);
   const off = buildSurveyPrompt({ mode: 'new', instruction: 'x', base_commit_id: 'b', snapshot: fixture, as_of: '2026-10-12', useLibrary: false, instructions: 'Mode: x.' });
   assert.match(off, /a reading made earlier in this run is current/);
   assert.match(buildRepairPrompt({ base_commit_id: 'b', snapshot: fixture, patch: {}, errors: 'e', as_of: '2026-10-12' }), /keep the rejected patch's message and follow_ups unchanged/);

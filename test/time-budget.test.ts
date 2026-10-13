@@ -2,7 +2,7 @@ import test from 'node:test';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { timeBudget, budgetInstructions } from '../packages/agent/src/time-budget';
-import { STAGE_TIMEOUT_SECONDS } from '../packages/agent/src/research-prompt';
+import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from '../scripts/codex-supervisor';
 import { initialCodexState } from '../scripts/codex-events';
 import { executeResearch } from '../scripts/research-run';
@@ -15,9 +15,9 @@ function clock() {
     pending,
   };
 }
-test('every stage reserves writing time; Map has five minutes of research and three minutes to write', () => {
-  assert.deepEqual(timeBudget(STAGE_TIMEOUT_SECONDS.outline), { totalSeconds: 480, researchSeconds: 300, writeSeconds: 180 });
-  for (const total of Object.values(STAGE_TIMEOUT_SECONDS)) { const b = timeBudget(total); assert.ok(b.researchSeconds > 0 && b.writeSeconds > 0); assert.equal(b.researchSeconds + b.writeSeconds, total); }
+test('every stage reserves writing time; the map researches about two minutes and has the rest to write', () => {
+  assert.deepEqual(timeBudget(SURVEY_TIMING.map), { totalSeconds: 210, researchSeconds: 126, writeSeconds: 84 });
+  for (const total of [SURVEY_TIMING.map, SURVEY_TIMING.extract, SURVEY_TIMING.explore, SURVEY_TIMING.synthesize, SURVEY_TIMING.validate, SURVEY_TIMING.fill]) { const b = timeBudget(total); assert.ok(b.researchSeconds > 0 && b.writeSeconds > 0); assert.equal(b.researchSeconds + b.writeSeconds, total); }
   const prompt = budgetInstructions(480, Date.parse('2026-10-12T00:00:00Z'));
   assert.match(prompt, /00:05:00.000Z/); assert.match(prompt, /00:08:00.000Z/); assert.match(prompt, /180 seconds/);
 });

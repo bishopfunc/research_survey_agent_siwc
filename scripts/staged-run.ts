@@ -1,45 +1,55 @@
-// Staged new survey (designs 0021, 0028, 0029): the eight steps run as separate Codex processes in four waves — the outline;
-// parallel deepen workers beside the divergent search (a separate agent) and workers on the papers it found; one
-// integration beside a tutorial agent; the server's schema check and, only for gaps and if time remains, the fill —
-// merged on the server into one patch against the empty base.
-// Each stage is validated on its own snapshot; the user sees a single proposal.
+// Staged new survey (design 0037): the map lists the papers; one agent reads each paper as soon as a submission with it is saved,
+// many at once, while another explores what is missing and its papers are read the same way; then one integration beside a
+// tutorial agent, a check of the gaps that an agent interprets, and a fill split over a few agents — all within ten minutes.
+// Results from parallel agents change the survey one at a time; the user sees a single proposal against the empty base.
 import { applyPatch, validateSnapshot, type Entity, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { assessSurvey, findGaps, type SurveyGap } from '../packages/domain/src/survey-assessment';
-import { EXTEND_PER_WORKER, EXTEND_WORKERS, FILL_DEADLINE_SECONDS, MAX_GAPS, RESEARCH_STEPS, type SearchMemory } from '../packages/agent/src/research-prompt';
+import { FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SURVEY_TIMING, type SearchMemory } from '../packages/agent/src/research-prompt';
 import type { ResearchOutcome } from './research-run';
+import { dropInvalid } from './drop-invalid';
 
-export type StageId = 'outline' | `deepen-${number}` | 'integrate' | 'diverge' | `extend-${number}` | 'check' | 'fill' | 'tutorial';
-/** The step (1–8) a stage runs. */
+export type StageId = 'outline' | `extract-${number}` | 'diverge' | 'integrate' | 'tutorial' | 'check' | 'validate' | `fill-${number}`;
+/** The step (1–6) a stage runs. */
 export function stageStep(stage: StageId): number {
   const base = stage.replace(/-\d+$/, '');
-  return ({ outline: 1, deepen: 2, integrate: 3, diverge: 4, extend: 5, tutorial: 6, check: 7, fill: 8 } as Record<string, number>)[base];
+  return ({ outline: 1, extract: 2, diverge: 3, integrate: 4, tutorial: 4, check: 5, validate: 5, fill: 6 } as Record<string, number>)[base];
 }
-/** The trace line for a stage: "2/8 事実と出典（作業1）". */
+/** The trace line for a stage: "2/6 Extract（論文3）". */
 export function stageTraceText(stage: StageId): string {
-  const step = stageStep(stage); const worker = stage.match(/-(\d+)$/)?.[1];
-  return `${step}/${RESEARCH_STEPS.length} ${stage === 'tutorial' ? 'Tutorial' : RESEARCH_STEPS[step - 1].short}${worker ? `（作業${worker}）` : ''}`;
+  const step = stageStep(stage); const n = stage.match(/-(\d+)$/)?.[1];
+  return `${step}/${RESEARCH_STEPS.length} ${stage === 'tutorial' ? 'Tutorial' : RESEARCH_STEPS[step - 1].short}${n ? `（${stage.startsWith('extract') ? '論文' : '作業'}${n}）` : ''}`;
 }
-/** A gap for the fill step, from the server's schema check. */
-export interface CheckedGap extends SurveyGap { fill: 'existing' | 'search'; query: string | null }
-/** `partial` is why the process did not finish; the output is then its validated checkpoints (design 0034). */
+/** A gap for the fill: from the server's check, as the validate agent chose and interpreted it. */
+export interface CheckedGap extends SurveyGap { fill: 'existing' | 'search'; query: string | null; why?: string }
 export interface StageResult { ok: boolean; output?: string; error?: string; partial?: string; searches: number; elapsedMs?: number; searched?: SearchMemory }
-/** Only a quick failure (such as a model at capacity) is worth one retry; a timed-out worker would double the wait. */
+export interface StageOptions {
+  /** The agent's limit, already cut to what is left of its step. */
+  seconds: number;
+  /** Output schema file other than the patch schema. */
+  schema?: string;
+  webSearch?: 'live' | 'disabled';
+  /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
+  checkpoints?: boolean;
+  onSaved?(patch: SurveyPatch): void;
+}
+/** A reading that failed this quickly (a model at capacity) is tried once more if its step still has time. */
 export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
 export interface StagedSteps {
-  /** Runs one Codex stage; the deepen stages are started together. */
-  run(stage: StageId, prompt: string, snapshot?: SurveySnapshot): Promise<StageResult>;
+  run(stage: StageId, prompt: string, snapshot: SurveySnapshot, options: StageOptions): Promise<StageResult>;
   prompt: {
     outline(): string;
-    deepen(snapshot: SurveySnapshot, worker: number, workers: number, papers: string[], issues: string[]): string;
-    integrate(snapshot: SurveySnapshot, candidates: string[]): string;
+    extract(snapshot: SurveySnapshot, paper: string, n: number): string;
     diverge(snapshot: SurveySnapshot, memory: SearchMemory): string;
-    extend(snapshot: SurveySnapshot, worker: number, workers: number, papers: string[], issues: string[]): string;
-    fill(snapshot: SurveySnapshot, gaps: CheckedGap[], memory: SearchMemory): string;
-    /** Wave 3: writes only the Tutorial, beside the integration. */
+    integrate(snapshot: SurveySnapshot, candidates: string[]): string;
+    /** Beside the integration: writes only the Tutorial. */
     tutorial?(snapshot: SurveySnapshot): string;
+    validate(snapshot: SurveySnapshot, gaps: CheckedGap[]): string;
+    fill(snapshot: SurveySnapshot, gaps: CheckedGap[], memory: SearchMemory, part: number, parts: number): string;
   };
-  /** Milliseconds since some fixed point; lets the run skip the fill when it is already late. */
-  now?(): number;
+  /** Milliseconds since some fixed point; every step's time is measured from the start of the run. */
+  now(): number;
+  /** Papers read at the same time. */
+  concurrency: number;
   /** Records a step the server runs itself (the schema check) in the trace. */
   mark?(stage: StageId): void;
   normalize(patch: unknown): unknown;
@@ -54,41 +64,39 @@ export interface StagedSteps {
 
 type Paper = Extract<Entity, { type: 'Paper' }>;
 type Issue = Extract<Entity, { type: 'Issue' }>;
-/** Papers each worker reads in depth; the rest of its group keeps the outline's summary. Keeps each worker's output short. */
-export const DEEP_PER_WORKER = 6;
-/** Splits the outline's papers by method family into at most `workers` groups of similar size and picks the papers each
- * group reads in depth: one paper of each of its families in turn (the outline lists them from the most important), up to
- * `perWorker`, so no family is left unread while another gets several (design 0027). Each group also takes the issues its
- * papers address; `unread` names the families none of whose papers fit. */
-export function assignWorkers(snapshot: SurveySnapshot, workers: number, perWorker = DEEP_PER_WORKER, scope?: { papers: Set<string>; issues: Set<string> }): { groups: { papers: string[]; issues: string[] }[]; unread: string[] } {
-  const families = new Map<string, string>(snapshot.relations.filter(r => r.type === 'instance_of').map(r => [r.from, r.to]));
-  // Step 5 (design 0028) reads only the papers the divergent search added, and writes claims only for its issues.
-  const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper' && (!scope || scope.papers.has(e.id)));
-  const byFamily = new Map<string, Paper[]>();
-  for (const p of papers) { const family = p.proposes.map(m => families.get(m)).find(Boolean) ?? 'none'; byFamily.set(family, [...(byFamily.get(family) ?? []), p]); }
-  const groups: { lists: Paper[][] }[] = Array.from({ length: Math.max(1, Math.min(workers, byFamily.size)) }, () => ({ lists: [] as Paper[][] }));
-  const size = (g: { lists: Paper[][] }) => g.lists.reduce((n, l) => n + Math.min(l.length, perWorker), 0);
-  for (const list of [...byFamily.values()].sort((a, b) => b.length - a.length)) groups.reduce((min, g) => size(g) < size(min) ? g : min).lists.push(list);
-  // With fewer families than workers, the largest family is split until every worker has papers.
-  while (groups.length < workers) {
-    const largest = groups.flatMap(g => g.lists).reduce((max, l) => l.length > max.length ? l : max, [] as Paper[]);
-    if (largest.length < 2) break;
-    groups.push({ lists: [largest.splice(Math.ceil(largest.length / 2))] });
-  }
-  const picked = groups.map(g => {
-    const out: Paper[] = [];
-    for (let round = 0; out.length < perWorker && g.lists.some(l => l.length > round); round++) for (const l of g.lists) if (l[round] && out.length < perWorker) out.push(l[round]);
-    return out;
-  }).filter(list => list.length);
-  const read = new Set(picked.flat().map(p => p.id));
-  const unread = [...byFamily].filter(([, list]) => !list.some(p => read.has(p.id))).map(([family]) => family);
-  const issueTo = new Map<string, number>();
-  // Each issue goes to the group whose papers address it most (the first group when none does).
-  for (const issue of snapshot.entities.filter(e => e.type === 'Issue' && (!scope || scope.issues.has(e.id)))) {
-    const counts = picked.map(list => list.filter(p => p.addresses.includes(issue.id)).length);
-    issueTo.set(issue.id, counts.indexOf(Math.max(...counts)));
-  }
-  return { groups: picked.map((list, i) => ({ papers: list.map(p => p.id), issues: [...issueTo].filter(([, at]) => at === i).map(([id]) => id) })), unread };
+const CONTEXT_TYPES = new Set(['Domain', 'Issue', 'Method', 'Concept']);
+/** What one reading agent sees: the field, its issues and methods, and its paper — not the other papers (a smaller prompt). */
+export function paperContext(snapshot: SurveySnapshot, paper: string): SurveySnapshot {
+  const keep = new Set(snapshot.entities.filter(e => CONTEXT_TYPES.has(e.type) || e.id === paper).map(e => e.id));
+  return { ...snapshot, entities: snapshot.entities.filter(e => keep.has(e.id)), relations: snapshot.relations.filter(r => keep.has(r.from) && keep.has(r.to)) };
+}
+/** A reading agent's result in the survey (design 0037): its paper takes only the reading, the translation of the abstract (when the
+ * survey has the abstract) and the Claims and Evidence it cites; the rest is new entities and relations. Operations the validator
+ * names are dropped so one bad operation does not cost the whole reading. */
+export function applyReading(snapshot: SurveySnapshot, patch: SurveyPatch, paper: string, id: string): { snapshot: SurveySnapshot; read: boolean; dropped: number } {
+  const current = snapshot.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
+  if (!current) throw Error(`論文 ${paper} が調査にありません`);
+  const sent = patch.operations.flatMap(op => (op.op === 'replace_entity' || op.op === 'add_entity') && op.entity.id === paper && op.entity.type === 'Paper' ? [op.entity as Paper] : [])[0];
+  const others = restrictToWorker(patch, snapshot, []).operations.filter(op => !(op.op === 'add_entity' && op.entity.type === 'Paper'));
+  const merged: Paper = { ...current,
+    ...(sent?.reading ? { reading: sent.reading } : {}),
+    ...(sent?.abstract_ja && current.abstract ? { abstract_ja: sent.abstract_ja } : {}),
+    claims: [...new Set([...current.claims, ...(sent?.claims ?? [])])], evidence: [...new Set([...current.evidence, ...(sent?.evidence ?? [])])] };
+  const operations = [...others, { op: 'replace_entity', entity: merged }] as unknown as SurveyPatch['operations'];
+  const checked = dropInvalid({ ...patch, base_commit_id: id, operations }, p => applyPatch(snapshot, p, id));
+  if (!checked) throw Error('読んだ結果が検証に通りませんでした');
+  const next = applyPatch(snapshot, checked.patch, id);
+  const after = next.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
+  return { snapshot: next, read: !!after?.reading, dropped: checked.dropped };
+}
+/** Splits the chosen gaps into at most `parts` groups that name different entities, so fill agents running together do not
+ * replace the same entity. */
+export function splitGaps(gaps: CheckedGap[], parts: number): CheckedGap[][] {
+  const byTarget = new Map<string, CheckedGap[]>();
+  for (const gap of gaps) byTarget.set(gap.target, [...(byTarget.get(gap.target) ?? []), gap]);
+  const out: CheckedGap[][] = Array.from({ length: Math.max(1, Math.min(parts, byTarget.size)) }, () => []);
+  for (const group of byTarget.values()) out.reduce((min, g) => g.length < min.length ? g : min).push(...group);
+  return out.filter(g => g.length);
 }
 /** After integration (design 0027): a per-paper issue candidate whose sources another issue now cites was merged into it and
  * is removed with its relations and references; a sourced candidate nobody merged stays an issue; an unsourced one goes.
@@ -135,130 +143,182 @@ export function withoutRemovals(patch: SurveyPatch): SurveyPatch {
   return { ...patch, operations: patch.operations.filter(op => op.op !== 'remove_entity' && op.op !== 'remove_relation') as SurveyPatch['operations'] };
 }
 
-export async function executeStagedResearch(base: SurveySnapshot, baseId: string, steps: StagedSteps, workers: number): Promise<ResearchOutcome> {
-  let searches = 0;
-  const started = steps.now?.() ?? 0;
-  let memory: SearchMemory = { queries: [], opened: [] };
+
+export async function executeStagedResearch(base: SurveySnapshot, baseId: string, steps: StagedSteps): Promise<ResearchOutcome> {
+  const T = SURVEY_TIMING, total = RESEARCH_STEPS.length;
+  const started = steps.now();
+  const elapsed = () => (steps.now() - started) / 1000;
+  /** Seconds left until `until` (seconds from the start). */
+  const left = (until: number) => Math.floor(until - elapsed());
+  let searches = 0, memory: SearchMemory = { queries: [], opened: [] };
   const record = (result: StageResult) => { searches += result.searches; if (result.searched) { memory = mergeMemory(memory, result.searched); steps.remember?.(memory); } };
   const notes: string[] = [];
-  const parse = async (stage: StageId, result: StageResult): Promise<SurveyPatch> => {
+  const reason = (e: unknown) => (e instanceof Error ? e.message : '').split('\n')[0];
+  const parse = async (stage: StageId, result: StageResult, enrich = true): Promise<SurveyPatch> => {
     record(result);
     if (!result.ok || result.output === undefined) throw Error(result.error ?? `${stage}の実行に失敗しました`);
     if (result.partial) notes.push(`${stageTraceText(stage)}は途中保存までの結果を使いました（${result.partial}）`);
-    const patch = await steps.prepare(steps.normalize(JSON.parse(result.output))) as SurveyPatch;
+    const normalized = steps.normalize(JSON.parse(result.output));
+    const patch = (enrich ? await steps.prepare(normalized) : normalized) as SurveyPatch;
     steps.checkpoint(stage, patch);
     return patch;
   };
-  // A stage that returned no operations changed nothing (its message and follow_ups still count); it is not applied. One whose
-  // operations (`own`, before the server restricted them to its scope) were all out of scope is reported instead.
+  // A stage that returned no operations changed nothing (its message and follow_ups still count); one whose operations (`own`,
+  // before the server restricted them to its scope) were all out of scope is reported instead.
   const apply = (snapshot: SurveySnapshot, patch: SurveyPatch, id: string, own = patch) => {
     if (!own.operations.length) return snapshot;
     if (!patch.operations.length) throw Error('操作はすべて担当外でした');
     return applyPatch(snapshot, { ...patch, base_commit_id: id }, id);
   };
-  const reason = (e: unknown) => (e instanceof Error ? e.message : '').split('\n')[0];
-  const total = RESEARCH_STEPS.length;
   let followUps: string[] | undefined, message = '';
   const keep = (patch: SurveyPatch) => { if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) message = patch.message; };
-  // Step 1: the map of the field.
-  steps.progress(`1/${total} Map：分野の全体像を調べています`);
+  // Agents finish in any order; their results change the survey one at a time.
+  let snapshot = base, chain: Promise<unknown> = Promise.resolve();
+  const serial = <R>(task: () => Promise<R> | R): Promise<R> => { const run = chain.then(task); chain = run.catch(() => {}); return run; };
+
+  // Step 2, the readings: a queue fed by the map's and the explore's saved submissions, read by up to `concurrency` agents.
+  const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot }[] = [], reads: Promise<void>[] = [];
+  let running = 0, extractIndex = 0;
+  const count = { read: 0, failed: 0, late: 0 };
+  let resolveOutline!: () => void, resolveExplore!: () => void;
+  const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
+  const exploreApplied = new Promise<void>(resolve => { resolveExplore = resolve; });
+  const enqueue = (view: SurveySnapshot) => {
+    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id)) { queued.add(e.id); queue.push({ paper: e.id, view }); }
+    pump();
+  };
+  const pump = () => {
+    while (running < steps.concurrency && queue.length && steps.active()) {
+      const remaining = left(T.extractEnd);
+      if (remaining < T.extractMin) { count.late += queue.length; queue.length = 0; return; }
+      const { paper, view } = queue.shift()!;
+      running++;
+      reads.push(readPaper(paper, view, ++extractIndex, Math.min(T.extract, remaining)).finally(() => { running--; pump(); }));
+    }
+  };
+  const readPaper = async (paper: string, view: SurveySnapshot, n: number, seconds: number) => {
+    const stage: StageId = `extract-${n}`, context = paperContext(view, paper);
+    const prompt = steps.prompt.extract(context, paper, n);
+    let result = await steps.run(stage, prompt, context, { seconds });
+    const again = left(T.extractEnd);
+    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); result = await steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again) }); }
+    // A paper of the explore exists in the survey only once the explore's result is applied.
+    await outlineApplied;
+    if (!snapshot.entities.some(e => e.id === paper)) await exploreApplied;
+    await serial(async () => {
+      try {
+        const own = await parse(stage, result, false);
+        const applied = applyReading(snapshot, own, paper, stage);
+        snapshot = applied.snapshot;
+        if (applied.read) count.read++; else count.failed++;
+      } catch (e) { count.failed++; if (steps.active()) notes.push(`${stageTraceText(stage)}（${paper}）を使えませんでした：${reason(e)}`); }
+    });
+  };
+  const allReads = async () => { for (let seen = -1; seen !== reads.length;) { seen = reads.length; await Promise.all(reads); } await chain; };
+
+  // Step 1: the map. Its papers start being read as soon as a submission with them is saved.
+  steps.progress(`1/${total} Map：分野の全体像を調べ、挙がった論文から読み始めています`);
+  const mapResult = await steps.run('outline', steps.prompt.outline(), base, { seconds: Math.min(T.map, left(T.extractEnd - T.extractMin)), checkpoints: true,
+    onSaved: patch => { try { enqueue(applyPatch(base, { ...patch, base_commit_id: baseId }, baseId)); } catch { /* the final map is applied below */ } } });
   let outlinePatch: SurveyPatch;
-  try { outlinePatch = await parse('outline', await steps.run('outline', steps.prompt.outline(), base)); }
+  try { outlinePatch = await parse('outline', mapResult); }
   catch (e) { return steps.active() ? { status: 'failed', message: `Map（全体像）の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
   if (!steps.active()) return { status: 'stopped' };
   if (!outlinePatch.operations.length) return { status: 'unchanged', message: outlinePatch.message, searches, ...(outlinePatch.follow_ups?.length ? { follow_ups: [...outlinePatch.follow_ups] } : {}) };
-  let snapshot: SurveySnapshot;
   try { snapshot = apply(base, outlinePatch, baseId); } catch (e) { return { status: 'failed', message: `Map（全体像）の段階の変更案が検証に通りませんでした：\n${e instanceof Error ? e.message : ''}`, searches }; }
   keep(outlinePatch);
-  // The issues the workers add are per-paper candidates (design 0027): the next integration merges them, then the server settles them.
-  const newIssues = (before: SurveySnapshot) => snapshot.entities.filter(e => e.type === 'Issue' && !before.entities.some(o => o.id === e.id)).map(e => e.id);
-
-  const { groups, unread } = assignWorkers(snapshot, workers);
-  const familyName = (id: string) => snapshot.entities.find(e => e.id === id)?.label ?? '系統なし';
-  if (unread.length) notes.push(`精読の上限で読めなかった系統：${unread.map(familyName).join('、')}`);
   const outline = snapshot;
-  // Wave 2 (steps 2, 4 and 5): the deepen workers read the outline's papers while a separate agent searches for missing
-  // perspectives from the same outline and its papers are read as soon as it returns. The results are applied afterwards.
-  steps.progress(`2/${total} Extract：${groups.length}つの作業で論文を読み、Explore：別のAgentが抜けている観点を探しています`);
-  const runWorkers = (kind: 'deepen' | 'extend', from: SurveySnapshot, list: { papers: string[]; issues: string[] }[]) => Promise.all(list.map(async (g, i) => {
-    const stage: StageId = `${kind}-${i + 1}`;
-    const prompt = (kind === 'deepen' ? steps.prompt.deepen : steps.prompt.extend)(from, i + 1, list.length, g.papers, g.issues);
-    const first = await steps.run(stage, prompt, from);
-    // A quick failure is retried even when its checkpoints saved part of the work; the retry is kept only if it did better.
-    if ((first.ok && !first.partial) || !steps.active() || (first.elapsedMs ?? 0) > RETRY_IF_FAILED_WITHIN_MS) return { r: first, g, i, kind };
-    const second = await steps.run(stage, prompt, from);
-    const r = second.ok && !second.partial ? second : first.ok ? first : second;
-    return { r, g, i, kind };
-  }));
-  const divergeBranch = async () => {
-    let patch: SurveyPatch | null = null, own: SurveyPatch | null = null, extendResults: Awaited<ReturnType<typeof runWorkers>> = [];
-    try { own = await parse('diverge', await steps.run('diverge', steps.prompt.diverge(outline, memory), outline)); patch = restrictToWorker(own, outline, []); }
-    catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); return { patch, extendResults }; }
-    if (!steps.active()) return { patch, extendResults };
-    let diverged: SurveySnapshot;
-    try { diverged = apply(outline, patch, 'diverge', own); } catch (e) { notes.push(`発散の結果を使えませんでした：${reason(e)}`); return { patch: null, extendResults }; }
-    const added = (type: string) => new Set(diverged.entities.filter(e => e.type === type && !outline.entities.some(o => o.id === e.id)).map(e => e.id));
-    const found = new Set([...added('Paper')].filter(id => { const p = diverged.entities.find(e => e.id === id); return p?.type === 'Paper' && !p.reading; }));
-    if (found.size) extendResults = await runWorkers('extend', diverged, assignWorkers(diverged, EXTEND_WORKERS, EXTEND_PER_WORKER, { papers: found, issues: added('Issue') }).groups);
-    return { patch, extendResults };
-  };
-  const [deepenResults, branch] = await Promise.all([runWorkers('deepen', outline, groups), divergeBranch()]);
+  enqueue(outline);
+  resolveOutline();
+
+  // Step 3 beside the readings: the explore; each paper it submits is queued for reading at once.
+  steps.progress(`2/${total} Extract：論文を1本ずつ並行して読み、Explore：別のAgentが抜けている観点を探しています`);
+  let explorePatch: SurveyPatch | null = null;
+  const exploreSeconds = Math.min(T.explore, left(T.extractEnd - T.extractMin));
+  if (exploreSeconds >= 40) {
+    const result = await steps.run('diverge', steps.prompt.diverge(outline, memory), outline, { seconds: exploreSeconds, checkpoints: true,
+      onSaved: patch => { try { enqueue(applyPatch(outline, { ...restrictToWorker(patch, outline, []), base_commit_id: 'diverge' }, 'diverge')); } catch { /* applied below */ } } });
+    await serial(async () => {
+      try {
+        const own = await parse('diverge', result);
+        const patch = restrictToWorker(own, snapshot, []);
+        snapshot = apply(snapshot, patch, 'diverge', own);
+        explorePatch = patch;
+        if (patch.message) notes.push(`発散：${patch.message}`);
+      } catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); }
+    });
+    if (steps.active()) enqueue(snapshot);
+  } else notes.push('時間の上限のため発散を省きました');
+  resolveExplore();
+  await allReads();
   if (!steps.active()) return { status: 'stopped' };
-  const applyWorkers = async (results: Awaited<ReturnType<typeof runWorkers>>) => {
-    for (const { r, g, i, kind } of results) {
-      try { const own = await parse(`${kind}-${i + 1}`, r); snapshot = apply(snapshot, restrictToWorker(own, snapshot, g.papers), `${kind}-${i + 1}`, own); }
-      catch (e) { notes.push(`${kind === 'deepen' ? '手順2' : '手順5'}の作業${i + 1}（${g.papers.length}本）の結果を使えませんでした：${reason(e)}`); }
+  const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
+  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}）`);
+
+  // Step 4: one integration, and a separate agent writing the Tutorial from the same snapshot.
+  const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin));
+  const explored = new Set((explorePatch as SurveyPatch | null)?.operations.flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []) ?? []);
+  const candidates = snapshot.entities.filter(e => e.type === 'Issue' && !outline.entities.some(o => o.id === e.id) && !explored.has(e.id)).map(e => e.id);
+  if (synthSeconds >= 30) {
+    steps.progress(`4/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
+    const before = snapshot;
+    const [integration, tutorial] = await Promise.all([
+      steps.run('integrate', steps.prompt.integrate(before, candidates), before, { seconds: synthSeconds }),
+      steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before), before, { seconds: synthSeconds }) : Promise.resolve(null),
+    ]);
+    if (!steps.active()) return { status: 'stopped' };
+    try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
+    catch (e) { notes.push(`統合の段階を使えませんでした：${reason(e)}`); }
+    if (tutorial) {
+      try {
+        const patch = await parse('tutorial', tutorial);
+        const ops = patch.operations.filter(op => (op.op === 'add_entity' || op.op === 'replace_entity') && op.entity.type === 'Tutorial');
+        if (!ops.length) throw Error('Tutorialがありません');
+        const exists = snapshot.entities.some(e => e.type === 'Tutorial');
+        snapshot = apply(snapshot, { ...patch, operations: ops.map(op => ({ ...op, op: exists ? 'replace_entity' : 'add_entity' })) as SurveyPatch['operations'] }, 'tutorial');
+      } catch (e) { notes.push(`チュートリアルの段階を使えませんでした：${reason(e)}`); }
     }
-  };
-  await applyWorkers(deepenResults);
-  if (branch.patch) {
-    try { snapshot = apply(snapshot, restrictToWorker(branch.patch, snapshot, []), 'diverge', branch.patch); if (branch.patch.message) notes.push(`発散：${branch.patch.message}`); }
-    catch (e) { notes.push(`発散の結果を使えませんでした：${reason(e)}`); }
-  }
-  await applyWorkers(branch.extendResults);
-  // Applying the results enriches them for a while; a cancel meanwhile must not start the next processes.
-  if (!steps.active()) return { status: 'stopped' };
-  // Wave 3 (steps 3 and 6 together): one integration, and a separate agent writing the Tutorial from the same snapshot.
-  steps.progress(`3/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
-  // The divergent search's issues are sourced perspectives, not per-paper candidates, so only the workers' issues are merged.
-  const divergeIssues = new Set((branch.patch?.operations ?? []).flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []));
-  const before = snapshot, candidates = newIssues(outline).filter(id => !divergeIssues.has(id));
-  const [integration, tutorial] = await Promise.all([
-    steps.run('integrate', steps.prompt.integrate(before, candidates), before),
-    steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before), before) : Promise.resolve(null),
-  ]);
-  if (!steps.active()) return { status: 'stopped' };
-  try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
-  catch (e) { notes.push(`統合の段階を使えませんでした：${reason(e)}`); }
-  if (tutorial) {
-    try {
-      const patch = await parse('tutorial', tutorial);
-      const ops = patch.operations.filter(op => (op.op === 'add_entity' || op.op === 'replace_entity') && op.entity.type === 'Tutorial');
-      if (!ops.length) throw Error('Tutorialがありません');
-      const exists = snapshot.entities.some(e => e.type === 'Tutorial');
-      snapshot = apply(snapshot, { ...patch, operations: ops.map(op => ({ ...op, op: exists ? 'replace_entity' : 'add_entity' })) as SurveyPatch['operations'] }, 'tutorial');
-    } catch (e) { notes.push(`チュートリアルの段階を使えませんでした：${reason(e)}`); }
-  }
+  } else notes.push('時間の上限のため統合を省きました');
   if (candidates.length) {
     const settled = settleIssueCandidates(snapshot, candidates);
     const errors = validateSnapshot(settled);
     if (errors.length) notes.push(`課題の候補をまとめられませんでした：${errors[0]}`); else snapshot = settled;
   }
   if (!steps.active()) return { status: 'stopped' };
-  // Wave 4 (steps 7 and 8): the server checks the schema mechanically; the fill runs only for gaps and only if time remains.
-  steps.progress(`7/${total} Validate：スキーマの抜け漏れを点検しています`);
+
+  // Step 5: the server checks the survey mechanically; an agent chooses what matters and how to fill it.
+  steps.progress(`5/${total} Validate：抜け漏れを点検しています`);
   steps.mark?.('check');
   const unmet = assessSurvey(snapshot).filter(c => !c.pass).map(({ id, label, detail }) => ({ id, label, detail }));
-  const gaps: CheckedGap[] = [...unmet.map(c => ({ target: 'survey', field: c.id, problem: `${c.label}（${c.detail}）` })), ...findGaps(snapshot)].slice(0, MAX_GAPS).map(g => ({ ...g, fill: 'search' as const, query: null }));
-  steps.checkpoint('check', { gaps });
-  const late = steps.now ? steps.now() - started > FILL_DEADLINE_SECONDS * 1000 : false;
-  if (gaps.length && !late) {
-    steps.progress(`8/${total} Fill gaps：抜け漏れを埋めています`);
+  const found: CheckedGap[] = [...unmet.map(c => ({ target: 'survey', field: c.id, problem: `${c.label}（${c.detail}）` })), ...findGaps(snapshot)].slice(0, MAX_GAPS).map(g => ({ ...g, fill: 'search' as const, query: null }));
+  steps.checkpoint('check', { gaps: found });
+  let chosen = found.slice(0, MAX_CHOSEN_GAPS);
+  const validateSeconds = Math.min(T.validate, left(T.total - T.tail - T.fillMin));
+  if (found.length && validateSeconds >= 10) {
+    const result = await steps.run('validate', steps.prompt.validate(snapshot, found), snapshot, { seconds: validateSeconds, schema: 'validate-schema.json', webSearch: 'disabled' });
+    record(result);
     try {
-      const patch = await parse('fill', await steps.run('fill', steps.prompt.fill(snapshot, gaps, memory), snapshot));
-      snapshot = apply(snapshot, withoutRemovals(patch), 'fill', patch); keep(patch);
-    } catch (e) { if (!steps.active()) return { status: 'stopped' }; notes.push(`補完の段階を使えませんでした：${reason(e)}`); }
-  } else if (gaps.length) notes.push(`時間の上限のため補完を省きました（抜け漏れ${gaps.length}件）`);
+      if (!result.ok || !result.output) throw Error(result.error ?? '出力がありません');
+      const read = JSON.parse(result.output) as { gaps?: CheckedGap[] };
+      const picked = (read.gaps ?? []).filter(g => g && typeof g.target === 'string' && typeof g.field === 'string').slice(0, MAX_CHOSEN_GAPS);
+      if (picked.length) chosen = picked;
+    } catch (e) { if (steps.active()) notes.push(`点検の解釈を使えず、サーバーの点検の上位を使いました：${reason(e)}`); }
+  }
+  if (!steps.active()) return { status: 'stopped' };
+
+  // Step 6: the fill, split over agents that change different entities.
+  const fillSeconds = Math.min(T.fill, left(T.total - T.tail));
+  if (chosen.length && fillSeconds >= T.fillMin) {
+    const parts = splitGaps(chosen, FILL_PARTS);
+    steps.progress(`6/${total} Fill：${parts.length}つのAgentで抜け漏れを埋めています`);
+    const before = snapshot;
+    const results = await Promise.all(parts.map((gaps, i) => steps.run(`fill-${i + 1}`, steps.prompt.fill(before, gaps, memory, i + 1, parts.length), before, { seconds: fillSeconds })));
+    if (!steps.active()) return { status: 'stopped' };
+    for (const [i, result] of results.entries()) {
+      try { const patch = await parse(`fill-${i + 1}`, result); snapshot = apply(snapshot, withoutRemovals(patch), `fill-${i + 1}`, patch); keep(patch); }
+      catch (e) { notes.push(`補完（作業${i + 1}）を使えませんでした：${reason(e)}`); }
+    }
+  } else if (chosen.length) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);
   if (!steps.active()) return { status: 'stopped' };
   const final = snapshotAsPatch(snapshot, baseId, [message, ...notes].filter(Boolean).join('\n'), followUps);
   return { status: 'succeeded', patch: final, repaired: false, searches };

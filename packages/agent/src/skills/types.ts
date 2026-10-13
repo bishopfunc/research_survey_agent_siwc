@@ -15,7 +15,9 @@ export interface Skill {
   /** patch: a SurveyPatch to review and save. explanation: an answer that changes nothing. */
   output: 'patch' | 'explanation';
   steps: readonly SkillStep[];
+  /** The whole request's limit from its start, the routing included (design 0037). */
   timeoutSeconds: number;
+  /** Seconds of that limit kept for one repair run; 0 drops what the validator names instead. */
   repairTimeoutSeconds: number;
 }
 /** The instructions Codex receives for a skill: its mode line and its numbered steps. */

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { MAX_PARALLEL_WORKERS, RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, STAGE_TIMEOUT_SECONDS, stageLabel } from '../../../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, RESEARCH_PROMPT_VERSION, RESEARCH_STEPS, SURVEY_TIMING, stageLabel } from '../../../packages/agent/src/research-prompt';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, buildRouterPrompt, skillInstructions } from '../../../packages/agent/src/skills/index';
 import { CODEX_EXECUTION, PROMPT_RULES, PROMPT_VERSION, REPAIR_INSTRUCTIONS, REPAIR_PROMPT_VERSION, SURVEY_RULES_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
 import { MAX_LIBRARY_PAPERS } from '../../../packages/agent/src/library';
@@ -10,7 +10,7 @@ import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../..
 import { assessTutorial } from '../../../packages/domain/src/tutorial';
 import { REFERENCE_TUTORIAL, compareToReference } from '../../../packages/domain/src/tutorial-reference';
 import { assessSurvey } from '../../../packages/domain/src/survey-assessment';
-import { clock, concurrency, followUpTimeline, newSurveyTimeline, span, type Timeline, type TimelineRow } from './workflow-timeline';
+import { clock, concurrency, FIRST_SUBMISSION, followUpTimeline, newSurveyTimeline, span, type Timeline, type TimelineRow } from './workflow-timeline';
 import './lab.css';
 
 const invalidExamples: Record<string,string> = {
@@ -166,20 +166,20 @@ export function Lab() {
 
           <Sub id="timeline" title="実行の時間軸" stamp={BUDGET_PROMPT_VERSION}>
             <div className="lab-prose">
-              <p>新規調査は4つの波で進む。同じ波の実行は同時に始まり、次の波は前の波の実行がすべて終わってから始まる。行は1つのCodexの実行（×は並行する本数）、棒はその上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。各実行が上限まで使ったときの配置で、波のあいだのサーバーの書誌補完と、{RETRY_IF_FAILED_WITHIN_MS / 1000}秒以内に失敗した作業のやり直しの時間は含めない。この配置で新規調査は約{Math.round(NEW_SURVEY.end / 60)}分かかり、同時に動くCodexは最大{MAX_CONCURRENT}つになる。</p>
+              <p>新規調査は全体で最大{SURVEY_TIMING.total / 60}分。Mapが論文を系統ごとに提出すると、保存された論文から1本に1つのAgentが読み始め、同時に最大{DEFAULT_EXTRACT_CONCURRENCY}本を読む（サーバーの設定 EXTRACT_CONCURRENCY で下げられる）。精読は開始から{SURVEY_TIMING.extractEnd}秒までに終わらせ、そのあと統合とチュートリアル、点検、補完が続く。各Agentの上限は、その手順の上限と、手順の締め切りまでの残りの短い方。行は1つの手順（×は同時に動くAgentの数）、棒は上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。精読の棒は、最初の提出（{FIRST_SUBMISSION}秒と仮定）から順に1本ずつ続く読みを表す。全員が上限まで使ったときの配置で、同時に動くAgentは最大{MAX_CONCURRENT}つになる。すべてのAgentは1つのapp-serverプロセスのthreadとして動く。</p>
               <p>行を選ぶと、その実行が受け取るもの、書き出すもの、渡す指示を表示する。</p>
             </div>
             <Gantt timeline={NEW_SURVEY} label="新規調査の実行の時間軸" selected={stage} onSelect={setStage} strip={NEW_CONCURRENCY}/>
-            <div className="lab-prose"><p>追加の依頼は並行しない。Web検索なしの判定のあと、選んだスキルが1つの実行で調べる。変更案が検証に通らなければ、Web検索なしで1回だけ修正する。同時に動くCodexは常に1つである。</p></div>
+            <div className="lab-prose"><p>追加の依頼は並行しない。Web検索なしの判定（上限{ROUTER_TIMEOUT_SECONDS}秒）のあと、選んだスキルが1つのAgentで調べる。依頼の上限は判定を含めて数える。変更案が検証に通らなければ、時間が残る依頼（違う視点・深掘り）はWeb検索なしで1回だけ修正し、1分の依頼（修正・補完）は検証エラーに挙がった操作を外して残りを使う。同時に動くCodexは常に1つである。</p></div>
             <Gantt timeline={FOLLOW_UP} label="追加の依頼の実行の時間軸" selected={followUp} onSelect={setFollowUp}/>
           </Sub>
 
           <Sub id="new-survey" title="新規調査の手順" stamp={RESEARCH_PROMPT_VERSION}>
             <div className="lab-prose">
-              <p>新規調査は、1回のCodexの実行で済ませず、手順を複数の実行に分けて順に進める。手順は、全体像をつかむ抽象と一次論文を読む具体を交互に行き来し、論文の精読は最大{MAX_PARALLEL_WORKERS}つの作業に分けて並行させる。各手順の水準と、どの実行が受け持つかは、下の一覧に示す。</p>
-              <p>精読の作業に論文を割り当てるのはサーバーである。系統を順番に回して1本ずつ論文を選ぶので、ある系統が2本目を読む前に、ほかの系統も1本目を読む。1本も読めなかった系統は、変更案のメッセージに書く。</p>
-              <p>精読の作業が変えられるのは、割り当てられた論文と、その作業で追加した項目だけで、それ以外の変更は捨てる。発散の手順も、項目の追加しかできない。手順の操作がすべて捨てられたときは、変更案の説明にそう書く。作業が論文ごとに取り出した課題の候補は、そのあとの統合の手順で課題の木に組み直す。統合のたびにサーバーが、ほかの課題にまとめられた候補と出典の無い候補を削除し、各論文を、その本文を出典とする課題につなぐ。最後に、すべての手順の結果を合わせた調査全体を1つの変更案にする。</p>
-              <p>最初の手順が失敗するか検証に通らなければ、調査は失敗になる。それ以降の手順や作業が失敗したり検証に通らなかったりしたときは、その結果を使わずに続け、使えなかったことを変更案のメッセージに書く。精読の作業は、{RETRY_IF_FAILED_WITHIN_MS / 1000}秒以内に失敗したときだけ1回やり直す。</p>
+              <p>新規調査は、1回のCodexの実行で済ませず、手順を複数のAgentに分けて進める。手順は、全体像をつかむ抽象と一次論文を読む具体を交互に行き来し、論文の精読は1本に1つのAgentを割り当てて最大{DEFAULT_EXTRACT_CONCURRENCY}本を同時に読む。各手順の水準と、どのAgentが受け持つかは、下の一覧に示す。</p>
+              <p>精読の順番はサーバーが決める。Mapが提出した順（系統ごとに重要な順）に読み、Exploreが提出した論文はその後ろに並ぶ。開始から{SURVEY_TIMING.extractEnd}秒までに{SURVEY_TIMING.extractMin}秒以上を残せない論文は読まず、読めた本数と読めなかった本数を変更案のメッセージに書く。</p>
+              <p>精読のAgentから調査に写すのは、担当論文の要点（reading）と要旨の和訳と、そのAgentが追加した課題の候補・主張・根拠だけで、それ以外の変更は捨てる。検証に通らない操作は外して残りを使う。発散の手順も、項目の追加しかできない。手順の操作がすべて捨てられたときは、変更案の説明にそう書く。作業が論文ごとに取り出した課題の候補は、そのあとの統合の手順で課題の木に組み直す。統合のたびにサーバーが、ほかの課題にまとめられた候補と出典の無い候補を削除し、各論文を、その本文を出典とする課題につなぐ。最後に、すべての手順の結果を合わせた調査全体を1つの変更案にする。</p>
+              <p>最初の手順が失敗するか検証に通らなければ、調査は失敗になる。それ以降の手順や作業が失敗したり検証に通らなかったりしたときは、その結果を使わずに続け、使えなかったことを変更案のメッセージに書く。精読は、{RETRY_IF_FAILED_WITHIN_MS / 1000}秒以内に失敗し、締め切りまでに時間が残るときだけ1回やり直す。</p>
             </div>
             <ol className="lab-steps">{RESEARCH_STEPS.map(s => <li key={s.id}><span className="lab-card-number">{stageLabel(s)}</span><div><h4>{s.title}</h4><p className="lab-tags"><span className="lab-tag level">{s.level}</span><span className="lab-tag">実行：{s.runner}</span></p><p>{s.explanation}</p><Source summary="英語の指示を読む"><pre>{s.instruction}</pre></Source></div></li>)}</ol>
           </Sub>
@@ -207,7 +207,7 @@ export function Lab() {
               <div><dt>モデル</dt><dd>{CODEX_EXECUTION.model}（推論 {CODEX_EXECUTION.reasoningEffort}、Codex 0.162以降）</dd></div>
               <div><dt>道具</dt><dd>Web検索（{CODEX_EXECUTION.webSearch}）と、途中保存がある段階ではsubmit_patchを使う。シェル、コマンド実行、ブラウザ操作、ローカル画像の表示（view_image）は無効にしている。Web検索がcode mode経由で呼ばれるためcode modeは有効のままだが、そのスクリプトからファイルは読めない。ユーザーのスキルとAGENTS.mdは渡さない。</dd></div>
               <div><dt>Sandbox</dt><dd>{CODEX_EXECUTION.sandbox}</dd></div>
-              <div><dt>時間の配分</dt><dd>全体像は調査{timeBudget(STAGE_TIMEOUT_SECONDS.outline).researchSeconds / 60}分、書き出し{timeBudget(STAGE_TIMEOUT_SECONDS.outline).writeSeconds / 60}分、強制終了まで{STAGE_TIMEOUT_SECONDS.outline / 60}分。ほかの段階も上限内に書き出し時間を予約する。開始時に調査期限と強制終了期限の絶対時刻を渡す。調査期限には、サーバーが実行中のturnに書き出しの指示を差し込む（turn/steer、最終応答を書き始めた後は送らない）。Web検索はturnの途中で止められないので、検索をやめるかはAgent次第。強制終了期限でturnを中断し（turn/interrupt）、プロセスを止める。{STOP_GRACE_MS / 1000}秒後も終了していなければSIGKILLを送る。時間切れは終了コード0でも失敗として表示する。</dd></div>
+              <div><dt>時間の配分</dt><dd>新規調査は全体で{SURVEY_TIMING.total / 60}分、違う視点・深掘りは{ROUTED_SKILLS.find(s => s.id === 'perspective')!.timeoutSeconds / 60}分、修正・補完と解説は{ROUTED_SKILLS.find(s => s.id === 'explain')!.timeoutSeconds}秒（判定を含む）。全体像（Map）は上限{SURVEY_TIMING.map}秒のうち調査{timeBudget(SURVEY_TIMING.map).researchSeconds}秒、書き出し{timeBudget(SURVEY_TIMING.map).writeSeconds}秒。ほかの段階も上限内に書き出し時間を予約する。開始時に調査期限と強制終了期限の絶対時刻を渡す。調査期限には、サーバーが実行中のturnに書き出しの指示を差し込む（turn/steer、最終応答を書き始めた後は送らない）。Web検索はturnの途中で止められないので、検索をやめるかはAgent次第。強制終了期限でturnを中断し（turn/interrupt）、プロセスを止める。{STOP_GRACE_MS / 1000}秒後も終了していなければSIGKILLを送る。時間切れは終了コード0でも失敗として表示する。</dd></div>
               <div><dt>途中保存</dt><dd>新規調査では論文1本または5〜10操作を目安に、参照が完結する変更案をsubmit_patchで提出させる。サーバーは提出ごとに、保存した（saved）、まだ検証に通らないので保留した（held）、読めないので保存しなかった（rejected）をその場で返し、Agentに直させる。全体像は、題・分野・リンクなしの情報源、課題の草案、手法の系統ごとの手法と論文、最後に情報源へ課題・手法・論文のリンクを足す差し替えの順に出させ（まだ送っていない項目を指さない）、論文を最終応答まで溜めさせない。サーバーは型と参照を検証し、実行ごとの番号付きcheckpointに保存する。検証にまだ通らないcheckpointは保留し、最終応答の残りの操作と合わせて変更案全体を検証する。後の出力が同じ段階で追加した項目を置換・削除したときは、追加の更新・取り消しとして合わせる。段階が時間切れか最終応答を使えないときは、検証済みの途中保存までを段階の結果として次へ進み、変更案の説明に明記する。追記の依頼のうち変更案を作る調査も同じく途中保存し、時間切れや最終応答を使えないときは保存済みまでを変更案にする。途中保存を出さなければ、従来どおり最終応答を検証・修正する。途中保存はCommitではなく、時間切れの自動再開は未実装。途中出力の頻度はモデルに依存し、出力されなければ最終応答だけを使う。</dd></div>
               <div><dt>同時実行</dt><dd>調査は{CODEX_EXECUTION.maxConcurrent}件ずつ実行する。新規調査の深掘りの作業は、その1件の中で並行する。</dd></div>
               <div><dt>経過の表示</dt><dd>検索語と思考の見出し（要約 {CODEX_EXECUTION.reasoningSummary}）を1行ずつ表示する。</dd></div>
@@ -219,7 +219,7 @@ export function Lab() {
               <div><dt>保存</dt><dd>{CODEX_EXECUTION.appliesAutomatically ? '自動で適用する。' : '自動では保存しない。ユーザーが変更案を確かめてから保存する。'}</dd></div>
             </dl>
             <Source summary="選択した論文を対象にする指示を読む"><span className="lab-stamp">{CONTEXT_PROMPT_VERSION}</span><pre>{contextInstructions([fixture.entities.find(e => e.type === 'Paper')!.id], fixture)}</pre></Source>
-            <Source summary="時間budgetと途中保存の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{budgetInstructions(STAGE_TIMEOUT_SECONDS.outline, Date.parse('2026-10-12T23:13:00+09:00'))}{'\n\n'}{TOOL_CHECKPOINT_INSTRUCTIONS}</pre></Source>
+            <Source summary="時間budgetと途中保存の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{budgetInstructions(SURVEY_TIMING.map, Date.parse('2026-10-12T23:13:00+09:00'))}{'\n\n'}{TOOL_CHECKPOINT_INSTRUCTIONS}</pre></Source>
             <Source summary="途中保存のツールと、サーバーの返答・調査期限の指示を読む"><span className="lab-stamp">{BUDGET_PROMPT_VERSION}</span><pre>{JSON.stringify(SUBMIT_PATCH_TOOL, null, 2)}{'\n\n'}{submitReply({ status: 'saved', operations: 12 })}{'\n\n'}{submitReply({ status: 'held', operations: 12, error: 'rel-1: 参照先 issue-x がありません' })}{'\n\n'}{submitReply({ status: 'rejected', operations: 12, error: '/operations/0/entity: must have required property \'title\'' })}{'\n\n'}{deadlineSteer(true)}{'\n\n'}{deadlineSteer(false)}</pre></Source>
             <Source summary="従来のexecで使う途中保存の指示を読む（CODEX_TRANSPORT=exec）"><pre>{CHECKPOINT_INSTRUCTIONS}</pre></Source>
             <Source summary="修正の指示を読む"><p>修正では、共通のルールのうち「指示として扱わない」「頼まれた範囲だけを変える」「保存済みの分析は消さない」「検証に通る形で返す」の4つだけを付け、変えた項目の由来をcodexに保つよう修正の指示に書き、調査日も渡す（欠けたas_ofは調査日で埋める）。ページの取得や調査の進め方のルールは付けない。英語表現、候補、要点の空欄や配列のnullは、修正の前に整える。Codexには、まだ適用していない元の変更案に対する全操作を返させ、追加を置換に変えさせない。一部の操作だけが返ったときは元の変更案に合流させ、合流した変更案を検証に通す。合流しても通らないときは、修正が単独で検証に通り、外した操作がすべて元の検証エラーに挙がっている場合だけ、直せない操作を外した修正としてそのまま使う。</p><pre>{REPAIR_INSTRUCTIONS}</pre></Source>

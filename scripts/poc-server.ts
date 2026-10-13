@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { deepenInstructions, divergeInstructions, fillInstructions, integrateInstructions, MAX_PARALLEL_WORKERS, OUTLINE_INSTRUCTIONS, STAGE_TIMEOUT_SECONDS, tutorialInstructions } from '../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -122,6 +122,8 @@ async function warmArxiv(ids: string[]) {
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 /** design 0036: app-server unless CODEX_TRANSPORT=exec (the fallback while the app-server API is experimental). */
 const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ? 'exec' : 'app-server';
+/** Papers read at once in a new survey (design 0037); lower it where memory is short (each reader is a thread of the run's process). */
+const EXTRACT_CONCURRENCY = Math.max(1, Number(process.env.EXTRACT_CONCURRENCY) || DEFAULT_EXTRACT_CONCURRENCY);
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
  * of its own transport (a plugin's server is not in config.toml, and a bare enabled=false would leave it without a transport),
  * and the host then verifies the effective config before any thread starts, failing closed. Listed again for each run. */
@@ -261,6 +263,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   writeFileSync(join(directory, 'output-schema.json'), JSON.stringify(codexPatchSchema(patchSchema)), { mode: 0o600 });
   writeFileSync(join(directory, 'router-schema.json'), JSON.stringify(routerSchema), { mode: 0o600 });
   writeFileSync(join(directory, 'explanation-schema.json'), JSON.stringify(explanationSchema), { mode: 0o600 });
+  writeFileSync(join(directory, 'validate-schema.json'), JSON.stringify(VALIDATE_SCHEMA), { mode: 0o600 });
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
   const normalize = (patch: unknown) => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
@@ -273,53 +276,59 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
     return result.patch;
   };
-  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = []) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` });
+  // Only the map and the explore submit as they go; the other steps write a short final response.
+  const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
+  // A request's limit counts from now, the routing included (design 0037).
+  const requestStarted = Date.now();
+  const secondsLeft = (limit: number, keep = 0) => Math.floor(limit - keep - (Date.now() - requestStarted) / 1000);
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
-    run: async (stage, prompt, snapshot = input.snapshot) => {
+    run: async (stage, prompt, snapshot, options) => {
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
-      const timeout = STAGE_TIMEOUT_SECONDS[stage.replace(/-\d+$/, '') as keyof typeof STAGE_TIMEOUT_SECONDS];
       const started = Date.now();
       const attemptId = randomUUID();
-      const chunks = streamCheckpoints(snapshot, input.base_commit_id, normalize, (patch, sequence) => {
+      // The map and the explore save results as they go (submit_patch); each saved submission is handed on at once.
+      const chunks = options.checkpoints ? streamCheckpoints(snapshot, input.base_commit_id, normalize, (patch, sequence) => {
         writeFileSync(join(directory, `checkpoint-${stage}-${attemptId}-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
         addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存 ${sequence}` }); save(run);
-      }, () => run.status === 'running');
+        options.onSaved?.(patch);
+      }, () => run.status === 'running') : undefined;
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
-      const attempt = await runCodexStep(run, directory, stage, prompt, timeout, { output: outputFile, failRunOnTimeout: false, checkpoints: { chunks, step: stageStep(stage) } });
+      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, checkpoints: chunks ? { chunks, step: stageStep(stage) } : undefined });
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
-      if (ok) try { const merged = chunks.finish(readFileSync(join(directory, outputFile), 'utf8')); writeFileSync(join(directory, `stage-${stage}.json`), merged, { mode: 0o600 }); output = merged; } catch (error) { outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
+      if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
       const error = ok ? outputError : attemptError(attempt);
       const result = { searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
       if (output !== undefined) return { ok: true, output, ...result };
       // A stage that timed out or ended with an unusable final output keeps what its validated checkpoints saved (design 0034).
-      const saved = run.status === 'running' ? chunks.partial() : undefined;
+      const saved = run.status === 'running' ? chunks?.partial() : undefined;
       if (saved) { writeFileSync(join(directory, `stage-${stage}.json`), saved, { mode: 0o600 }); addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存までの結果を使います` }); save(run); return { ok: true, output: saved, partial: error ?? '最終出力なし', ...result }; }
       return { ok: false, error, ...result };
     },
     prompt: {
-      outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library),
-      deepen: (snapshot, worker, workers, papers, issues) => stagePrompt(deepenInstructions(worker, workers, papers, issues), snapshot),
+      outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library, true),
+      extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot),
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot),
-      diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot),
-      extend: (snapshot, worker, workers, papers, issues) => stagePrompt(deepenInstructions(worker, workers, papers, issues, 5), snapshot),
+      diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
       tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot),
-      fill: (snapshot, gaps, memory) => stagePrompt(fillInstructions(gaps, memory), snapshot),
+      validate: (snapshot, gaps) => stagePrompt(validateInstructions(gaps), snapshot),
+      fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot),
     },
     now: () => Date.now(),
+    concurrency: EXTRACT_CONCURRENCY,
     mark: stage => { addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run); },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),
     remember: memory => writeFileSync(join(directory, 'search-memory.json'), JSON.stringify(memory), { mode: 0o600 }),
     active: () => run.status === 'running',
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
-  }, MAX_PARALLEL_WORKERS) : executeSkillRun(input.instruction, {
+  }) : executeSkillRun(input.instruction, {
     route: async () => {
       addTrace(run, { kind: 'step', text: '依頼の種類を判定' }); save(run);
       return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot) + contextInstructions(input.context_papers, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false }), directory, 'route.json');
     },
-    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), skillById('explain').timeoutSeconds, { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
+    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), Math.max(15, secondsLeft(skillById('explain').timeoutSeconds)), { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
     research: skillId => { const skill = skillById(skillId); return executeResearch({
       snapshot: input.snapshot,
       // Like a new-survey stage, the research sends checkpoints; a run that timed out keeps what they saved (design 0034).
@@ -329,14 +338,15 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
           writeFileSync(join(directory, `checkpoint-research-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
           addTrace(run, { kind: 'step', text: `research：途中保存 ${sequence}` }); save(run);
         }, () => run.status === 'running');
-        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` }), skill.timeoutSeconds, { checkpoints: { chunks }, failRunOnTimeout: false });
+        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` }), Math.max(20, secondsLeft(skill.timeoutSeconds, skill.repairTimeoutSeconds)), { checkpoints: { chunks }, failRunOnTimeout: false });
         const file = join(directory, outputs.research);
         const settled = settleCheckpoints(chunks, attemptError(attempt), { read: () => readFileSync(file, 'utf8'), write: text => writeFileSync(file, text, { mode: 0o600 }), active: () => run.status === 'running' });
         if (settled.partial) { addTrace(run, { kind: 'step', text: 'research：途中保存までの結果を使います' }); save(run); }
         return { ...attempt, ...settled };
       },
       // After a cancel runCodexStep starts no process, so the run records no repair version or step either.
-      repair: (patch, errors) => { if (run.status === 'running') { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); } return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), skill.repairTimeoutSeconds); },
+      repair: (patch, errors) => { if (run.status === 'running') { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); } return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), Math.min(skill.repairTimeoutSeconds, secondsLeft(skill.timeoutSeconds))); },
+      canRepair: () => skill.repairTimeoutSeconds > 0 && secondsLeft(skill.timeoutSeconds) >= 30,
       output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
       normalize,
       // Bibliography and abstracts come from arXiv and OpenAlex instead of Codex's output; a failure keeps Codex's values.

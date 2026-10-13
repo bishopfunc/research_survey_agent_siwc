@@ -1,291 +1,238 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptySurvey, fixture, validateSnapshot, type SurveyPatch } from '../packages/domain/src/index';
-import { assignWorkers, executeStagedResearch, mergeMemory, restrictToWorker, settleIssueCandidates, snapshotAsPatch, stageStep, stageTraceText, type StagedSteps, type StageResult } from '../scripts/staged-run';
+import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
+import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
+import { applyReading, executeStagedResearch, mergeMemory, paperContext, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
 
-/** The sample as the outline stage's output: everything except readings, claims, evidence and the tutorial. */
+/** The sample as the map's output: everything except readings, claims, evidence, keywords and the tutorial. */
 function outlinePatch(): SurveyPatch {
   const base = snapshotAsPatch(fixture, 'b', 'outline');
-  const drop = new Set(fixture.entities.filter(e => ['Claim', 'Evidence', 'Tutorial'].includes(e.type)).map(e => e.id));
+  const drop = new Set(fixture.entities.filter(e => ['Claim', 'Evidence', 'Tutorial', 'Keyword'].includes(e.type)).map(e => e.id));
   const operations = base.operations.filter(op => !(op.op === 'add_entity' && drop.has(op.entity.id)) && !(op.op === 'add_relation' && (drop.has(op.relation.from) || drop.has(op.relation.to))))
-    .map(op => op.op !== 'add_entity' ? op : op.entity.type === 'Paper' ? { ...op, entity: { ...op.entity, claims: [], evidence: [], reading: null } } : 'evidence' in op.entity ? { ...op, entity: { ...op.entity, evidence: [] } } : op);
+    .map(op => op.op !== 'add_entity' ? op : op.entity.type === 'Paper' ? { ...op, entity: { ...op.entity, claims: [], evidence: [], reading: null, abstract_ja: null } } : 'evidence' in op.entity ? { ...op, entity: { ...op.entity, evidence: [] } } : op);
   return { ...base, operations: operations as SurveyPatch['operations'] };
 }
-const ok = (patch: unknown): StageResult => ({ ok: true, output: JSON.stringify(patch), searches: 2 });
-function steps(over: Partial<StagedSteps> & { results?: Record<string, StageResult> }) {
-  const calls: string[] = [];
-  const s: StagedSteps = {
-    run: async stage => { calls.push(stage); return over.results?.[stage] ?? { ok: false, error: 'no output', searches: 0 }; },
-    prompt: {
-      outline: () => 'outline', deepen: (_s, w, n, papers) => `deepen ${w}/${n} ${papers.join(',')}`, integrate: (_s, candidates) => { calls.push(`candidates:${candidates.join(',')}`); return 'integrate'; },
-      diverge: (_s, memory) => { calls.push(`diverge-memory:${memory.queries.join(',')}`); return 'diverge'; },
-      extend: (_s, w, n, papers, issues) => { calls.push(`extend-papers:${papers.join(',')}|${issues.join(',')}`); return `extend ${w}/${n}`; },
-      tutorial: () => 'tutorial',
-      fill: (_s, gaps, memory) => { calls.push(`fill:${JSON.stringify(gaps)}|${memory.queries.join(',')}`); return 'fill'; },
-    },
-    normalize: p => p, prepare: async p => p, checkpoint: () => {}, active: () => true, progress: m => { calls.push(`progress:${m}`); },
-    ...over,
-  };
-  return { s, calls };
+const outline = outlinePatch();
+const outlineSnapshot = applyPatch(emptySurvey('t'), { ...outline, base_commit_id: 'b' }, 'b');
+const papers = outlineSnapshot.entities.filter(e => e.type === 'Paper').map(e => e.id);
+const ok = (patch: unknown, extra: Partial<StageResult> = {}): StageResult => ({ ok: true, output: JSON.stringify(patch), searches: 1, ...extra });
+const patch = (message: string, operations: unknown[], extra: object = {}) => ({ schema_version: '0.1.0', base_commit_id: 'x', message, operations, ...extra });
+const reading = { contributions: ['c'], novelty: '', key_idea: 'k', validation: '', discussion: '', key_figures: [], sources: [{ url: 'https://example.org', locator: 'Section 3' }] };
+/** A reading agent's output for one paper: its reading, one issue candidate citing new Evidence, and a stale copy of its other fields. */
+function readingOf(paper: string, n: number) {
+  const entity = outlineSnapshot.entities.find(e => e.id === paper) ?? { id: paper, type: 'Paper' };
+  const evidence = { id: `p${n}-ev`, label: 'e', provenance: 'codex', type: 'Evidence', source_url: 'https://example.org', locator: 'Section 3', excerpt: 'x', verification: 'unverified', retrieved_at: null, content_hash: null, origin: paper };
+  return patch(`read ${paper}`, [
+    { op: 'replace_entity', entity: { ...entity, title: 'stale title from the snapshot it saw', reading: { ...reading, evidence: [`p${n}-ev`] }, abstract_ja: '和訳' } },
+    { op: 'add_entity', entity: evidence },
+    { op: 'add_entity', entity: { id: `p${n}-cand`, label: 'c', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem', evidence: [`p${n}-ev`] } },
+  ]);
 }
+type Fake = { s: StagedSteps; calls: string[]; options: Record<string, StageOptions[]>; maxRunning: number };
+/** Steps whose agents answer at once; `onRun` may replace a stage's result or call its onSaved. */
+function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: string, options: StageOptions, attempt: number) => Promise<StageResult | undefined> | StageResult | undefined; concurrency?: number; now?: () => number; active?: () => boolean } = {}): Fake {
+  const calls: string[] = [], options: Record<string, StageOptions[]> = {};
+  const fake: Fake = { s: undefined as unknown as StagedSteps, calls, options, maxRunning: 0 };
+  let running = 0;
+  const attempts: Record<string, number> = {}, paperOf: Record<number, string> = {};
+  fake.s = {
+    run: async (stage, _prompt, _snapshot, o) => {
+      calls.push(stage); (options[stage] ??= []).push(o); attempts[stage] = (attempts[stage] ?? 0) + 1;
+      if (stage.startsWith('extract')) { running++; fake.maxRunning = Math.max(fake.maxRunning, running); }
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2));
+        const custom = await over.onRun?.(stage, o, attempts[stage]);
+        if (custom) return custom;
+        const n = Number(stage.split('-')[1]);
+        if (stage.startsWith('extract')) return ok(readingOf(paperOf[n], n));
+        return over.results?.[stage] ?? (stage === 'outline' ? ok(outline) : ok(patch(stage, [])));
+      } finally { if (stage.startsWith('extract')) running--; }
+    },
+    prompt: {
+      outline: () => 'outline', extract: (_s, paper, n) => { paperOf[n] = paper; calls.push(`paper:${n}:${paper}`); return `extract ${paper}`; },
+      diverge: (_s, memory) => { calls.push(`diverge-memory:${memory.queries.join(',')}`); return 'diverge'; },
+      integrate: (_s, candidates) => { calls.push(`candidates:${candidates.join(',')}`); return 'integrate'; },
+      tutorial: () => 'tutorial',
+      validate: (_s, gaps) => { calls.push(`validate:${gaps.length}`); return 'validate'; },
+      fill: (_s, gaps, _m, part, parts) => { calls.push(`fill:${part}/${parts}:${gaps.map(g => g.target).join(',')}`); return 'fill'; },
+    },
+    now: over.now ?? (() => 0), concurrency: over.concurrency ?? 4,
+    normalize: p => p, prepare: async p => p, checkpoint: () => {}, active: over.active ?? (() => true), progress: m => { calls.push(`progress:${m}`); },
+  };
+  return fake;
+}
+type Paper = Extract<SurveySnapshot['entities'][number], { type: 'Paper' }>;
 
-test('every method family gets a paper read in depth, one per family in turn, and the issues follow the papers', () => {
-  const { groups, unread } = assignWorkers(fixture, 3);
-  const familyOf = new Map(fixture.relations.filter(r => r.type === 'instance_of').map(r => [r.from, r.to]));
-  const families = (ids: string[]) => new Set(ids.map(id => { const p = fixture.entities.find(e => e.id === id); return p?.type === 'Paper' ? p.proposes.map(m => familyOf.get(m)).find(Boolean) ?? 'none' : 'x'; }));
-  const all = new Set(fixture.entities.flatMap(e => e.type === 'Paper' ? [e.proposes.map(m => familyOf.get(m)).find(Boolean) ?? 'none'] : []));
-  assert.deepEqual(families(groups.flatMap(g => g.papers)), all);
-  assert.deepEqual(unread, []);
-  assert.ok(groups.every(g => g.papers.length <= 6));
-  assert.deepEqual(new Set(groups.flatMap(g => g.issues)), new Set(fixture.entities.filter(e => e.type === 'Issue').map(e => e.id)));
-  // One worker with room for two papers reads the first paper of two families and reports the rest as unread.
-  const tight = assignWorkers(fixture, 1, 2);
-  assert.equal(tight.groups[0].papers.length, 2);
-  assert.equal(families(tight.groups[0].papers).size, 2);
-  assert.equal(tight.unread.length, all.size - 2);
+test('the map hands its papers to the readers as its submissions are saved; every paper is read by its own agent', async () => {
+  // A first submission: the map so far with one paper (no relations, no literature guide pointing at later papers).
+  const first = { ...outline, operations: outline.operations.filter(op => op.op !== 'add_relation' && (op.op !== 'add_entity' || (op.entity.type !== 'Resource' && (op.entity.type !== 'Paper' || op.entity.id === papers[0])))) };
+  assert.doesNotThrow(() => applyPatch(emptySurvey('t'), { ...first, base_commit_id: 'b' } as SurveyPatch, 'b'));
+  const order: string[] = [];
+  const run = steps({ onRun: async (stage, o) => {
+    if (stage.startsWith('extract')) order.push(stage);
+    if (stage !== 'outline') return undefined;
+    // The first submission is saved; its paper starts being read while the map still works.
+    o.onSaved?.(first as SurveyPatch);
+    await new Promise(resolve => setTimeout(resolve, 30));
+    order.push('map done');
+    return ok(outline);
+  } });
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.equal(order[0], 'extract-1', 'the first paper is read before the map ends');
+  assert.ok(order.indexOf('map done') > 0);
+  const read = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
+  assert.deepEqual([...read].sort(), [...papers].sort(), 'each paper once');
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'base-1');
+  const stored = (id: string) => final.entities.find(e => e.id === id) as Paper;
+  for (const id of papers) assert.ok(stored(id).reading, `${id} has a reading`);
+  // Only the reading and the translation are taken from the agent; the stale title is not.
+  assert.equal(stored(papers[0]).title, (outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper).title);
+  assert.match(outcome.patch.message, new RegExp(`論文${papers.length}本のうち${papers.length}本を精読しました`));
+  // The issue candidates of the readings reach the integration.
+  assert.ok(run.calls.some(c => c.startsWith('candidates:') && c.includes('-cand')));
 });
+
+test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
+  const bounded = steps({ concurrency: 2 });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);
+  assert.equal(outcome.status, 'succeeded');
+  assert.ok(bounded.maxRunning <= 2 && bounded.maxRunning > 0);
+  // Late: the map ends after the last start worth making; no reading starts and the proposal says how many waited.
+  let now = 0;
+  const late = steps({ now: () => now, onRun: stage => { if (stage === 'outline') now = (SURVEY_TIMING.extractEnd - SURVEY_TIMING.extractMin + 1) * 1000; return undefined; } });
+  const result = await executeStagedResearch(emptySurvey('t'), 'b', late.s);
+  assert.ok(result.status === 'succeeded');
+  if (result.status !== 'succeeded') return;
+  assert.ok(!late.calls.some(c => c.startsWith('extract')));
+  assert.match(result.patch.message, new RegExp(`時間内に順番が来なかった${papers.length}本`));
+  // Each agent's limit is cut to what is left of its step.
+  now = 0;
+  const cut = steps({ now: () => now, onRun: stage => { if (stage === 'outline') now = (SURVEY_TIMING.extractEnd - 100) * 1000; return undefined; } });
+  await executeStagedResearch(emptySurvey('t'), 'b', cut.s);
+  const limits = Object.entries(cut.options).filter(([k]) => k.startsWith('extract')).map(([, o]) => o[0].seconds);
+  assert.ok(limits.length && limits.every(s => s <= 100));
+});
+
+test('papers the explore submits are read too, after its result is in the survey; the explore only adds', async () => {
+  const lacam = outlineSnapshot.entities.find(e => e.id === 'paper-lacam')!;
+  const found = { ...lacam, id: 'd-paper', label: 'd', title: 'A paper from another field', doi: null, arxiv_id: null, url: 'https://example.org/d', reading: null, claims: [], evidence: [], abstract_ja: null };
+  const scalability = outlineSnapshot.entities.find(e => e.id === 'scalability')!;
+  const explore = patch('安全性の観点が抜けていた', [{ op: 'add_entity', entity: found }, { op: 'replace_entity', entity: { ...scalability, description: 'changed by the explore' } }]);
+  const run = steps({ onRun: async (stage, o) => {
+    if (stage !== 'diverge') return undefined;
+    o.onSaved?.(explore as unknown as SurveyPatch);
+    await new Promise(resolve => setTimeout(resolve, 30));
+    return ok(explore);
+  } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  assert.ok(run.calls.some(c => c.endsWith(':d-paper')), 'the found paper is read');
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
+  assert.ok((final.entities.find(e => e.id === 'd-paper') as Paper).reading);
+  assert.notEqual((final.entities.find(e => e.id === 'scalability') as { description: string }).description, 'changed by the explore');
+  assert.ok(run.options.diverge[0].checkpoints && run.options.outline[0].checkpoints);
+});
+
+test('validate chooses the gaps (no web search); the fill splits them over agents with different targets; failures fall back', async () => {
+  const chosen: CheckedGap[] = [
+    { target: 'paper-cbs', field: 'year', problem: 'p', fill: 'existing', query: null },
+    { target: 'collision', field: 'english_terms', problem: 'p', fill: 'search', query: 'q' },
+    { target: 'paper-cbs', field: 'venue', problem: 'p', fill: 'search', query: 'q' },
+  ];
+  const run = steps({ results: { validate: ok({ gaps: chosen, message: 'm' }) } });
+  await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.equal(run.options.validate[0].webSearch, 'disabled'); assert.equal(run.options.validate[0].schema, 'validate-schema.json');
+  const fills = run.calls.filter(c => c.startsWith('fill:'));
+  assert.deepEqual(fills.map(f => f.split(':').slice(0, 2).join(':')), ['fill:1/2', 'fill:2/2']);
+  const targets = fills.map(f => new Set(f.split(':')[2].split(',')));
+  assert.ok([...targets[0]].every(t => !targets[1].has(t)), 'no target in two parts');
+  // An unusable validate falls back to the server's own list.
+  const broken = steps({ results: { validate: { ok: false, error: 'boom', searches: 0 } } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', broken.s);
+  assert.ok(outcome.status === 'succeeded' && /点検の解釈を使えず/.test(outcome.patch.message));
+  assert.ok(broken.calls.some(c => c.startsWith('fill:')));
+});
+
+test('a failed map fails the run; a cancel stops it; only a quick failed reading is tried again', async () => {
+  const failed = await executeStagedResearch(emptySurvey('t'), 'b', steps({ results: { outline: { ok: false, error: 'boom', searches: 0 } } }).s);
+  assert.ok(failed.status === 'failed' && /Map/.test(failed.message));
+  let active = true;
+  const stopped = await executeStagedResearch(emptySurvey('t'), 'b', steps({ active: () => active, onRun: stage => { if (stage === 'outline') active = false; return undefined; } }).s);
+  assert.equal(stopped.status, 'stopped');
+  const retried = steps({ onRun: (stage, _o, attempt) => stage === 'extract-1' && attempt === 1 ? { ok: false, error: 'Selected model is at capacity', searches: 0, elapsedMs: 5_000 } : undefined });
+  assert.equal((await executeStagedResearch(emptySurvey('t'), 'b', retried.s)).status, 'succeeded');
+  assert.equal(retried.calls.filter(c => c === 'extract-1').length, 2);
+  const slow = steps({ onRun: stage => stage === 'extract-1' ? { ok: false, error: '時間切れ', searches: 0, elapsedMs: 150_000 } : undefined });
+  const late = await executeStagedResearch(emptySurvey('t'), 'b', slow.s);
+  assert.equal(slow.calls.filter(c => c === 'extract-1').length, 1);
+  assert.ok(late.status === 'succeeded' && /読めなかった1本/.test(late.patch.message));
+});
+
+test('a reading takes only its paper\'s reading and translation, drops what fails validation and needs the abstract for a translation', () => {
+  const first = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
+  const base = applyPatch(outlineSnapshot, { schema_version: '0.1.0', base_commit_id: 'x', message: 'abstract', operations: [{ op: 'replace_entity', entity: { ...first, abstract: 'The original abstract.', abstract_source_url: 'https://example.org/abs' } }] } as SurveyPatch, 'x');
+  const result = readingOf(papers[0], 1) as unknown as SurveyPatch;
+  const bad = { ...result, operations: [...result.operations, { op: 'add_relation', relation: { id: 'p1-bad', type: 'about', from: 'p1-missing', to: 'collision' } }] } as SurveyPatch;
+  const applied = applyReading(base, bad, papers[0], 'r');
+  const paper = applied.snapshot.entities.find(e => e.id === papers[0]) as Paper;
+  assert.ok(applied.read && paper.reading); assert.equal(paper.abstract_ja, '和訳'); assert.equal(applied.dropped, 1);
+  assert.equal(paper.title, first.title);
+  const noAbstract = applyReading(outlineSnapshot, result, papers[0], 'r').snapshot.entities.find(e => e.id === papers[0]) as Paper;
+  assert.equal(noAbstract.abstract_ja ?? null, null);
+  assert.throws(() => applyReading(outlineSnapshot, result, 'no-such-paper', 'r'));
+  // Its context is the field, the issues and methods and its own paper only.
+  const context = paperContext(outlineSnapshot, papers[0]);
+  assert.deepEqual(context.entities.filter(e => e.type === 'Paper').map(e => e.id), [papers[0]]);
+  assert.ok(context.entities.some(e => e.type === 'Issue') && context.relations.every(r => context.entities.some(e => e.id === r.from) && context.entities.some(e => e.id === r.to)));
+});
+
+test('gaps are split into parts naming different entities', () => {
+  const gap = (target: string): CheckedGap => ({ target, field: 'f', problem: 'p', fill: 'search', query: null });
+  const parts = splitGaps(['a', 'b', 'a', 'c', 'd', 'a'].map(gap), 3);
+  assert.equal(parts.length, 3);
+  const owner = new Map<string, number>();
+  parts.forEach((p, i) => p.forEach(g => { assert.ok(!owner.has(g.target) || owner.get(g.target) === i); owner.set(g.target, i); }));
+  assert.equal(splitGaps([gap('a'), gap('a')], 3).length, 1);
+});
+
 test('issue candidates merged into the hierarchy are removed; sourced leftovers stay; papers address the issues citing them', () => {
   const input = structuredClone(fixture);
   const ev = (id: string, origin: string) => ({ id, label: id, provenance: 'codex' as const, type: 'Evidence' as const, source_url: 'https://arxiv.org/abs/2211.13432', locator: 'Section 1', excerpt: 'x', verification: 'unverified' as const, retrieved_at: null, content_hash: null, origin });
   const cand = (id: string, evidence: string[]) => ({ id, label: id, provenance: 'codex' as const, type: 'Issue' as const, description: 'd', kind: 'subproblem' as const, evidence });
-  input.entities.push(ev('w1-ev-a', 'paper-lacam'), ev('w1-ev-b', 'paper-primal'), cand('w1-cand-a', ['w1-ev-a']), cand('w1-cand-b', ['w1-ev-b']), cand('w1-cand-c', []));
-  input.relations.push({ id: 'w1-rel', type: 'part_of', from: 'w1-cand-a', to: 'scalability' });
+  input.entities.push(ev('p1-ev-a', 'paper-lacam'), ev('p1-ev-b', 'paper-primal'), cand('p1-cand-a', ['p1-ev-a']), cand('p1-cand-b', ['p1-ev-b']), cand('p1-cand-c', []));
+  input.relations.push({ id: 'p1-rel', type: 'part_of', from: 'p1-cand-a', to: 'scalability' });
   const scalability = input.entities.find(e => e.id === 'scalability');
   if (scalability?.type !== 'Issue') throw Error('fixture changed');
-  scalability.evidence = [...(scalability.evidence ?? []), 'w1-ev-a'];
-  const out = settleIssueCandidates(input, ['w1-cand-a', 'w1-cand-b', 'w1-cand-c']);
+  scalability.evidence = [...(scalability.evidence ?? []), 'p1-ev-a'];
+  const out = settleIssueCandidates(input, ['p1-cand-a', 'p1-cand-b', 'p1-cand-c']);
   const ids = new Set(out.entities.map(e => e.id));
-  assert.ok(!ids.has('w1-cand-a') && ids.has('w1-cand-b') && !ids.has('w1-cand-c'));
-  assert.ok(!out.relations.some(r => r.id === 'w1-rel'));
-  const paper = (id: string) => out.entities.find(e => e.id === id) as Extract<(typeof out.entities)[number], { type: 'Paper' }>;
-  assert.ok(paper('paper-lacam').addresses.includes('scalability'));
-  assert.ok(paper('paper-primal').addresses.includes('w1-cand-b'));
+  assert.ok(!ids.has('p1-cand-a') && ids.has('p1-cand-b') && !ids.has('p1-cand-c'));
+  assert.ok(!out.relations.some(r => r.id === 'p1-rel'));
   assert.deepEqual(validateSnapshot(out), []);
 });
+
 test('a worker can only replace its own papers and add new things', () => {
-  const patch = { schema_version: '0.1.0', base_commit_id: 'x', message: 'm', operations: [
+  const p = { schema_version: '0.1.0', base_commit_id: 'x', message: 'm', operations: [
     { op: 'replace_entity', entity: { ...fixture.entities.find(e => e.id === 'paper-ecbs')! } },
-    { op: 'replace_entity', entity: { ...fixture.entities.find(e => e.id === 'paper-cbs')! } },
     { op: 'replace_entity', entity: { ...fixture.entities.find(e => e.id === 'collision')! } },
     { op: 'remove_entity', id: 'tree' },
     { op: 'add_entity', entity: { id: 'w1-claim', label: 'c', provenance: 'codex', type: 'Claim', statement: 's', status: 'unknown', scope: { task: '', setting: '', metric: '', assumptions: [], limitations: [] }, as_of: null, evidence: [] } },
   ] } as unknown as SurveyPatch;
-  assert.deepEqual(restrictToWorker(patch, fixture, ['paper-ecbs']).operations.map(o => 'entity' in o ? o.entity.id : o.op), ['paper-ecbs', 'w1-claim']);
+  assert.deepEqual(restrictToWorker(p, fixture, ['paper-ecbs']).operations.map(o => 'entity' in o ? o.entity.id : o.op), ['paper-ecbs', 'w1-claim']);
 });
-test('the stages merge into one valid proposal against the empty base; a failed worker is reported, not fatal', async () => {
-  const outline = outlinePatch();
-  const reading = { contributions: ['c'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: 'https://example.org', locator: 'Abstract' }] };
-  const ecbs = { ...(outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'paper-ecbs') as { entity: object }).entity, reading };
-  const tutorial = fixture.entities.find(e => e.type === 'Tutorial')!;
-  const results: Record<string, StageResult> = {
-    outline: ok(outline),
-    'deepen-1': ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'w1', operations: [{ op: 'replace_entity', entity: ecbs }] }),
-    'deepen-2': { ok: false, error: '時間切れ', searches: 1 },
-    // The integration adds the achievement Claims (with their Evidence) the tutorial's challenge sections cite.
-    integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: '統合した', follow_ups: ['次'], operations: [
-      ...fixture.entities.filter(e => e.type === 'Claim' || e.type === 'Evidence').map(entity => ({ op: 'add_entity', entity })),
-      ...fixture.relations.filter(r => r.type === 'about').map(relation => ({ op: 'add_relation', relation })),
-      { op: 'add_entity', entity: tutorial },
-    ] }),
-  };
-  const run = steps({ results });
-  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s, 2);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.equal(outcome.patch.base_commit_id, 'base-1');
-  assert.deepEqual(outcome.patch.follow_ups, ['次']);
-  assert.match(outcome.patch.message, /統合した[\s\S]*作業2/);
-  assert.ok(outcome.patch.operations.some(o => o.op === 'add_entity' && o.entity.type === 'Tutorial'));
-  assert.ok(outcome.patch.operations.some(o => o.op === 'add_entity' && o.entity.id === 'paper-ecbs' && o.entity.type === 'Paper' && o.entity.reading));
-  assert.ok(run.calls.indexOf('deepen-1') > run.calls.indexOf('outline') && run.calls.indexOf('integrate') > run.calls.indexOf('deepen-2'));
-  assert.equal(outcome.searches, 2 + 2 + 1 + 2);
+
+test('steps are numbered 1–6 in the trace; the search memory has no duplicates', () => {
+  assert.deepEqual((['outline', 'extract-12', 'diverge', 'integrate', 'tutorial', 'check', 'validate', 'fill-2'] as const).map(stageStep), [1, 2, 3, 4, 4, 5, 5, 6]);
+  assert.equal(stageTraceText('extract-12'), '2/6 Extract（論文12）');
+  assert.equal(stageTraceText('tutorial'), '4/6 Tutorial');
+  assert.equal(stageTraceText('fill-2'), '6/6 Fill（作業2）');
+  assert.deepEqual(mergeMemory({ queries: ['a'], opened: ['u'] }, { queries: ['a', 'b'], opened: ['u', 'v'] }), { queries: ['a', 'b'], opened: ['u', 'v'] });
 });
-test('issues the workers extract per paper reach the integration as candidates and are merged into its hierarchy', async () => {
-  const outline = outlinePatch();
-  const scalability = (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'scalability') as { entity: object }).entity;
-  const evidence = { id: 'w1-ev-scale', label: 'e', provenance: 'codex', type: 'Evidence', source_url: 'https://arxiv.org/abs/2211.13432', locator: 'Section 1', excerpt: 'even with hundreds of agents', verification: 'unverified', retrieved_at: null, content_hash: null, origin: 'paper-lacam' };
-  const results: Record<string, StageResult> = {
-    outline: ok(outline),
-    'deepen-1': ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'w1', operations: [{ op: 'add_entity', entity: evidence }, { op: 'add_entity', entity: { id: 'w1-cand-scale', label: '多数のエージェント', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem', evidence: ['w1-ev-scale'] } }] }),
-    integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: '統合した', operations: [{ op: 'replace_entity', entity: { ...scalability, evidence: ['w1-ev-scale'] } }] }),
-  };
-  const run = steps({ results });
-  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s, 1);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.ok(run.calls.includes('candidates:w1-cand-scale'));
-  const added = outcome.patch.operations.flatMap(o => o.op === 'add_entity' ? [o.entity] : []);
-  assert.ok(!added.some(e => e.id === 'w1-cand-scale'));
-  const lacam = added.find(e => e.id === 'paper-lacam');
-  assert.ok(lacam?.type === 'Paper' && lacam.addresses.includes('scalability'));
-});
-test('a failed outline fails the run; a cancelled run stops', async () => {
-  const failed = await executeStagedResearch(emptySurvey('t'), 'b', steps({ results: {} }).s, 2);
-  assert.ok(failed.status === 'failed' && /全体像/.test(failed.message));
-  let active = true;
-  const stopped = await executeStagedResearch(emptySurvey('t'), 'b', steps({ results: { outline: ok(outlinePatch()) }, run: async () => { active = false; return ok(outlinePatch()); }, active: () => active }).s, 2);
-  assert.equal(stopped.status, 'stopped');
-});
-test('an outline that timed out continues from its saved checkpoints and says so in the proposal', async () => {
-  const results: Record<string, StageResult> = { outline: { ...ok(outlinePatch()), partial: '時間切れ' } };
-  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results }).s, 2);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.match(outcome.patch.message, /1\/8 Map(（全体像）)?は途中保存までの結果を使いました（時間切れ）/);
-});
+
 test('the merged snapshot as a patch rebuilds the same snapshot', () => {
-  assert.deepEqual(validateSnapshot(fixture), []);
-});
-test('a failed worker is retried once before its result is given up', async () => {
-  const attempts: Record<string, number> = {};
-  const outline = outlinePatch();
-  const run = steps({ run: async stage => { attempts[stage] = (attempts[stage] ?? 0) + 1; if (stage === 'outline') return ok(outline); if (stage === 'integrate') return ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'i', operations: [{ op: 'set_title', title: 't' }] }); return attempts[stage] === 1 ? { ok: false, error: 'Selected model is at capacity', searches: 0 } : ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'w', operations: [{ op: 'set_title', title: 'ignored' }] }); } });
-  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 2);
-  assert.equal(outcome.status, 'succeeded');
-  assert.ok(Object.entries(attempts).filter(([k]) => k.startsWith('deepen')).every(([, n]) => n === 2));
-});
-test('a worker that failed quickly after saving a checkpoint is still retried; its partial result stays if the retry fails too', async () => {
-  const attempts: Record<string, number> = {};
-  const outline = outlinePatch(), empty = (message: string) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations: [] });
-  const run = steps({ run: async stage => {
-    attempts[stage] = (attempts[stage] ?? 0) + 1;
-    if (stage === 'outline') return ok(outline);
-    if (!stage.startsWith('deepen')) return empty(stage);
-    if (attempts[stage] === 1) return { ...empty('first'), partial: 'quick', elapsedMs: 30_000 };
-    return stage === 'deepen-1' ? empty('second') : { ok: false, error: 'again', searches: 0, elapsedMs: 30_000 };
-  } });
-  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 2);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.equal(attempts['deepen-1'], 2); assert.equal(attempts['deepen-2'], 2);
-  assert.doesNotMatch(outcome.patch.message, /作業1）は途中保存/);
-  assert.match(outcome.patch.message, /作業2）は途中保存までの結果を使いました（quick）/);
-});
-test('a worker that failed only after a long time (a timeout) is not retried', async () => {
-  const attempts: Record<string, number> = {};
-  const outline = outlinePatch();
-  const run = steps({ run: async stage => { attempts[stage] = (attempts[stage] ?? 0) + 1; if (stage === 'outline') return ok(outline); if (stage === 'integrate') return ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'i', operations: [{ op: 'set_title', title: 't' }] }); return { ok: false, error: '上限', searches: 0, elapsedMs: 270_000 }; } });
-  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 2);
-  assert.equal(outcome.status, 'succeeded');
-  assert.ok(Object.entries(attempts).filter(([k]) => k.startsWith('deepen')).every(([, n]) => n === 1));
-});
-
-
-test('the eight steps run in four waves; step 4 only adds, step 5 reads only its papers, the tutorial agent writes only the Tutorial, step 8 never removes', async () => {
-  const outline = outlinePatch();
-  const lacam = (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'paper-lacam') as unknown as { entity: Record<string, unknown> }).entity;
-  const scalability = (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === 'scalability') as { entity: object }).entity;
-  const found = { ...lacam, id: 'd-paper', label: 'd', title: 'A paper from another field', doi: null, arxiv_id: null, url: 'https://example.org/d', reading: null, claims: [], evidence: [], abstract_ja: null };
-  const reading = { contributions: ['c'], novelty: '', key_idea: '', validation: '', discussion: '', key_figures: [], sources: [{ url: 'https://example.org/d', locator: 'Abstract' }] };
-  const tutorial = fixture.entities.find(e => e.type === 'Tutorial')!;
-  const patch = (message: string, operations: unknown[], extra: object = {}) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations, ...extra });
-  const results: Record<string, StageResult> = {
-    outline: { ...patch('全体像', []), output: JSON.stringify(outline), searched: { queries: ['q1'], opened: ['https://a.example'] } },
-    'deepen-1': { ...patch('w1', []), searched: { queries: ['q1', 'q2'], opened: [] } },
-    diverge: { ...patch('安全性の観点が抜けていた', [
-      { op: 'add_entity', entity: found },
-      { op: 'add_entity', entity: { id: 'd-issue', label: '安全性', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem' } },
-      { op: 'replace_entity', entity: { ...scalability, description: 'changed by the divergent agent' } },
-    ]), searched: { queries: ['q3'], opened: [] } },
-    'extend-1': patch('x1', [
-      { op: 'replace_entity', entity: { ...found, reading } },
-      { op: 'add_entity', entity: { id: 'x1-cand', label: 'c', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem' } },
-    ]),
-    integrate: patch('統合した', [], { follow_ups: ['古い候補'] }),
-    // The tutorial agent's other operations are ignored.
-    tutorial: patch('t', [{ op: 'add_entity', entity: { ...tutorial, sections: tutorial.sections.map(s => ({ ...s, refs: [], media: [], body: s.body.replace(/\[@[^\]]+\]/g, '') })) } }, { op: 'set_title', title: 'チュートリアルの題' }]),
-    fill: patch('補完した', [{ op: 'set_title', title: '補完した題' }, { op: 'remove_entity', id: 'paper-lacam' }], { follow_ups: ['次1', '次2', '次3'] }),
-  };
-  const remembered: string[][] = [];
-  const marked: string[] = [];
-  const run = steps({ results, remember: memory => remembered.push(memory.queries), mark: stage => marked.push(stage), now: () => 0 });
-  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s, 1);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  const stages = run.calls.filter(c => /^(outline|integrate|diverge|tutorial|fill)$|^(deepen|extend)-\d+$/.test(c));
-  // Wave 2 starts the deepen workers and the divergent agent together; wave 3 starts the integration and the tutorial together.
-  assert.deepEqual(stages, ['outline', 'deepen-1', 'diverge', 'extend-1', 'integrate', 'tutorial', 'fill']);
-  assert.deepEqual(marked, ['check']);
-  assert.ok(run.calls.includes('diverge-memory:q1'), 'the divergent agent starts from the outline');
-  assert.ok(run.calls.includes('extend-papers:d-paper|d-issue'));
-  assert.ok(run.calls.includes('candidates:x1-cand'), 'the divergent issues are not per-paper candidates');
-  const fill = JSON.parse(run.calls.find(c => c.startsWith('fill:'))!.slice(5).split('|')[0]) as { target: string }[];
-  assert.ok(fill.length > 0, 'the server check hands its gaps to the fill');
-  assert.deepEqual(new Set(remembered.at(-1)), new Set(['q1', 'q2', 'q3']));
-  const added = outcome.patch.operations.flatMap(o => o.op === 'add_entity' ? [o.entity] : []);
-  assert.ok(added.some(e => e.id === 'paper-lacam'), 'the fill step cannot remove');
-  assert.ok(added.some(e => e.id === 'd-paper' && e.type === 'Paper' && e.reading), 'step 5 read the paper step 4 found');
-  assert.ok(added.some(e => e.id === 'd-issue'), 'a divergent issue stays');
-  assert.ok(!added.some(e => e.id === 'x1-cand'), 'an unsourced candidate is removed after the integration');
-  assert.ok(added.some(e => e.id === 'scalability' && e.type === 'Issue' && e.description !== 'changed by the divergent agent'), 'step 4 cannot replace');
-  assert.ok(added.some(e => e.type === 'Tutorial'), 'the tutorial agent wrote the Tutorial');
-  assert.ok(!outcome.patch.operations.some(o => o.op === 'set_title' && o.title === 'チュートリアルの題'));
-  assert.deepEqual(outcome.patch.follow_ups, ['次1', '次2', '次3']);
-  assert.match(outcome.patch.message, /^補完した[\s\S]*発散：安全性の観点が抜けていた/);
-  assert.ok(outcome.patch.operations.some(o => o.op === 'set_title' && o.title === '補完した題'));
-});
-test('the fill is skipped when the run is already past the deadline; nothing found by step 4 skips step 5', async () => {
-  let t = 0;
-  const run = steps({ results: { outline: ok(outlinePatch()), integrate: ok({ schema_version: '0.1.0', base_commit_id: 'x', message: 'i', follow_ups: ['a'], operations: [{ op: 'set_title', title: 't' }] }) }, now: () => (t += 500_000) });
-  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s, 1);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.ok(!run.calls.some(c => c.startsWith('extend') || c.startsWith('fill')));
-  assert.match(outcome.patch.message, /時間の上限のため補完を省きました/);
-  assert.deepEqual(outcome.patch.follow_ups, ['a'], 'the integration writes the follow-ups when the fill is skipped');
-});
-test('stages are numbered 1–8 in the trace; the search memory has no duplicates', () => {
-  assert.deepEqual((['outline', 'deepen-2', 'integrate', 'diverge', 'extend-1', 'tutorial', 'check', 'fill'] as const).map(stageStep), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(stageTraceText('deepen-2'), '2/8 Extract（作業2）');
-  assert.equal(stageTraceText('tutorial'), '6/8 Tutorial');
-  assert.equal(stageTraceText('check'), '7/8 Validate');
-  assert.deepEqual(mergeMemory({ queries: ['a'], opened: ['u'] }, { queries: ['a', 'b', 'b'], opened: ['u', 'v'] }), { queries: ['a', 'b'], opened: ['u', 'v'] });
-});
-test('a cancel while results are prepared starts no further Codex step', async () => {
-  const outline = outlinePatch();
-  const stage = (message: string) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations: [{ op: 'set_title', title: message }] });
-  const results = { outline: ok(outline), 'deepen-1': stage('w1'), integrate: stage('i'), tutorial: stage('t') };
-  for (const at of ['w1', 'i']) {
-    let active = true;
-    const run = steps({ results, prepare: async p => { if ((p as SurveyPatch).message === at) active = false; return p; }, active: () => active });
-    assert.deepEqual(await executeStagedResearch(emptySurvey('t'), 'b', run.s, 1), { status: 'stopped' });
-    const later = at === 'w1' ? ['integrate', 'tutorial', 'fill'] : ['fill'];
-    assert.deepEqual(run.calls.filter(c => later.includes(c)), [], `nothing starts after a cancel at ${at}`);
-  }
-});
-test('a stage that returned no operations changed nothing: no failure note, its message and follow-ups stay; an empty outline is no change', async () => {
-  const empty = (message: string, extra: object = {}) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations: [], ...extra });
-  const results = { outline: ok(outlinePatch()), 'deepen-1': empty('w1'), diverge: empty('新しい観点はありませんでした'), integrate: empty('統合することはありませんでした', { follow_ups: ['次'] }), tutorial: empty('t'), fill: empty('埋められる抜けはありませんでした') };
-  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results, now: () => 0 }).s, 1);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.doesNotMatch(outcome.patch.message, /must NOT|作業1|統合の段階|補完の段階|発散の段階/);
-  assert.match(outcome.patch.message, /^埋められる抜けはありませんでした[\s\S]*発散：新しい観点はありませんでした/);
-  assert.match(outcome.patch.message, /チュートリアルの段階を使えませんでした：Tutorialがありません/);
-  assert.deepEqual(outcome.patch.follow_ups, ['次']);
-  const none = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results: { outline: empty('該当する分野が見つかりませんでした', { follow_ups: ['別の語で'] }) } }).s, 1);
-  assert.deepEqual(none, { status: 'unchanged', message: '該当する分野が見つかりませんでした', searches: 2, follow_ups: ['別の語で'] });
-});
-test('a stage whose every operation was outside its scope is reported, not taken for an empty stage', async () => {
-  const outline = outlinePatch();
-  const entity = (id: string) => (outline.operations.find(o => o.op === 'add_entity' && o.entity.id === id) as unknown as { entity: Record<string, unknown> }).entity;
-  const stage = (message: string, operations: unknown[]) => ok({ schema_version: '0.1.0', base_commit_id: 'x', message, operations });
-  const results = {
-    outline: ok(outline),
-    // The worker re-adds an outline paper, the divergent search only replaces, the fill only removes.
-    'deepen-1': stage('w1', [{ op: 'add_entity', entity: entity('paper-lacam') }]),
-    diverge: stage('置換だけ', [{ op: 'replace_entity', entity: { ...entity('scalability'), description: 'changed' } }]),
-    integrate: stage('統合した', []),
-    fill: stage('削除だけ', [{ op: 'remove_entity', id: 'paper-lacam' }]),
-  };
-  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results, now: () => 0 }).s, 1);
-  assert.ok(outcome.status === 'succeeded');
-  if (outcome.status !== 'succeeded') return;
-  assert.match(outcome.patch.message, /手順2の作業1（\d+本）の結果を使えませんでした：操作はすべて担当外でした/);
-  assert.match(outcome.patch.message, /発散の結果を使えませんでした：操作はすべて担当外でした/);
-  assert.match(outcome.patch.message, /補完の段階を使えませんでした：操作はすべて担当外でした/);
-  // The divergent search's addition that a worker made first is out of scope once the workers' results are applied.
-  const shared = { id: 'shared', label: 's', provenance: 'codex', type: 'Issue', description: 'd', kind: 'subproblem' };
-  const both = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', steps({ results: { ...results, 'deepen-1': stage('w1', [{ op: 'add_entity', entity: shared }]), diverge: stage('追加', [{ op: 'add_entity', entity: shared }]) }, now: () => 0 }).s, 1);
-  assert.ok(both.status === 'succeeded' && /発散の結果を使えませんでした：操作はすべて担当外でした/.test(both.patch.message));
+  const rebuilt = applyPatch(emptySurvey('x'), snapshotAsPatch(fixture, 'b', 'm'), 'b');
+  assert.equal(rebuilt.entities.length, fixture.entities.length);
 });

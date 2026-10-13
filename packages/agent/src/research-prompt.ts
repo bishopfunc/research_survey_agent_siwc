@@ -3,53 +3,45 @@ import { referenceOutline } from '../../domain/src/tutorial-reference';
 /** Prompt versions are the JST time the text last changed. Step and stage texts say what a run writes and refer to the
  * common rules by id ([facts], [issues] …); how to write each kind of entity is stated once, in those rules. */
 export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-12T20:53+09:00';
-/** Parallel workers of the staged run: step 2 reads the outline's papers, step 5 the papers the divergent search found. */
-export const MAX_PARALLEL_WORKERS = 4;
-export const EXTEND_WORKERS = 2;
+/** Agents reading one paper each at the same time in a new survey (design 0037); the server may lower it (EXTRACT_CONCURRENCY). */
+export const DEFAULT_EXTRACT_CONCURRENCY = 16;
+/** The Fill runs as at most this many agents at once, each on gaps of different entities. */
+export const FILL_PARTS = 3;
 /** What a survey usually misses; the divergent search (step 4) and the perspective skill look for these. */
 export const MISSING_PERSPECTIVES = 'evaluation conditions, real-world deployment, safety, data, theory, contradicting results';
-/** The new-survey flow alternates levels: abstract → concrete → abstract → divergent → concrete → abstract, then a schema
- * check and a fill (user instruction, design 0028). `short` names the step in the run trace; `runner` says which process runs it. */
+/** The new-survey flow (design 0037): the map lists the papers, one agent reads each paper as soon as it is listed while another
+ * explores what is missing, then one integration, a check of the gaps and a parallel fill — all within ten minutes. `short`
+ * names the step in the run trace; `runner` says which process runs it. */
 export const RESEARCH_STEPS = [
   {
-    id:'sources',stage:1,level:'抽象',short:'Map',runner:'1つ',title:'信頼できる情報源から、分野の全体像と論文を挙げる',
+    id:'sources',stage:1,level:'抽象',short:'Map',runner:'1つ。提出した論文から順に2が始まる',title:'信頼できる情報源から、分野の全体像と論文を挙げる',
     explanation:'まず分野名と汎用的な語（文献ガイドのルール）で一般のWebを検索し、最初の検索ではsite指定・URLやドメインの限定・既知の論文名を使わない。見つけた情報源を開いて、課題・手法の系統・評価の慣習をURL付きでまとめてから、arXivや論文集、個別の論文に絞る。代表的なサーベイ（古典と最近）、awesomeレポジトリ、主要な学会の論文集、リーダーボード、ブログ・チュートリアル・講演を使い、標準とされるデータセット・ベンチマーク・指標・シミュレータ・ハードウェア・ベースライン・学習済みモデル・アーキテクチャ・SoTAを控えて公式ページを開く。一次論文を広く（古典・引用の多いもの・系統ごとの最初から最新まで・最近の転換点・強いベースライン）、記憶ではなくサーベイの文献表・一覧・論文集から挙げる。',
     instruction:'Abstract: map the field before collecting papers. Start with broad web searches of the field name with the generic terms of [guide]; in the first batch use no site: filters, URL or domain restrictions, or names of papers you already know. Open what they find and first summarize for yourself the main issues, method families and evaluation practices with their URLs (record the sources as Resources, never as URLs in the Domain description); only then narrow to arXiv, proceedings or individual papers. Draw on foundational and recent surveys, awesome-<field> repositories, main-venue proceedings, leaderboards, and blogs, tutorials and talks. Note the datasets, benchmarks, metrics, simulators, hardware, baselines, widely used pretrained models, architectures and the state of the art that the surveys treat as standard, and open their official pages or leaderboards. List the primary papers of the field broadly (seminal, most cited, each family from its first paper to the state of the art, recent turning points, strong baselines), taking them from survey bibliographies, curated lists and proceedings rather than from memory.',
   },
   {
-    id:'primary',stage:2,level:'具体',short:'Extract',runner:`並行（最大${MAX_PARALLEL_WORKERS}）`,title:'一次論文から事実と出典を整理する',
-    explanation:'担当の論文を本文まで読む（arXivはHTML版）。論文から取り出すものは、すべて事実と出典の組にする。扱う課題、手法と派生元、結果の数値とベンチマーク・指標・比較対象、使うデータセット・シミュレータ・ハードウェア・モデル、限界、理解に重要なFigなど、ほぼすべての情報が該当する。これらと出典で和訳と要点を埋める。',
-    instruction:'Concrete: read your papers in full ([papers]). Everything you take from a paper is a fact with its source ([facts]), and nearly every piece of information in it counts: the issues it tackles, the method and what it derives from, the reported numbers with their benchmarks, metrics and baselines, the datasets, simulators, hardware and models it uses, its limitations and the figures needed to understand it. Fill its abstract_ja and reading with these facts and their Evidence.',
+    id:'primary',stage:2,level:'具体',short:'Extract',runner:`論文1本に1つのAgent、同時に最大${DEFAULT_EXTRACT_CONCURRENCY}`,title:'一次論文から事実と出典を整理する',
+    explanation:'1つのAgentが1本の論文を本文まで読む（arXivはHTML版）。Mapが論文を提出したらすぐ始め、Exploreが見つけた論文も同じように読む。論文から取り出すものは、すべて事実と出典の組にする。扱う課題、手法と派生元、結果の数値とベンチマーク・指標・比較対象、使うデータセット・シミュレータ・ハードウェア・モデル、限界、理解に重要なFigなど、ほぼすべての情報が該当する。これらと出典で和訳と要点を埋める。',
+    instruction:'Concrete: read your paper in full ([papers]). Everything you take from a paper is a fact with its source ([facts]), and nearly every piece of information in it counts: the issues it tackles, the method and what it derives from, the reported numbers with their benchmarks, metrics and baselines, the datasets, simulators, hardware and models it uses, its limitations and the figures needed to understand it. Fill its abstract_ja and reading with these facts and their Evidence.',
   },
   {
-    id:'integrate',stage:3,level:'抽象',short:'Synthesize',runner:'6と1回にまとめる',title:'各論文の情報を統合する',
-    explanation:'論文から取り出した事実をまたいで、課題の候補を課題の階層にまとめ、手法を系統にまとめて古典から最新までそろえ、ナレッジを作り、すべての課題に達成度を書く。',
-    instruction:'Abstract: integrate the facts across the papers: merge the issue candidates into the issue hierarchy ([issues]), group the methods into families covered chronologically ([methods]), build the knowledge items ([knowledge]) and write an achievement Claim for every Issue.',
-  },
-  {
-    id:'diverge',stage:4,level:'発散',short:'Explore',runner:'別Agent（2と同時）',title:'抜けている観点を探し、他の分野から参考にできるものを調べる',
-    explanation:'別のAgentが、1の全体像を受け取り、2と同時に調べる。調査が扱っていない観点（評価条件、実環境での運用、安全性、データ、理論、反対の結果）、似た問題を解いた隣の分野で移せそうな考え方（分野・考え方・代表論文）、未解決の問題を、それぞれ狙って検索する。',
+    id:'diverge',stage:3,level:'発散',short:'Explore',runner:'別Agent（1の後、2と同時）。見つけた論文は2が読む',title:'抜けている観点を探し、他の分野から参考にできるものを調べる',
+    explanation:'別のAgentが、1の全体像を受け取り、2と同時に調べる。見つけた論文は提出のたびに2のAgentが読む。調査が扱っていない観点（評価条件、実環境での運用、安全性、データ、理論、反対の結果）、似た問題を解いた隣の分野で移せそうな考え方（分野・考え方・代表論文）、未解決の問題を、それぞれ狙って検索する。',
     instruction:`Divergent: look for what is still missing: perspectives the survey does not cover (${MISSING_PERSPECTIVES}), adjacent fields that solved a similar problem and whose ideas could transfer (name the field, the idea and a representative paper), and open problems. Search specifically for each.`,
   },
   {
-    id:'primary2',stage:5,level:'具体',short:'Expand',runner:`4の後に並行（最大${EXTEND_WORKERS}、2と同時）`,title:'見つけた一次論文から事実と出典を整理する',
-    explanation:'4で見つけた一次論文を、2と同じように読み、事実と出典の組として取り出す。',
-    instruction:'Concrete: read the primary papers found in step 4 the same way as in step 2: everything you take from them is a fact with its source ([facts]).',
+    id:'integrate',stage:4,level:'抽象',short:'Synthesize',runner:'1回。チュートリアルは別Agentが同時に書く',title:'各論文の情報を統合する',
+    explanation:'論文から取り出した事実をまたいで、課題の候補を課題の階層にまとめ、手法を系統にまとめて古典から最新までそろえ、ナレッジを作り、すべての課題に達成度を書く。他の分野の考え方は、課題に対応する手法として残す。同じ調査から、別のAgentが同時に参入者向けのチュートリアルを書く。',
+    instruction:'Abstract: integrate the facts across the papers: merge the issue candidates into the issue hierarchy ([issues]), group the methods into families covered chronologically ([methods]), build the knowledge items ([knowledge]) and write an achievement Claim for every Issue; connect each idea from another field to the issues it could address, while a separate agent writes the Tutorial ([tutorial]) from the same snapshot.',
   },
   {
-    id:'integrate2',stage:6,level:'抽象',short:'Resynthesize',runner:'3と1回にまとめ、チュートリアルは別Agentで同時',title:'全体を統合し直す',
-    explanation:'3と1回にまとめ、2と5の論文から課題の階層・手法の系統・ナレッジ・達成度を作る。他の分野の考え方は、課題に対応する手法（addresses）として残す。同じ調査から、別のAgentが同時に参入者向けのチュートリアルを書く。',
-    instruction:'Abstract: integrate everything again with the new papers: merge their issue candidates, update the issue hierarchy, families, knowledge and achievement Claims, and connect each idea from another field to the issues it could address; a separate agent writes the Tutorial ([tutorial]) from the same snapshot.',
+    id:'check',stage:5,level:'点検',short:'Validate',runner:'サーバーの点検をAgentが読む（Web検索なし）',title:'抜け漏れを点検し、埋め方を決める',
+    explanation:'サーバーが調査をDSLのスキーマと調査の要件に機械的に照らし、空の欄（英語表現・出典・達成度・系統・年・識別子・公式ページ・概要など）と要件の未達を一覧にする。Agentがその一覧を読み、参入者にとって重要な抜けを選んで、調査済みの情報で埋めるか検索が要るかを決める。',
+    instruction:'Check: the server compares the survey with the DSL schema and the survey requirements; read its list, choose the gaps that matter most for a newcomer, and decide for each whether the survey and the pages already opened can fill it or a search is needed.',
   },
   {
-    id:'check',stage:7,level:'点検',short:'Validate',runner:'サーバー（機械的）',title:'スキーマの抜け漏れを点検する',
-    explanation:'サーバーが調査をDSLのスキーマと調査の要件に機械的に照らし、空の欄（英語表現・出典・達成度・系統・年・識別子・公式ページ・概要など）と要件の未達を重要な順に一覧にする。Agentは使わない。',
-    instruction:'Check (the server, without an agent): compare the survey with the DSL schema and the survey requirements, and list the empty fields the rules expect and the requirements not met, most important first.',
-  },
-  {
-    id:'fill',stage:8,level:'具体',short:'Fill gaps',runner:'抜けがあり時間内のときだけ',title:'追加調査またはこれまでの情報から埋める',
-    explanation:'7の一覧を、まず調査とこれまでに開いたページから埋め、検索が必要なものだけ追加で調べる。保存済みの分析は消さず、変えた項目に合わせてチュートリアルの節を直す。埋められなかったものはmessageに書き、最後の候補3つにする。',
-    instruction:'Fill: fill the gaps from step 7, first from the survey and the pages already opened in this run, searching only for the gaps that need it.',
+    id:'fill',stage:6,level:'具体',short:'Fill',runner:`対象が重ならない組に分け、最大${FILL_PARTS}つのAgentが同時に`,title:'追加調査またはこれまでの情報から埋める',
+    explanation:'5で選んだ抜けを、まず調査とこれまでに開いたページから埋め、検索が必要なものだけ追加で調べる。保存済みの分析は消さず、変えた項目に合わせてチュートリアルの節を直す。埋められなかったものはmessageに書き、最後の候補3つにする。',
+    instruction:'Fill: fill the gaps chosen in step 5, first from the survey and the pages already opened in this run, searching only for the gaps that need it.',
   },
 ] as const;
 type ResearchStep = typeof RESEARCH_STEPS[number];
@@ -70,19 +62,26 @@ export const ADDITIONAL_RESEARCH_STEPS = [
   { id:'tutorial', title:'チュートリアルを頼まれたら書き直す', explanation:'チュートリアルを頼まれたら、チュートリアルのルールと基準のサンプルのとおりに書く・書き直す。', instruction:`When the user asks for the tutorial, write or rewrite it as [tutorial] describes. ${referenceOutline()}` },
 ] as const;
 
-/** New surveys run as eight steps in four waves (designs 0028, 0029): 1 → {2 ×N, 4→5} → {3+6, tutorial} → 7 (server) → 8
- * only for gaps. Each step is its own Codex process; the server merges the results. The tutorial agent carries the sample
- * tutorial's outline, so a change to the sample changes this prompt too. Each process reserves time for writing; total duration is not guaranteed. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-13T06:08+09:00';
-/** Limits per step; a worker over its limit is dropped, the others continue. */
-export const STAGE_TIMEOUT_SECONDS = { outline: 480, deepen: 270, integrate: 240, diverge: 150, extend: 150, fill: 120, tutorial: 240 } as const;
-/** Wave 4 (the fill) starts only if the run is still within this time, so the whole run stays near ten minutes. */
-export const FILL_DEADLINE_SECONDS = 480;
-/** Step 4 adds at most this many papers; step 5 reads them, EXTEND_PER_WORKER per worker. */
-export const DIVERGE_MAX_PAPERS = 8;
-export const EXTEND_PER_WORKER = 4;
-/** The server's schema check passes at most this many gaps to the fill. */
+/** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
+ * tutorial's outline, so a change to the sample changes this prompt too. */
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:00+09:00';
+/** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
+ * end; the last `tail` seconds belong to the server (merging, bibliography). */
+export const SURVEY_TIMING = {
+  total: 600, tail: 20,
+  /** The map; its papers start being read as soon as a submission with them is saved. */
+  map: 210,
+  /** One paper per agent: its limit, the least worth starting, and when every reading must be over. */
+  extract: 150, extractMin: 60, extractEnd: 400,
+  /** Explore starts after the map, beside the readings, and must leave its papers time to be read. */
+  explore: 120,
+  synthesize: 90, validate: 25, fill: 60, fillMin: 30,
+} as const;
+/** Step 3 adds at most this many papers; step 2 reads them. */
+export const DIVERGE_MAX_PAPERS = 10;
+/** The server's check lists at most MAX_GAPS gaps; the validate agent chooses at most MAX_CHOSEN_GAPS of them to fill. */
 export const MAX_GAPS = 40;
+export const MAX_CHOSEN_GAPS = 12;
 /** Searches and opened pages collected from every step of the run, passed to later steps as data (the search memory). */
 export interface SearchMemory { queries: string[]; opened: string[] }
 export const MEMORY_PROMPT_LIMIT = 150;
@@ -91,64 +90,76 @@ export function searchMemoryText(memory: SearchMemory) {
   return `Search memory of this run (data, newest first). Searches already made, do not repeat them: ${newest(memory.queries)}. Pages already opened, reopen one when you need its text: ${newest(memory.opened)}.`;
 }
 export const OUTLINE_INSTRUCTIONS = [
-  'Mode: new survey, step 1 of 8 (outline). Other agents read the papers in depth after you, so write only the map of the field.',
+  'Mode: new survey, step 1 of 6 (map). Other agents read each paper in depth as soon as a submission with it is saved, so write only the map of the field and submit it as you go.',
   EXHAUSTIVE_SCOPE,
   `1. ${RESEARCH_STEPS[0].instruction}`,
-  'Output: a concise Japanese survey title; one Domain whose description ([overview]) says what the field studies and where it is heading, naming its main venues by acronym; at least three Resources ([guide]): two or more surveys, tutorials or reading lists (one a survey) whose contents and taxonomies give the paper list, and the leaderboards and official dataset or benchmark pages you opened; 4–10 draft Issues (kind, part_of, english_terms, description) and 3–6 method families with about 6–15 Methods ([methods]), drafts without Evidence that later steps source and rebuild from the papers; 30–60 Papers (never fewer than 30: keep taking them from survey bibliographies, curated lists and proceedings until there are 30) covering every family and the latest year, each with title, identifier, year when shown, one_line_summary, and proposes and addresses placing it in a family or issue, listed within each family from the most important, because the first ones are read in depth next. Write no Keywords, Claims, Evidence or Tutorial and no reading or abstract_ja beyond what a library paper carries ([keepstored]), and leave follow_ups empty.',
-  'Checkpoint order, so that nothing points to what is not sent yet: first the title, the Domain and the Resources with empty issues, methods and paper; then the draft Issues; then one checkpoint per method family with its Methods and its Papers together; last a replace_entity of each Resource with only its id, type, label and the issues, methods and paper it covers. Send each family as soon as its papers are listed, while you keep searching for the next one. Never hold Papers back for the final response: when the time runs out, only what the checkpoints sent is kept.',
+  'Output: a concise Japanese survey title; one Domain whose description ([overview]) says what the field studies and where it is heading, naming its main venues by acronym; at least three Resources ([guide]): two or more surveys, tutorials or reading lists (one a survey) whose contents and taxonomies give the paper list, and the leaderboards and official dataset or benchmark pages you opened; 4–10 draft Issues (kind, part_of, english_terms, description) and 3–6 method families with about 6–15 Methods ([methods]), drafts without Evidence that later steps source and rebuild from the papers; 50–60 Papers (never fewer than 50: keep taking them from survey bibliographies, curated lists and proceedings until there are 50) covering every family and the latest year, each with title, identifier, year when shown, one_line_summary, and proposes and addresses placing it in a family or issue, listed within each family from the most important, because papers are read in the order you submit them. Write no Keywords, Claims, Evidence or Tutorial and no reading or abstract_ja beyond what a library paper carries ([keepstored]), and leave follow_ups empty.',
+  'Submission order, so that nothing points to what is not sent yet: first the title, the Domain and the Resources with empty issues, methods and paper; then the draft Issues; then one submission per method family with its Methods and its Papers together; last a replace_entity of each Resource with only its id, type, label and the issues, methods and paper it covers. Submit each family as soon as its papers are listed, while you keep searching for the next one: its papers are read while you work. Never hold Papers back for the final response: when the time runs out, only what was submitted is kept.',
 ].join('\n\n');
-/** Step 2 reads the outline's papers; step 5 reads the papers the divergent search found, with the same instruction. */
-export function deepenInstructions(worker: number, workers: number, papers: string[], issues: string[], step: 2 | 5 = 2) {
-  const prefix = `${step === 2 ? 'w' : 'x'}${worker}-`;
+/** Step 2: one agent reads one paper (design 0037). The server copies only the paper's reading and abstract_ja into the survey. */
+export function extractInstructions(paper: string, n: number) {
+  const prefix = `p${n}-`;
   return [
-    step === 2
-      ? `Mode: new survey, step 2 of 8 (read in depth), parallel worker ${worker} of ${workers}. The snapshot is the outline from step 1; other workers read the other papers.`
-      : `Mode: new survey, step 5 of 8 (read in depth), parallel worker ${worker} of ${workers}. The snapshot is the outline plus the divergent search's additions (step 4), which found your papers; other workers read the other papers.\n\n5. ${RESEARCH_STEPS[4].instruction}`,
+    `Mode: new survey, step 2 of 6 (read one paper in depth). You are one of many agents reading in parallel; each reads one paper. Your paper: ${paper}. The snapshot holds the field, its issues and methods, and your paper.`,
     `2. ${RESEARCH_STEPS[1].instruction}`,
-    `Your papers (read each in full; one that already has a reading is cached: [cache]): ${papers.join(', ')}.`,
-    `Your issues (write their achievement Claims): ${issues.join(', ') || 'none'}.`,
-    'Issue candidates (the first step of [issues]): for each paper you read, add one Issue per distinct problem it says it works on (kind, english_terms as the paper words them, description), citing new Evidence from that paper ([paperparts] says where to read). Add a candidate even when an outline Issue already names the problem (the integration merges them; an exception to the reuse in [locality]). Do not merge them, relate them, put them in addresses or write achievement Claims for them.',
-    `Output only: replace_entity for your papers (reading, abstract_ja); the issue candidates; Claims and Evidence for their main results and your issues' achievement, with about and supports; at most 5 new Papers your papers' families miss (title, identifier, proposes). Change nothing else, write no Tutorial or follow_ups, and prefix every new ID with ${prefix}.`,
+    'Issue candidates (the first step of [issues]): add one Issue per distinct problem the paper says it works on (kind, english_terms as the paper words them, description), citing new Evidence from the paper ([paperparts] says where to read). Add a candidate even when an Issue of the snapshot already names the problem (the integration merges them; an exception to the reuse in [locality]). Do not merge them, relate them, put them in addresses or write achievement Claims for them.',
+    `Output only: replace_entity for your paper with its reading and abstract_ja (the server takes only these two fields from it; its other fields may stay as in the snapshot); the issue candidates; Claims and Evidence for its main results with about and supports. No other Paper, no Tutorial and no follow_ups. Prefix every new ID with ${prefix}. Be quick: open the paper's page and full text directly, at most about 6 web actions.`,
   ].join('\n\n');
 }
 function issueHierarchy(candidates: string[]) {
-  return `Issue candidates: the Issues ${candidates.join(', ') || '(none this time)'} are per-paper issue candidates the workers extracted, each citing its paper. Merge those naming the same problem into one Issue citing all their Evidence: replace_entity an outline Issue (keeping its ID) or add_entity a new Issue, never one of the candidates, because the server removes only candidates whose Evidence a non-candidate Issue cites. Place every Issue without a parent under a broader one (part_of or specializes), so the tree has at least three levels wherever the papers support it ([issues]). The server removes each candidate whose Evidence another Issue cites and links papers to the Issues citing them; do not edit papers for this.`;
+  return `Issue candidates: the Issues ${candidates.join(', ') || '(none this time)'} are per-paper issue candidates the reading agents extracted, each citing its paper. Merge those naming the same problem into one Issue citing all their Evidence: replace_entity an Issue of the map (keeping its ID) or add_entity a new Issue, never one of the candidates, because the server removes only candidates whose Evidence a non-candidate Issue cites. Place every Issue without a parent under a broader one (part_of or specializes), so the tree has at least three levels wherever the papers support it ([issues]). The server removes each candidate whose Evidence another Issue cites and links papers to the Issues citing them; do not edit papers for this.`;
 }
-/** Steps 3 and 6 together (design 0029): the issue hierarchy is rebuilt from the per-paper issue candidates of steps 2 and 5. */
+/** Step 4 (design 0037): the issue hierarchy is rebuilt from the per-paper issue candidates of step 2. */
 export function integrateInstructions(candidates: string[]) {
   return [
-    "Mode: new survey, steps 3 and 6 of 8 together (integrate). The snapshot holds the outline, the workers' readings (steps 2 and 5) and the divergent search's additions (step 4). Another agent writes the Tutorial at the same time: write no Tutorial.",
-    `3. ${RESEARCH_STEPS[2].instruction}`,
-    `6. ${RESEARCH_STEPS[5].instruction}`,
+    "Mode: new survey, step 4 of 6 (integrate). The snapshot holds the map, the readings (step 2) and the divergent search's additions (step 3). Another agent writes the Tutorial at the same time: write no Tutorial.",
+    `4. ${RESEARCH_STEPS[3].instruction}`,
     issueHierarchy(candidates),
     "Output: the issue hierarchy; Keywords from the readings and Resources; achievement Claims for Issues still without one; addresses from other-field Methods to the issues they could address where not yet linked; never repeat a (type, from, to) already in the snapshot; replace_entity for Methods, Concepts or the Domain where needed, citing the readings' Evidence for each Method and family; the three follow_ups. Keep every reading; remove nothing.",
   ].join('\n\n');
 }
-/** Wave 3, a separate agent beside the integration: writes only the Tutorial, after the sample tutorial's outline. */
+/** Step 4, a separate agent beside the integration: writes only the Tutorial, after the sample tutorial's outline. */
 export function tutorialInstructions() {
   return [
-    'Mode: new survey, the tutorial agent (step 6 of 8, beside the integration). The snapshot holds the outline, the readings and the divergent search\'s papers; another agent integrates issues, methods and knowledge at the same time.',
-    'Output only: add_entity one Tutorial (id tutorial) as [tutorial] describes, citing entities of the snapshot as [@ID] and in refs, with media whose labels appear in the readings\' key_figures, key_formulas or captions_ja; no other operation and no follow_ups. For the challenges, cite Issues that are not worker candidates (IDs starting w<N>- or x<N>-) and already have an achievement Claim about them, and cite that Claim (its numbers, conditions and date when it has them).',
+    'Mode: new survey, the tutorial agent (step 4 of 6, beside the integration). The snapshot holds the map, the readings and the divergent search\'s papers; another agent integrates issues, methods and knowledge at the same time.',
+    'Output only: add_entity one Tutorial (id tutorial) as [tutorial] describes, citing entities of the snapshot as [@ID] and in refs, with media whose labels appear in the readings\' key_figures, key_formulas or captions_ja; no other operation and no follow_ups. For the challenges, cite Issues that are not reading candidates (IDs starting p<N>-) and already have an achievement Claim about them, and cite that Claim (its numbers, conditions and date when it has them).',
     referenceOutline(),
   ].join('\n\n');
 }
-/** Step 4, a separate agent: additions only, the papers it finds are read by step 5. */
+/** Step 3, a separate agent: additions only; every paper it submits is read by a step-2 agent. */
 export function divergeInstructions(memory: SearchMemory) {
   return [
-    'Mode: new survey, step 4 of 8 (diverge). You are a separate agent: the snapshot is the outline from step 1 while other agents read its papers; your only job is the divergent search, and other agents read the papers you find (step 5), integrate (step 6) and fill gaps (step 8).',
-    `4. ${RESEARCH_STEPS[3].instruction}`,
+    'Mode: new survey, step 3 of 6 (explore). You are a separate agent: the snapshot is the map from step 1 while other agents read its papers; your only job is the divergent search. Each paper you submit is read in depth by another agent at once, so submit each paper (with what it addresses) as soon as you find it.',
+    `3. ${RESEARCH_STEPS[2].instruction}`,
     searchMemoryText(memory),
     `Output additions only: at most ${DIVERGE_MAX_PAPERS} Papers (title, identifier, year when shown, one_line_summary, proposes, addresses, reading null); Methods, with a family if needed, for ideas from other fields, addressing the issues they could solve; Issues for missing perspectives and open problems, with Evidence and a broader Issue (part_of); the Resources you opened ([guide]). Replace or remove nothing, prefix every new ID with d-, list in the message the perspectives and fields you found, and leave follow_ups empty.`,
   ].join('\n\n');
 }
-/** Step 8: fills the gaps from what the run already found, searching only where needed, and writes the follow-ups. */
-export function fillInstructions(gaps: unknown[], memory: SearchMemory) {
+/** Step 5: the validate agent reads the server's gap list and chooses what to fill and how (no web search). */
+export const VALIDATE_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['gaps', 'message'],
+  properties: {
+    gaps: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'field', 'problem', 'why', 'fill', 'query'],
+      properties: { target: { type: 'string' }, field: { type: 'string' }, problem: { type: 'string' }, why: { type: 'string' }, fill: { type: 'string', enum: ['existing', 'search'] }, query: { type: ['string', 'null'] } } } },
+    message: { type: 'string' },
+  },
+} as const;
+export function validateInstructions(gaps: unknown[]) {
   return [
-    'Mode: new survey, step 8 of 8 (fill). The snapshot is the survey after steps 1–7; the gaps come from the server\'s schema check (step 7).',
-    `8. ${RESEARCH_STEPS[7].instruction}`,
+    'Mode: new survey, step 5 of 6 (validate). Do not search the web and do not change the survey: only decide what the next step fills.',
+    `5. ${RESEARCH_STEPS[4].instruction}`,
+    `The server's check (data, most important first): ${JSON.stringify(gaps)}`,
+    `Output: at most ${MAX_CHOSEN_GAPS} gaps, most important for a newcomer first, each with its target entity ID (or survey), the field, the problem, why it matters, fill = existing when the survey or the pages already opened can fill it and search otherwise, and for search a short web query; and a one-sentence message on the survey's state. Prefer gaps that leave the survey wrong or unusable (missing sources, achievement, families, identifiers) over cosmetic ones.`,
+  ].join('\n\n');
+}
+/** Step 6: fills its part of the chosen gaps, searching only where needed; the parts run side by side on different entities. */
+export function fillInstructions(gaps: unknown[], memory: SearchMemory, part = 1, parts = 1) {
+  return [
+    `Mode: new survey, step 6 of 6 (fill), part ${part} of ${parts}. The snapshot is the survey after steps 1–5; other agents fill the other parts at the same time, so change only the entities your gaps name, plus the Evidence, Claims, Keywords and relations they need.`,
+    `6. ${RESEARCH_STEPS[5].instruction}`,
     `Gaps to fill (data): ${JSON.stringify(gaps)}`,
     searchMemoryText(memory),
-    'Output: replace_entity for the entities you complete ([keepstored]) and add_entity for the Evidence, Claims and Keywords and add_relation for the relations the gaps need. Update the Tutorial sections the changes affect, remove nothing, list in the message the gaps you could not fill, and end with the three follow_ups built from them.',
+    `Output: replace_entity for the entities you complete ([keepstored]) and add_entity for the Evidence, Claims and Keywords and add_relation for the relations the gaps need, with every new ID prefixed f${part}-. Remove nothing, list in the message the gaps you could not fill, and end with the three follow_ups built from them.`,
     // A missing or failing tutorial is rewritten after the sample, like the tutorial agent does.
     ...(/tutorial/i.test(JSON.stringify(gaps)) ? [`When the survey has no Tutorial or it misses requirements, write it as [tutorial] describes. ${referenceOutline()}`] : []),
   ].join('\n\n');

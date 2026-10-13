@@ -14,7 +14,8 @@ export const ROUTED_SKILLS = SKILLS.filter((s): s is Skill & { id: RoutedSkillId
 export const skillById = (id: SkillId) => SKILLS.find(s => s.id === id)!;
 
 export const ROUTER_VERSION = 'skill-router@2026-10-12T20:53+09:00';
-export const ROUTER_TIMEOUT_SECONDS = 90;
+/** Counted in the request's limit (design 0037), so it is kept short. */
+export const ROUTER_TIMEOUT_SECONDS = 20;
 export const routerSchema = {
   type: 'object', additionalProperties: false, required: ['skill', 'reason'],
   properties: { skill: { type: 'string', enum: ROUTED_SKILLS.map(s => s.id) }, reason: { type: 'string', maxLength: 200 } },
