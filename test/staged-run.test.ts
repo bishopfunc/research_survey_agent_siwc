@@ -282,6 +282,7 @@ test('the map is told to submit its families; without any, scouts list the field
   assert.ok(outcome.status === 'succeeded');
   if (outcome.status !== 'succeeded') return;
   assert.equal(run.calls.filter(c => c.startsWith('list:') && c.includes('scout')).length, 5);
+  assert.equal(run.calls.filter(c => c.startsWith('list:') && !c.includes('scout')).length, 0, 'no family lister once scouts list the field');
   const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
   const placed = final.entities.find(e => e.id === scoutPapers[0].id) as Paper;
   assert.deepEqual(placed.proposes, ['cbs'], 'only existing methods are kept');

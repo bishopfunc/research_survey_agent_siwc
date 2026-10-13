@@ -497,3 +497,10 @@ test('facts cite sources: every fact of the sample has Evidence (except ICBS, wh
   assert.match(errors, /cbs は Evidence 型が必要/);
   assert.match(errors, /collision は Paper\/Resource 型が必要/);
 });
+test('a paper submitted with only what the lister saw gets its title as label and codex provenance', () => {
+  const defs = snapshotSchema.$defs as Record<string, Record<string, unknown>>;
+  const out = stripCodexNulls({ schema_version: '0.1.0', base_commit_id: 'b', message: 'm', operations: [{ op: 'add_entity', entity: { id: 'm1-p', type: 'Paper', title: 'Room-to-Room: a long title', arxiv_id: '1711.07280', year: 2018, one_line_summary: '要約', proposes: [], addresses: [] } }] }, defs) as SurveyPatch;
+  const paper = (out.operations[0] as unknown as { entity: Record<string, unknown> }).entity;
+  assert.equal(paper.label, 'Room-to-Room: a long title'); assert.equal(paper.provenance, 'codex');
+  assert.doesNotThrow(() => applyPatch(emptySurvey('t'), out, 'b'));
+});

@@ -112,6 +112,12 @@ export function stripCodexNulls(patch: unknown, defs: Record<string, Schema>): u
     // A page whose title Codex could not read comes back with title "" (a real outline checkpoint); its label names it.
     // A sparse replace that leaves title out keeps the stored title (streamCheckpoints), so only a sent or required title falls back.
     if (entity.type === 'Resource' && (op.op !== 'replace_entity' || 'title' in entity) && !(typeof entity.title === 'string' && entity.title.trim()) && typeof entity.label === 'string' && entity.label.trim()) entity.title = entity.label.trim();
+    // A lister submits papers with only what it saw (design 0037): an added entity without a label is named by its title, and
+    // anything Codex adds is codex-made.
+    if (op.op === 'add_entity') {
+      if (!(typeof entity.label === 'string' && entity.label.trim()) && typeof entity.title === 'string' && entity.title.trim()) entity.label = entity.title.trim().slice(0, 80);
+      if (entity.provenance === undefined) entity.provenance = 'codex';
+    }
     const reading = entity.type === 'Paper' ? entity.reading as Record<string, unknown> | null | undefined : undefined;
     if (reading && typeof reading === 'object') {
       for (const key of ['contributions', 'key_figures', 'key_formulas', 'key_sections', 'captions_ja']) { const items = reading[key] === null ? [] : distinct(reading[key], Infinity); if (items) reading[key] = items; }

@@ -280,9 +280,11 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     })());
   };
   let mapView = base;
-  const startListers = (view: SurveySnapshot) => { mapView = view; for (const family of familiesOf(view).keys()) startLister(family, view); };
+  // Once scouts list the field, families found later get no lister of their own (the plan's usage limit counts every agent).
+  let scouting = false;
+  const startListers = (view: SurveySnapshot) => { mapView = view; if (!scouting) for (const family of familiesOf(view).keys()) startLister(family, view); };
   // Without a family in time, scouts list the field's papers from several angles; the readers place them in methods and issues.
-  const startScouts = () => { if (listers.size || !steps.active()) return; SCOUT_ANGLES.forEach(angle => startLister(`scout:${angle}`, mapView, angle)); };
+  const startScouts = () => { if (listers.size || !steps.active()) return; scouting = true; SCOUT_ANGLES.forEach(angle => startLister(`scout:${angle}`, mapView, angle)); };
   const scoutTimer = setTimeout(startScouts, Math.max(0, (T.scoutStart - elapsed()) * 1000));
   scoutTimer.unref?.();
   steps.progress(`1/${total} Map：分野の全体像を調べ、系統ごとに論文を挙げて、挙がった論文から読み始めています`);
