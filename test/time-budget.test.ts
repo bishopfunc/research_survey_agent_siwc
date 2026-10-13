@@ -15,9 +15,9 @@ function clock() {
     pending,
   };
 }
-test('every stage reserves writing time; the map researches about two minutes and has the rest to write', () => {
-  assert.deepEqual(timeBudget(SURVEY_TIMING.map), { totalSeconds: 210, researchSeconds: 126, writeSeconds: 84 });
-  for (const total of [SURVEY_TIMING.map, SURVEY_TIMING.extract, SURVEY_TIMING.explore, SURVEY_TIMING.synthesize, SURVEY_TIMING.validate, SURVEY_TIMING.fill]) { const b = timeBudget(total); assert.ok(b.researchSeconds > 0 && b.writeSeconds > 0); assert.equal(b.researchSeconds + b.writeSeconds, total); }
+test('every stage reserves writing time; the map researches a minute and a half and has the rest to write', () => {
+  assert.deepEqual(timeBudget(SURVEY_TIMING.map), { totalSeconds: 150, researchSeconds: 90, writeSeconds: 60 });
+  for (const total of [SURVEY_TIMING.map, SURVEY_TIMING.list, SURVEY_TIMING.extract, SURVEY_TIMING.explore, SURVEY_TIMING.synthesize, SURVEY_TIMING.validate, SURVEY_TIMING.fill]) { const b = timeBudget(total); assert.ok(b.researchSeconds > 0 && b.writeSeconds > 0); assert.equal(b.researchSeconds + b.writeSeconds, total); }
   const prompt = budgetInstructions(480, Date.parse('2026-10-12T00:00:00Z'));
   assert.match(prompt, /00:05:00.000Z/); assert.match(prompt, /00:08:00.000Z/); assert.match(prompt, /180 seconds/);
 });

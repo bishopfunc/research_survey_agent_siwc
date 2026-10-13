@@ -1,7 +1,7 @@
 // The /lab timeline (designs 0004, 0037): when each Codex agent of a new survey or a follow-up runs, how many run side by side,
 // how its limit splits into research and writing, and what it writes. Built from the runtime constants and prompt builders;
 // the wave order mirrors scripts/staged-run.ts by hand.
-import { DEFAULT_EXTRACT_CONCURRENCY, DIVERGE_MAX_PAPERS, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, OUTLINE_INSTRUCTIONS, SURVEY_TIMING, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, tutorialInstructions, validateInstructions } from '../../../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, TARGET_PAPERS, listInstructions, papersPerFamily, DIVERGE_MAX_PAPERS, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, OUTLINE_INSTRUCTIONS, SURVEY_TIMING, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, tutorialInstructions, validateInstructions } from '../../../packages/agent/src/research-prompt';
 import { TOOL_CHECKPOINT_INSTRUCTIONS, timeBudget } from '../../../packages/agent/src/time-budget';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, skillInstructions } from '../../../packages/agent/src/skills/index';
 import { REPAIR_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
@@ -25,9 +25,10 @@ const examplePapers = fixture.entities.filter(e => e.type === 'Paper').map(e => 
 const exampleIssues = fixture.entities.filter(e => e.type === 'Issue').map(e => e.id);
 const withCheckpoints = (instructions: string) => `${instructions}\n\n${TOOL_CHECKPOINT_INSTRUCTIONS}`;
 
-/** The ten-minute flow of design 0037, every agent using its whole limit. Readings start as the map's submissions arrive (drawn from
- * FIRST_SUBMISSION) and follow one another in each of the concurrent slots until the readings' end. */
-export const FIRST_SUBMISSION = 60;
+/** The ten-minute flow of design 0037, every agent using its whole limit. The map submits its first family at FIRST_FAMILY (its
+ * lister starts) and the first listed paper is saved at FIRST_SUBMISSION; readings follow one another in each of the concurrent
+ * slots until the readings' end. EXAMPLE_FAMILIES listers are drawn. */
+export const FIRST_FAMILY = 60, FIRST_SUBMISSION = 90, EXAMPLE_FAMILIES = 5;
 export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY): Timeline {
   const T = SURVEY_TIMING;
   const readings: Segment[] = [];
@@ -35,8 +36,11 @@ export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY
   const synth = T.extractEnd, validate = synth + T.synthesize, fill = validate + T.validate;
   const rows: TimelineRow[] = [
     { id: 'outline', step: '1', name: 'Map', count: 1, segments: [codex(0, T.map, '全体像')], checkpoints: true,
-      reads: '依頼と、論文キャッシュがオンならライブラリの論文', writes: '題、分野、文献（リンクなし→最後にリンク）、課題の草案、手法の系統と手法、論文50〜60本（書誌と一言の概要だけ）。系統ごとに提出し、提出した論文から読み始める',
+      reads: '依頼と、論文キャッシュがオンならライブラリの論文', writes: '題、分野、課題の草案、手法の系統と手法、文献（論文は挙げない）。系統を決めるたびに提出し、その系統の論文を別のAgentが挙げ始める',
       prompt: withCheckpoints(OUTLINE_INSTRUCTIONS) },
+    { id: 'list', step: '1', name: 'Map（系統ごと）', count: EXAMPLE_FAMILIES, segments: [codex(FIRST_FAMILY, Math.min(T.list, T.listEnd - FIRST_FAMILY), '論文を挙げる')], checkpoints: true,
+      reads: 'Mapが提出した分野・課題・系統と手法', writes: `その系統の論文（全体で約${TARGET_PAPERS}本を系統で分ける、書誌は識別子と題だけ）。2〜4本ずつ提出し、提出した論文から読み始める`,
+      prompt: withCheckpoints(listInstructions('family-example', ['method-a', 'method-b'], papersPerFamily(EXAMPLE_FAMILIES), 1)) },
     { id: 'extract', step: '2', name: 'Extract', count: concurrencyLimit, segments: readings, checkpoints: false,
       reads: '分野・課題・手法と、担当の論文1本', writes: '担当論文の要点と要旨の和訳、課題の候補、主な結果の主張と根拠（サーバーは論文の要点と和訳だけを写す）',
       prompt: extractInstructions(examplePapers[0], 1) },
@@ -56,7 +60,7 @@ export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY
       reads: '調査と、Validateが選んだ抜け、検索の記録', writes: `抜けの補完（対象が重ならない最大${FILL_PARTS}組、削除はしない）と、次の依頼の候補3つ`,
       prompt: fillInstructions([], memory, 1, FILL_PARTS) },
   ];
-  return { rows, total: T.total, end: fill + T.fill, waves: [{ at: FIRST_SUBMISSION, label: '精読の開始' }, { at: T.map, label: '発散' }, { at: synth, label: '統合' }, { at: validate, label: '点検' }] };
+  return { rows, total: T.total, end: fill + T.fill, waves: [{ at: FIRST_FAMILY, label: '論文を挙げる' }, { at: FIRST_SUBMISSION, label: '精読の開始' }, { at: T.map, label: '発散' }, { at: synth, label: '統合' }, { at: validate, label: '点検' }] };
 }
 
 /** One row per routed skill, as alternatives (a request runs one of them): the judge, the skill's run and, for a change with time

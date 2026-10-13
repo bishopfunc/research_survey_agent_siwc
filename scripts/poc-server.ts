@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { DEFAULT_EXTRACT_CONCURRENCY, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, listInstructions, papersPerFamily, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -23,7 +23,7 @@ import { AppServerHost, isolationProblems } from './codex-app-server';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
 import { settleCheckpoints, streamCheckpoints, type Checkpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
-import { executeStagedResearch, stageStep, stageTraceText } from './staged-run';
+import { executeStagedResearch, familiesOf, stageStep, stageTraceText, surveyOutline } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 import { cacheName, fetchArxivFigures, hasVisuals, usableVisualCache, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 import { sanitizeLibrary } from '../packages/agent/src/library';
@@ -163,7 +163,7 @@ function codexSettings(webSearch: string) {
 type StepCheckpoints = { chunks: Checkpoints; step?: number };
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process.
  * With `checkpoints`, results saved as they go (design 0034) arrive through submit_patch (app-server) or commentary (exec). */
-function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; effort?: string; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
   return startWhileActive(run.status === 'running', () => new Promise(done => {
     const startedAt = Date.now();
     const budget = timeBudget(timeoutSeconds);
@@ -200,7 +200,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     let ended: Promise<{ code: number | null; signal?: NodeJS.Signals | null; spawnError?: boolean }>;
     if (CODEX_TRANSPORT === 'app-server') {
       const appServer = hostFor(run, env).turn({
-        model: CODEX_EXECUTION.model, effort: CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
+        model: CODEX_EXECUTION.model, effort: options.effort ?? CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
         // The process searches the web live; a step that must not (the repair) turns it off for its own thread.
         config: webSearch === CODEX_EXECUTION.webSearch ? undefined : { web_search: webSearch },
         outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine,
@@ -215,7 +215,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       proc = appServer;
       ended = appServer.done.then(result => { if (result.finalMessage !== undefined) writeFileSync(output, result.finalMessage, { mode: 0o600 }); return result; });
     } else {
-      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, ...codexSettings(webSearch), '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, ...codexSettings(webSearch), ...(options.effort ? ['-c', `model_reasoning_effort="${options.effort}"`] : []), '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
       if (child.stdout) createInterface({ input: child.stdout }).on('line', onLine);
       child.stderr?.on('data', (chunk: Buffer) => onStderr(chunk.toString('utf8')));
       child.stdin?.on('error', () => {});
@@ -233,7 +233,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       },
       timeout: () => {
         if (run.status !== 'running') return;
-        const text = `${step}：時間切れ（書き出し猶予を含む上限 ${timeoutSeconds / 60}分）`;
+        const text = `${step}：時間切れ（書き出し猶予を含む上限 ${timeoutSeconds >= 120 ? `${Math.round(timeoutSeconds / 6) / 10}分` : `${timeoutSeconds}秒`}）`;
         addTrace(run, { kind: 'error', text });
         if (options.failRunOnTimeout !== false) { run.status = 'failed'; run.message = text; }
         save(run);
@@ -276,7 +276,8 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
     return result.patch;
   };
-  // Only the map and the explore submit as they go; the other steps write a short final response.
+  // The map, the listers, the explore, the integration, the tutorial and the fill submit as they go; a reader and the validate write
+  // a short final response.
   const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
   // A request's limit counts from now, the routing included (design 0037).
   const requestStarted = Date.now();
@@ -294,7 +295,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       }, () => run.status === 'running') : undefined;
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
-      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, checkpoints: chunks ? { chunks, step: stageStep(stage) } : undefined });
+      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, checkpoints: chunks ? { chunks, step: stageStep(stage) } : undefined });
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
@@ -308,12 +309,14 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library, true),
+      list: (snapshot, family, n) => { const families = familiesOf(snapshot); return stagePrompt(listInstructions(family, families.get(family) ?? [], papersPerFamily(families.size), n), snapshot, input.library, true); },
       extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot),
-      integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot),
+      integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
-      tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot),
-      validate: (snapshot, gaps) => stagePrompt(validateInstructions(gaps), snapshot),
-      fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot),
+      tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot, [], true),
+      // The validate decides from the gap list and a compact outline of the survey, without the survey rules (it writes no entity).
+      validate: (snapshot, gaps) => `${validateInstructions(gaps)}\n\nThe survey (data): ${surveyOutline(snapshot)}`,
+      fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot, [], true),
     },
     now: () => Date.now(),
     concurrency: EXTRACT_CONCURRENCY,

@@ -10,7 +10,7 @@ import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../..
 import { assessTutorial } from '../../../packages/domain/src/tutorial';
 import { REFERENCE_TUTORIAL, compareToReference } from '../../../packages/domain/src/tutorial-reference';
 import { assessSurvey } from '../../../packages/domain/src/survey-assessment';
-import { clock, concurrency, FIRST_SUBMISSION, followUpTimeline, newSurveyTimeline, span, type Timeline, type TimelineRow } from './workflow-timeline';
+import { clock, concurrency, FIRST_FAMILY, FIRST_SUBMISSION, followUpTimeline, newSurveyTimeline, span, type Timeline, type TimelineRow } from './workflow-timeline';
 import './lab.css';
 
 const invalidExamples: Record<string,string> = {
@@ -166,7 +166,7 @@ export function Lab() {
 
           <Sub id="timeline" title="実行の時間軸" stamp={BUDGET_PROMPT_VERSION}>
             <div className="lab-prose">
-              <p>新規調査は全体で最大{SURVEY_TIMING.total / 60}分。Mapが論文を系統ごとに提出すると、保存された論文から1本に1つのAgentが読み始め、同時に最大{DEFAULT_EXTRACT_CONCURRENCY}本を読む（サーバーの設定 EXTRACT_CONCURRENCY で下げられる）。精読は開始から{SURVEY_TIMING.extractEnd}秒までに終わらせ、そのあと統合とチュートリアル、点検、補完が続く。各Agentの上限は、その手順の上限と、手順の締め切りまでの残りの短い方。行は1つの手順（×は同時に動くAgentの数）、棒は上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。精読の棒は、最初の提出（{FIRST_SUBMISSION}秒と仮定）から順に1本ずつ続く読みを表す。全員が上限まで使ったときの配置で、同時に動くAgentは最大{MAX_CONCURRENT}つになる。すべてのAgentは1つのapp-serverプロセスのthreadとして動く。</p>
+              <p>新規調査は全体で最大{SURVEY_TIMING.total / 60}分。Mapは論文を挙げず、分野と手法の系統を素早く提出する。系統が提出されるたびに、その系統の論文を挙げるAgentが始まり、2〜4本ずつ提出する。保存された論文から1本に1つのAgentが読み始め、同時に最大{DEFAULT_EXTRACT_CONCURRENCY}本を読む（サーバーの設定 EXTRACT_CONCURRENCY で下げられる）。精読は開始から{SURVEY_TIMING.extractEnd}秒までに終わらせ、そのあと統合とチュートリアル、点検、補完が続く。各Agentの上限は、その手順の上限と、手順の締め切りまでの残りの短い方。行は1つの手順（×は同時に動くAgentの数）、棒は上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。系統ごとのAgentは最初の系統の提出（{FIRST_FAMILY}秒と仮定）から、精読の棒は最初の論文の提出（{FIRST_SUBMISSION}秒と仮定）から順に1本ずつ続く読みを表す。全員が上限まで使ったときの配置で、同時に動くAgentは最大{MAX_CONCURRENT}つになる。すべてのAgentは1つのapp-serverプロセスのthreadとして動く。</p>
               <p>行を選ぶと、その実行が受け取るもの、書き出すもの、渡す指示を表示する。</p>
             </div>
             <Gantt timeline={NEW_SURVEY} label="新規調査の実行の時間軸" selected={stage} onSelect={setStage} strip={NEW_CONCURRENCY}/>
@@ -177,7 +177,7 @@ export function Lab() {
           <Sub id="new-survey" title="新規調査の手順" stamp={RESEARCH_PROMPT_VERSION}>
             <div className="lab-prose">
               <p>新規調査は、1回のCodexの実行で済ませず、手順を複数のAgentに分けて進める。手順は、全体像をつかむ抽象と一次論文を読む具体を交互に行き来し、論文の精読は1本に1つのAgentを割り当てて最大{DEFAULT_EXTRACT_CONCURRENCY}本を同時に読む。各手順の水準と、どのAgentが受け持つかは、下の一覧に示す。</p>
-              <p>精読の順番はサーバーが決める。Mapが提出した順（系統ごとに重要な順）に読み、Exploreが提出した論文はその後ろに並ぶ。開始から{SURVEY_TIMING.extractEnd}秒までに{SURVEY_TIMING.extractMin}秒以上を残せない論文は読まず、読めた本数と読めなかった本数を変更案のメッセージに書く。</p>
+              <p>精読の順番はサーバーが決める。系統ごとのAgentが提出した順（重要な順）に読み、Exploreが提出した論文も提出順に並ぶ。別のAgentが同じ論文を別のIDで挙げたときは、arXivのID・DOI・題で同じと判定し、1回だけ読む。開始から{SURVEY_TIMING.extractEnd}秒までに{SURVEY_TIMING.extractMin}秒以上を残せない論文は読まず、読めた本数と読めなかった本数を変更案のメッセージに書く。</p>
               <p>精読のAgentから調査に写すのは、担当論文の要点（reading）と要旨の和訳と、そのAgentが追加した課題の候補・主張・根拠だけで、それ以外の変更は捨てる。検証に通らない操作は外して残りを使う。発散の手順も、項目の追加しかできない。手順の操作がすべて捨てられたときは、変更案の説明にそう書く。作業が論文ごとに取り出した課題の候補は、そのあとの統合の手順で課題の木に組み直す。統合のたびにサーバーが、ほかの課題にまとめられた候補と出典の無い候補を削除し、各論文を、その本文を出典とする課題につなぐ。最後に、すべての手順の結果を合わせた調査全体を1つの変更案にする。</p>
               <p>最初の手順が失敗するか検証に通らなければ、調査は失敗になる。それ以降の手順や作業が失敗したり検証に通らなかったりしたときは、その結果を使わずに続け、使えなかったことを変更案のメッセージに書く。精読は、{RETRY_IF_FAILED_WITHIN_MS / 1000}秒以内に失敗し、締め切りまでに時間が残るときだけ1回やり直す。</p>
             </div>

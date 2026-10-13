@@ -8,16 +8,16 @@ import { FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SURVEY_TIMING, t
 import type { ResearchOutcome } from './research-run';
 import { dropInvalid } from './drop-invalid';
 
-export type StageId = 'outline' | `extract-${number}` | 'diverge' | 'integrate' | 'tutorial' | 'check' | 'validate' | `fill-${number}`;
+export type StageId = 'outline' | `list-${number}` | `extract-${number}` | 'diverge' | 'integrate' | 'tutorial' | 'check' | 'validate' | `fill-${number}`;
 /** The step (1–6) a stage runs. */
 export function stageStep(stage: StageId): number {
   const base = stage.replace(/-\d+$/, '');
-  return ({ outline: 1, extract: 2, diverge: 3, integrate: 4, tutorial: 4, check: 5, validate: 5, fill: 6 } as Record<string, number>)[base];
+  return ({ outline: 1, list: 1, extract: 2, diverge: 3, integrate: 4, tutorial: 4, check: 5, validate: 5, fill: 6 } as Record<string, number>)[base];
 }
 /** The trace line for a stage: "2/6 Extract（論文3）". */
 export function stageTraceText(stage: StageId): string {
   const step = stageStep(stage); const n = stage.match(/-(\d+)$/)?.[1];
-  return `${step}/${RESEARCH_STEPS.length} ${stage === 'tutorial' ? 'Tutorial' : RESEARCH_STEPS[step - 1].short}${n ? `（${stage.startsWith('extract') ? '論文' : '作業'}${n}）` : ''}`;
+  return `${step}/${RESEARCH_STEPS.length} ${stage === 'tutorial' ? 'Tutorial' : RESEARCH_STEPS[step - 1].short}${n ? `（${stage.startsWith('extract') ? '論文' : stage.startsWith('list') ? '系統' : '作業'}${n}）` : ''}`;
 }
 /** A gap for the fill: from the server's check, as the validate agent chose and interpreted it. */
 export interface CheckedGap extends SurveyGap { fill: 'existing' | 'search'; query: string | null; why?: string }
@@ -28,6 +28,8 @@ export interface StageOptions {
   /** Output schema file other than the patch schema. */
   schema?: string;
   webSearch?: 'live' | 'disabled';
+  /** Reasoning effort other than the default: low for the many short agents (a reader, a lister, the validate). */
+  effort?: string;
   /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
   checkpoints?: boolean;
   onSaved?(patch: SurveyPatch): void;
@@ -38,6 +40,8 @@ export interface StagedSteps {
   run(stage: StageId, prompt: string, snapshot: SurveySnapshot, options: StageOptions): Promise<StageResult>;
   prompt: {
     outline(): string;
+    /** One agent per method family: lists its papers. */
+    list(snapshot: SurveySnapshot, family: string, n: number): string;
     extract(snapshot: SurveySnapshot, paper: string, n: number): string;
     diverge(snapshot: SurveySnapshot, memory: SearchMemory): string;
     integrate(snapshot: SurveySnapshot, candidates: string[]): string;
@@ -88,6 +92,35 @@ export function applyReading(snapshot: SurveySnapshot, patch: SurveyPatch, paper
   const next = applyPatch(snapshot, checked.patch, id);
   const after = next.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
   return { snapshot: next, read: !!after?.reading, dropped: checked.dropped };
+}
+/** The method families of a snapshot with their Methods (a family is a Concept that Methods are instance_of). */
+export function familiesOf(snapshot: SurveySnapshot): Map<string, string[]> {
+  const families = new Map<string, string[]>();
+  for (const r of snapshot.relations) if (r.type === 'instance_of' && snapshot.entities.some(e => e.id === r.to && e.type === 'Concept')) families.set(r.to, [...(families.get(r.to) ?? []), r.from]);
+  return families;
+}
+/** One key per paper whatever its ID: arXiv ID, then DOI, then the normalized title. */
+export function paperKey(p: { arxiv_id?: unknown; doi?: unknown; url?: unknown; title?: unknown }): string {
+  const arxiv = (typeof p.arxiv_id === 'string' && p.arxiv_id.trim()) || (typeof p.url === 'string' && p.url.match(/arxiv\.org\/(?:abs|pdf|html)\/([^?#/]+?)(?:v\d+)?(?:\.pdf)?$/i)?.[1]) || '';
+  if (arxiv) return `arxiv:${arxiv.replace(/^arxiv:/i, '').replace(/v\d+$/, '').toLowerCase()}`;
+  if (typeof p.doi === 'string' && p.doi.trim()) return `doi:${p.doi.trim().toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}`;
+  return `title:${String(p.title ?? '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}`;
+}
+/** A lister's additions without the papers the survey already has under another ID, and without what pointed at them. */
+export function newPapersOnly(patch: SurveyPatch, snapshot: SurveySnapshot): SurveyPatch {
+  const known = new Set(snapshot.entities.flatMap(e => e.type === 'Paper' ? [paperKey(e)] : []));
+  const dropped = new Set<string>();
+  const operations = patch.operations.filter(op => {
+    if (op.op !== 'add_entity' || op.entity.type !== 'Paper') return true;
+    const key = paperKey(op.entity);
+    if (known.has(key)) { dropped.add(op.entity.id); return false; }
+    known.add(key); return true;
+  }).filter(op => !(op.op === 'add_relation' && (dropped.has(op.relation.from) || dropped.has(op.relation.to))));
+  return { ...patch, operations: operations as SurveyPatch['operations'] };
+}
+/** A compact outline of the survey for the validate agent: each entity's ID, type and label, and for papers whether they were read. */
+export function surveyOutline(snapshot: SurveySnapshot): string {
+  return JSON.stringify(snapshot.entities.map(e => ({ id: e.id, type: e.type, label: e.label, ...(e.type === 'Paper' ? { read: !!e.reading, year: e.year } : {}) })));
 }
 /** Splits the chosen gaps into at most `parts` groups that name different entities, so fill agents running together do not
  * replace the same entity. */
@@ -180,9 +213,9 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot }[] = [], reads: Promise<void>[] = [];
   let running = 0, extractIndex = 0;
   const count = { read: 0, failed: 0, late: 0 };
-  let resolveOutline!: () => void, resolveExplore!: () => void;
+  let resolveOutline!: () => void, resolveDiscovery!: () => void;
   const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
-  const exploreApplied = new Promise<void>(resolve => { resolveExplore = resolve; });
+  const discoveryApplied = new Promise<void>(resolve => { resolveDiscovery = resolve; });
   const enqueue = (view: SurveySnapshot) => {
     for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id)) { queued.add(e.id); queue.push({ paper: e.id, view }); }
     pump();
@@ -199,12 +232,12 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const readPaper = async (paper: string, view: SurveySnapshot, n: number, seconds: number) => {
     const stage: StageId = `extract-${n}`, context = paperContext(view, paper);
     const prompt = steps.prompt.extract(context, paper, n);
-    let result = await steps.run(stage, prompt, context, { seconds });
+    let result = await steps.run(stage, prompt, context, { seconds, effort: 'low' });
     const again = left(T.extractEnd);
-    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); result = await steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again) }); }
-    // A paper of the explore exists in the survey only once the explore's result is applied.
+    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); result = await steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low' }); }
+    // A paper of a lister or the explore exists in the survey only once that agent's result is applied.
     await outlineApplied;
-    if (!snapshot.entities.some(e => e.id === paper)) await exploreApplied;
+    if (!snapshot.entities.some(e => e.id === paper)) await discoveryApplied;
     await serial(async () => {
       try {
         const own = await parse(stage, result, false);
@@ -216,10 +249,34 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   };
   const allReads = async () => { for (let seen = -1; seen !== reads.length;) { seen = reads.length; await Promise.all(reads); } await chain; };
 
-  // Step 1: the map. Its papers start being read as soon as a submission with them is saved.
-  steps.progress(`1/${total} Map：分野の全体像を調べ、挙がった論文から読み始めています`);
-  const mapResult = await steps.run('outline', steps.prompt.outline(), base, { seconds: Math.min(T.map, left(T.extractEnd - T.extractMin)), checkpoints: true,
-    onSaved: patch => { try { enqueue(applyPatch(base, { ...patch, base_commit_id: baseId }, baseId)); } catch { /* the final map is applied below */ } } });
+  // Step 1: the map (no papers), and one lister per method family as soon as the map submits it; each paper a lister submits
+  // starts being read at once. The listers' and the explore's results reach the survey after the map's.
+  const listers = new Map<string, Promise<void>>();
+  let listIndex = 0;
+  const startLister = (family: string, view: SurveySnapshot) => {
+    if (listers.has(family) || !steps.active()) return;
+    const seconds = Math.min(T.list, left(T.listEnd));
+    if (seconds < 40) return;
+    const n = ++listIndex, stage: StageId = `list-${n}`;
+    listers.set(family, (async () => {
+      const result = await steps.run(stage, steps.prompt.list(view, family, n), view, { seconds, checkpoints: true, effort: 'low',
+        onSaved: patch => { try { enqueue(applyPatch(view, { ...newPapersOnly(restrictToWorker(patch, view, []), view), base_commit_id: stage }, stage)); } catch { /* applied below */ } } });
+      await outlineApplied;
+      await serial(async () => {
+        try {
+          const own = await parse(stage, result);
+          const patch = newPapersOnly(restrictToWorker(own, snapshot, []), snapshot);
+          const checked = dropInvalid({ ...patch, base_commit_id: stage }, p => applyPatch(snapshot, p, stage));
+          if (!checked) throw Error('論文の一覧が検証に通りませんでした');
+          snapshot = apply(snapshot, checked.patch, stage, own);
+        } catch (e) { if (steps.active()) notes.push(`${stageTraceText(stage)}を使えませんでした：${reason(e)}`); }
+      });
+    })());
+  };
+  const startListers = (view: SurveySnapshot) => { for (const family of familiesOf(view).keys()) startLister(family, view); };
+  steps.progress(`1/${total} Map：分野の全体像を調べ、系統ごとに論文を挙げて、挙がった論文から読み始めています`);
+  const mapResult = await steps.run('outline', steps.prompt.outline(), base, { seconds: Math.min(T.map, left(T.listEnd - 40)), checkpoints: true,
+    onSaved: patch => { try { const view = applyPatch(base, { ...patch, base_commit_id: baseId }, baseId); startListers(view); enqueue(view); } catch { /* the final map is applied below */ } } });
   let outlinePatch: SurveyPatch;
   try { outlinePatch = await parse('outline', mapResult); }
   catch (e) { return steps.active() ? { status: 'failed', message: `Map（全体像）の段階で失敗しました：${e instanceof Error ? e.message : ''}`, searches } : { status: 'stopped' }; }
@@ -228,6 +285,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   try { snapshot = apply(base, outlinePatch, baseId); } catch (e) { return { status: 'failed', message: `Map（全体像）の段階の変更案が検証に通りませんでした：\n${e instanceof Error ? e.message : ''}`, searches }; }
   keep(outlinePatch);
   const outline = snapshot;
+  startListers(outline);
   enqueue(outline);
   resolveOutline();
 
@@ -237,19 +295,20 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const exploreSeconds = Math.min(T.explore, left(T.extractEnd - T.extractMin));
   if (exploreSeconds >= 40) {
     const result = await steps.run('diverge', steps.prompt.diverge(outline, memory), outline, { seconds: exploreSeconds, checkpoints: true,
-      onSaved: patch => { try { enqueue(applyPatch(outline, { ...restrictToWorker(patch, outline, []), base_commit_id: 'diverge' }, 'diverge')); } catch { /* applied below */ } } });
+      onSaved: patch => { try { enqueue(applyPatch(outline, { ...newPapersOnly(restrictToWorker(patch, outline, []), outline), base_commit_id: 'diverge' }, 'diverge')); } catch { /* applied below */ } } });
     await serial(async () => {
       try {
         const own = await parse('diverge', result);
-        const patch = restrictToWorker(own, snapshot, []);
+        const patch = newPapersOnly(restrictToWorker(own, snapshot, []), snapshot);
         snapshot = apply(snapshot, patch, 'diverge', own);
         explorePatch = patch;
         if (patch.message) notes.push(`発散：${patch.message}`);
       } catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); }
     });
-    if (steps.active()) enqueue(snapshot);
   } else notes.push('時間の上限のため発散を省きました');
-  resolveExplore();
+  await Promise.all(listers.values());
+  if (steps.active()) enqueue(snapshot);
+  resolveDiscovery();
   await allReads();
   if (!steps.active()) return { status: 'stopped' };
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
@@ -263,8 +322,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     steps.progress(`4/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
     const before = snapshot;
     const [integration, tutorial] = await Promise.all([
-      steps.run('integrate', steps.prompt.integrate(before, candidates), before, { seconds: synthSeconds }),
-      steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before), before, { seconds: synthSeconds }) : Promise.resolve(null),
+      steps.run('integrate', steps.prompt.integrate(before, candidates), before, { seconds: synthSeconds, checkpoints: true }),
+      steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before), before, { seconds: synthSeconds, checkpoints: true }) : Promise.resolve(null),
     ]);
     if (!steps.active()) return { status: 'stopped' };
     try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
@@ -288,14 +347,14 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
 
   // Step 5: the server checks the survey mechanically; an agent chooses what matters and how to fill it.
   steps.progress(`5/${total} Validate：抜け漏れを点検しています`);
-  steps.mark?.('check');
   const unmet = assessSurvey(snapshot).filter(c => !c.pass).map(({ id, label, detail }) => ({ id, label, detail }));
   const found: CheckedGap[] = [...unmet.map(c => ({ target: 'survey', field: c.id, problem: `${c.label}（${c.detail}）` })), ...findGaps(snapshot)].slice(0, MAX_GAPS).map(g => ({ ...g, fill: 'search' as const, query: null }));
   steps.checkpoint('check', { gaps: found });
   let chosen = found.slice(0, MAX_CHOSEN_GAPS);
   const validateSeconds = Math.min(T.validate, left(T.total - T.tail - T.fillMin));
+  if (!found.length || validateSeconds < 10) steps.mark?.('check');
   if (found.length && validateSeconds >= 10) {
-    const result = await steps.run('validate', steps.prompt.validate(snapshot, found), snapshot, { seconds: validateSeconds, schema: 'validate-schema.json', webSearch: 'disabled' });
+    const result = await steps.run('validate', steps.prompt.validate(snapshot, found), snapshot, { seconds: validateSeconds, schema: 'validate-schema.json', webSearch: 'disabled', effort: 'low' });
     record(result);
     try {
       if (!result.ok || !result.output) throw Error(result.error ?? '出力がありません');
@@ -312,7 +371,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const parts = splitGaps(chosen, FILL_PARTS);
     steps.progress(`6/${total} Fill：${parts.length}つのAgentで抜け漏れを埋めています`);
     const before = snapshot;
-    const results = await Promise.all(parts.map((gaps, i) => steps.run(`fill-${i + 1}`, steps.prompt.fill(before, gaps, memory, i + 1, parts.length), before, { seconds: fillSeconds })));
+    const results = await Promise.all(parts.map((gaps, i) => steps.run(`fill-${i + 1}`, steps.prompt.fill(before, gaps, memory, i + 1, parts.length), before, { seconds: fillSeconds, checkpoints: true })));
     if (!steps.active()) return { status: 'stopped' };
     for (const [i, result] of results.entries()) {
       try { const patch = await parse(`fill-${i + 1}`, result); snapshot = apply(snapshot, withoutRemovals(patch), `fill-${i + 1}`, patch); keep(patch); }

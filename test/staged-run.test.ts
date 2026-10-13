@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
-import { applyReading, executeStagedResearch, mergeMemory, paperContext, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
+import { applyReading, executeStagedResearch, familiesOf, mergeMemory, newPapersOnly, paperKey, paperContext, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the map's output: everything except readings, claims, evidence, keywords and the tutorial. */
 function outlinePatch(): SurveyPatch {
@@ -14,7 +14,15 @@ function outlinePatch(): SurveyPatch {
 }
 const outline = outlinePatch();
 const outlineSnapshot = applyPatch(emptySurvey('t'), { ...outline, base_commit_id: 'b' }, 'b');
-const papers = outlineSnapshot.entities.filter(e => e.type === 'Paper').map(e => e.id);
+/** The map lists no papers (design 0037): the sample's map without its papers and what points at them. */
+const paperIds = new Set(outlineSnapshot.entities.filter(e => e.type === 'Paper').map(e => e.id));
+const map: SurveyPatch = { ...outline, operations: outline.operations.filter(op => !(op.op === 'add_entity' && op.entity.type === 'Paper') && !(op.op === 'add_relation' && (paperIds.has(op.relation.from) || paperIds.has(op.relation.to))))
+  .map(op => op.op === 'add_entity' && op.entity.type === 'Resource' ? { ...op, entity: { ...op.entity, paper: null } } : op) as SurveyPatch['operations'] };
+const families = familiesOf(outlineSnapshot);
+/** Each paper belongs to the first family one of its methods is in; a lister lists its family's papers. */
+const familyOf = (paperId: string) => { const p = outlineSnapshot.entities.find(e => e.id === paperId) as Paper; return [...families].find(([, methods]) => p.proposes.some(m => methods.includes(m)))?.[0]; };
+const listed = (family: string) => outlineSnapshot.entities.filter(e => e.type === 'Paper' && familyOf(e.id) === family) as Paper[];
+const papers = [...paperIds].filter(id => familyOf(id));
 const ok = (patch: unknown, extra: Partial<StageResult> = {}): StageResult => ({ ok: true, output: JSON.stringify(patch), searches: 1, ...extra });
 const patch = (message: string, operations: unknown[], extra: object = {}) => ({ schema_version: '0.1.0', base_commit_id: 'x', message, operations, ...extra });
 const reading = { contributions: ['c'], novelty: '', key_idea: 'k', validation: '', discussion: '', key_figures: [], sources: [{ url: 'https://example.org', locator: 'Section 3' }] };
@@ -34,7 +42,7 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
   const calls: string[] = [], options: Record<string, StageOptions[]> = {};
   const fake: Fake = { s: undefined as unknown as StagedSteps, calls, options, maxRunning: 0 };
   let running = 0;
-  const attempts: Record<string, number> = {}, paperOf: Record<number, string> = {};
+  const attempts: Record<string, number> = {}, paperOf: Record<number, string> = {}, familyOfList: Record<number, string> = {};
   fake.s = {
     run: async (stage, _prompt, _snapshot, o) => {
       calls.push(stage); (options[stage] ??= []).push(o); attempts[stage] = (attempts[stage] ?? 0) + 1;
@@ -45,11 +53,17 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
         if (custom) return custom;
         const n = Number(stage.split('-')[1]);
         if (stage.startsWith('extract')) return ok(readingOf(paperOf[n], n));
-        return over.results?.[stage] ?? (stage === 'outline' ? ok(outline) : ok(patch(stage, [])));
+        if (stage.startsWith('list')) {
+          const found = listed(familyOfList[n]).map(entity => ({ op: 'add_entity', entity: { ...entity, reading: null } }));
+          // The first paper is saved while the lister still works.
+          if (found.length) o.onSaved?.(patch('first', found.slice(0, 1)) as unknown as SurveyPatch);
+          return ok(patch(`listed ${familyOfList[n]}`, found));
+        }
+        return over.results?.[stage] ?? (stage === 'outline' ? ok(map) : ok(patch(stage, [])));
       } finally { if (stage.startsWith('extract')) running--; }
     },
     prompt: {
-      outline: () => 'outline', extract: (_s, paper, n) => { paperOf[n] = paper; calls.push(`paper:${n}:${paper}`); return `extract ${paper}`; },
+      outline: () => 'outline', list: (_s, family, n) => { familyOfList[n] = family; calls.push(`list:${n}:${family}`); return `list ${family}`; }, extract: (_s, paper, n) => { paperOf[n] = paper; calls.push(`paper:${n}:${paper}`); return `extract ${paper}`; },
       diverge: (_s, memory) => { calls.push(`diverge-memory:${memory.queries.join(',')}`); return 'diverge'; },
       integrate: (_s, candidates) => { calls.push(`candidates:${candidates.join(',')}`); return 'integrate'; },
       tutorial: () => 'tutorial',
@@ -63,35 +77,42 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
 }
 type Paper = Extract<SurveySnapshot['entities'][number], { type: 'Paper' }>;
 
-test('the map hands its papers to the readers as its submissions are saved; every paper is read by its own agent', async () => {
-  // A first submission: the map so far with one paper (no relations, no literature guide pointing at later papers).
-  const first = { ...outline, operations: outline.operations.filter(op => op.op !== 'add_relation' && (op.op !== 'add_entity' || (op.entity.type !== 'Resource' && (op.entity.type !== 'Paper' || op.entity.id === papers[0])))) };
-  assert.doesNotThrow(() => applyPatch(emptySurvey('t'), { ...first, base_commit_id: 'b' } as SurveyPatch, 'b'));
+test('each family the map submits gets a lister at once; every listed paper is read by its own agent; the map lists none', async () => {
+  const firstFamily = map.operations.filter(op => op.op !== 'add_relation' || op.relation.type !== 'instance_of' || op.relation.to === [...families.keys()][0]);
   const order: string[] = [];
   const run = steps({ onRun: async (stage, o) => {
-    if (stage.startsWith('extract')) order.push(stage);
+    if (stage.startsWith('list') || stage.startsWith('extract')) order.push(stage);
     if (stage !== 'outline') return undefined;
-    // The first submission is saved; its paper starts being read while the map still works.
-    o.onSaved?.(first as SurveyPatch);
-    await new Promise(resolve => setTimeout(resolve, 30));
+    // The first family is saved; its lister and the readers of its papers start while the map still works.
+    o.onSaved?.({ ...map, operations: firstFamily } as SurveyPatch);
+    await new Promise(resolve => setTimeout(resolve, 40));
     order.push('map done');
-    return ok(outline);
+    return ok(map);
   } });
   const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
   assert.ok(outcome.status === 'succeeded');
   if (outcome.status !== 'succeeded') return;
-  assert.equal(order[0], 'extract-1', 'the first paper is read before the map ends');
-  assert.ok(order.indexOf('map done') > 0);
+  assert.deepEqual(order.slice(0, 2), ['list-1', 'extract-1'], 'the first family is listed and read before the map ends');
+  assert.ok(order.indexOf('map done') > 1);
+  assert.equal(run.calls.filter(c => c.startsWith('list:')).length, families.size, 'one lister per family');
   const read = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
   assert.deepEqual([...read].sort(), [...papers].sort(), 'each paper once');
   const final = applyPatch(emptySurvey('t'), outcome.patch, 'base-1');
   const stored = (id: string) => final.entities.find(e => e.id === id) as Paper;
   for (const id of papers) assert.ok(stored(id).reading, `${id} has a reading`);
-  // Only the reading and the translation are taken from the agent; the stale title is not.
+  // Only the reading and the translation are taken from the reader; the stale title is not.
   assert.equal(stored(papers[0]).title, (outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper).title);
   assert.match(outcome.patch.message, new RegExp(`論文${papers.length}本のうち${papers.length}本を精読しました`));
-  // The issue candidates of the readings reach the integration.
   assert.ok(run.calls.some(c => c.startsWith('candidates:') && c.includes('-cand')));
+  assert.ok(run.options['list-1'][0].checkpoints);
+});
+
+test('a paper listed twice under different IDs is kept once', () => {
+  const known = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
+  const again = { ...known, id: 'm9-again', title: known.title.toUpperCase() + ' ' };
+  const result = newPapersOnly(patch('dup', [{ op: 'add_entity', entity: again }, { op: 'add_relation', relation: { id: 'r', type: 'extends', from: 'm9-again', to: papers[1] } }]) as unknown as SurveyPatch, outlineSnapshot);
+  assert.deepEqual(result.operations, []);
+  assert.equal(paperKey({ arxiv_id: '2211.13432v2' }), paperKey({ url: 'https://arxiv.org/abs/2211.13432' }));
 });
 
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
@@ -101,7 +122,12 @@ test('at most `concurrency` papers are read at once, and papers that cannot star
   assert.ok(bounded.maxRunning <= 2 && bounded.maxRunning > 0);
   // Late: the map ends after the last start worth making; no reading starts and the proposal says how many waited.
   let now = 0;
-  const late = steps({ now: () => now, onRun: stage => { if (stage === 'outline') now = (SURVEY_TIMING.extractEnd - SURVEY_TIMING.extractMin + 1) * 1000; return undefined; } });
+  const late = steps({ now: () => now, onRun: (stage, o) => {
+    if (!stage.startsWith('list')) return undefined;
+    // The listers finish after the last start worth making, without saving anything earlier.
+    now = (SURVEY_TIMING.extractEnd - SURVEY_TIMING.extractMin + 1) * 1000;
+    return ok(patch('late', listed([...families.keys()][Number(stage.split('-')[1]) - 1]).map(entity => ({ op: 'add_entity', entity }))));
+  } });
   const result = await executeStagedResearch(emptySurvey('t'), 'b', late.s);
   assert.ok(result.status === 'succeeded');
   if (result.status !== 'succeeded') return;
@@ -109,7 +135,7 @@ test('at most `concurrency` papers are read at once, and papers that cannot star
   assert.match(result.patch.message, new RegExp(`時間内に順番が来なかった${papers.length}本`));
   // Each agent's limit is cut to what is left of its step.
   now = 0;
-  const cut = steps({ now: () => now, onRun: stage => { if (stage === 'outline') now = (SURVEY_TIMING.extractEnd - 100) * 1000; return undefined; } });
+  const cut = steps({ now: () => now, onRun: stage => { if (stage.startsWith('list')) now = (SURVEY_TIMING.extractEnd - 100) * 1000; return undefined; } });
   await executeStagedResearch(emptySurvey('t'), 'b', cut.s);
   const limits = Object.entries(cut.options).filter(([k]) => k.startsWith('extract')).map(([, o]) => o[0].seconds);
   assert.ok(limits.length && limits.every(s => s <= 100));

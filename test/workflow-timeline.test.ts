@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { concurrency, FIRST_SUBMISSION, followUpTimeline, newSurveyTimeline } from '../apps/web/src/workflow-timeline';
+import { concurrency, EXAMPLE_FAMILIES, FIRST_FAMILY, FIRST_SUBMISSION, followUpTimeline, newSurveyTimeline } from '../apps/web/src/workflow-timeline';
 import { DEFAULT_EXTRACT_CONCURRENCY, FILL_PARTS, SURVEY_TIMING } from '../packages/agent/src/research-prompt';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS } from '../packages/agent/src/skills/index';
 import { timeBudget } from '../packages/agent/src/time-budget';
@@ -22,8 +22,10 @@ test('the /lab timeline places the ten-minute survey as the staged run does, fro
   assert.ok(t.rows.every(r => r.prompt && r.reads && r.writes));
   const strip = concurrency(t);
   assert.equal(strip[0].count, 1);
-  // The readers run beside the map, then beside the explore.
-  assert.equal(Math.max(...strip.map(s => s.count)), DEFAULT_EXTRACT_CONCURRENCY + 1);
+  // The listers start with the first family and end before the readings must; the readers run beside the map, the listers and the explore.
+  assert.deepEqual([at('list').start, row('list').count], [FIRST_FAMILY, EXAMPLE_FAMILIES]);
+  assert.ok(at('list').start + at('list').seconds <= T.listEnd);
+  assert.equal(Math.max(...strip.map(s => s.count)), DEFAULT_EXTRACT_CONCURRENCY + EXAMPLE_FAMILIES + 1);
   assert.ok(strip.every(s => s.end <= t.total));
 });
 test('a follow-up runs one agent at a time within its limit: the judge, the skill, and a repair only where time is kept for it', () => {

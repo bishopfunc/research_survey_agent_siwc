@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { OUTLINE_INSTRUCTIONS, RESEARCH_STEPS, SURVEY_TIMING, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, stageLabel, tutorialInstructions, validateInstructions } from '../packages/agent/src/research-prompt';
+import { OUTLINE_INSTRUCTIONS, RESEARCH_STEPS, SURVEY_TIMING, TARGET_PAPERS, listInstructions, papersPerFamily, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, stageLabel, tutorialInstructions, validateInstructions } from '../packages/agent/src/research-prompt';
 import { CODEX_DISABLED_FEATURES, PROMPT_RULES, SURVEY_RULES_INSTRUCTIONS, buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, promptVersion } from '../packages/agent/src/prompt';
 import { ROUTED_SKILLS, skillById, skillInstructions } from '../packages/agent/src/skills/index';
 import { CORE_RELATION_TYPES, RELATION_ENDPOINTS, emptySurvey, fixture } from '../packages/domain/src/index';
@@ -23,7 +23,7 @@ test('a new survey maps, reads each paper, explores, integrates, then validates 
   assert.match(divergeInstructions(memory), /adjacent fields that solved a similar problem and whose ideas could transfer/);
   assert.match(integrateInstructions([]), /4\. Abstract: integrate the facts across the papers/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Blogs, tutorials, lecture notes, articles, slides and talks are leads, never Evidence/);
-  assert.match(OUTLINE_INSTRUCTIONS, /50–60 Papers \(never fewer than 50/);
+  assert.match(OUTLINE_INSTRUCTIONS, /do not list Papers yourself[\s\S]*No Papers, Keywords/);
 });
 test('every issue gets an achievement claim; without a number it is qualitative and unknown, never invented', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Write an achievement Claim for every Issue, with an about relation to it/);
@@ -215,16 +215,19 @@ test('a new survey ends with a newcomer tutorial modeled on a good field tutoria
   assert.match(integrateInstructions([]), /write no Tutorial/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When methods, issues or papers change, update the matching sections and citations/);
 });
-test('a new survey lists fifty to sixty papers and reads them in parallel as they are listed, within ten minutes', () => {
-  assert.match(OUTLINE_INSTRUCTIONS, /50–60 Papers \(never fewer than 50: keep taking them from survey bibliographies, curated lists and proceedings until there are 50\) covering every family and the latest year/);
-  assert.match(OUTLINE_INSTRUCTIONS, /listed within each family from the most important, because papers are read in the order you submit them/);
-  assert.match(OUTLINE_INSTRUCTIONS, /Submit each family as soon as its papers are listed/);
+test('a new survey lists fifty to sixty papers family by family and reads them in parallel as they are listed, within ten minutes', () => {
+  assert.equal(TARGET_PAPERS, 55);
+  assert.deepEqual([papersPerFamily(1), papersPerFamily(5), papersPerFamily(10)], [15, 11, 6]);
+  const list = listInstructions('family-cbs', ['cbs', 'ecbs'], 11, 3);
+  assert.match(list, /list the primary papers of the family family-cbs \(its Methods: cbs, ecbs\)[\s\S]*List about 11 primary papers of this family, from its first paper to the state of the art/);
+  assert.match(list, /batches of 2–4 papers as soon as you have them, most important first: each Paper with an id prefixed m3-[\s\S]*Omit every other field: the server fills the bibliography\. Never add a paper the snapshot already has/);
+  assert.match(OUTLINE_INSTRUCTIONS, /one submission per method family with its Methods[\s\S]*as soon as the family is decided \(its papers are listed while you work\)/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /never add the same paper twice/);
   assert.equal(SURVEY_TIMING.total, 600);
-  assert.ok(SURVEY_TIMING.extractEnd + SURVEY_TIMING.synthesize + SURVEY_TIMING.validate + SURVEY_TIMING.fill + SURVEY_TIMING.tail <= SURVEY_TIMING.total);
+  assert.ok(SURVEY_TIMING.listEnd < SURVEY_TIMING.extractEnd && SURVEY_TIMING.extractEnd + SURVEY_TIMING.synthesize + SURVEY_TIMING.validate + SURVEY_TIMING.fill + SURVEY_TIMING.tail <= SURVEY_TIMING.total);
 });
-test('the paper list does not stop below fifty, every tutorial method section cites a paper and no method is unclassified', () => {
-  assert.match(OUTLINE_INSTRUCTIONS, /never fewer than 50/);
+test('the paper list is shared over the families, every tutorial method section cites a paper and no method is unclassified', () => {
+  assert.ok(papersPerFamily(6) * 6 >= 50);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /every section cites at least one Paper, the naive baseline included/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
 });
