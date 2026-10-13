@@ -64,7 +64,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:55+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:48+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
