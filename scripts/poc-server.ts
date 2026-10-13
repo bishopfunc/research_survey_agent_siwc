@@ -123,7 +123,8 @@ const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tok
 /** design 0036: app-server unless CODEX_TRANSPORT=exec (the fallback while the app-server API is experimental). */
 const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ? 'exec' : 'app-server';
 /** Papers read at once in a new survey (design 0037); lower it where memory is short (each reader is a thread of the run's process). */
-const EXTRACT_CONCURRENCY = Math.max(1, Number(process.env.EXTRACT_CONCURRENCY) || DEFAULT_EXTRACT_CONCURRENCY);
+// With exec (the fallback) every reader is a process of its own (about 105 MB), so it reads few at once unless told otherwise.
+const EXTRACT_CONCURRENCY = Math.max(1, Number(process.env.EXTRACT_CONCURRENCY) || (CODEX_TRANSPORT === 'exec' ? 3 : DEFAULT_EXTRACT_CONCURRENCY));
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
  * of its own transport (a plugin's server is not in config.toml, and a bare enabled=false would leave it without a transport),
  * and the host then verifies the effective config before any thread starts, failing closed. Listed again for each run. */
@@ -355,7 +356,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
         return { ...attempt, ...settled };
       },
       // After a cancel runCodexStep starts no process, so the run records no repair version or step either.
-      repair: (patch, errors) => { if (run.status === 'running') { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); } return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), Math.min(skill.repairTimeoutSeconds, secondsLeft(skill.timeoutSeconds))); },
+      repair: (patch, errors) => { if (run.status === 'running') { run.prompt_version = `${run.prompt_version} · ${REPAIR_PROMPT_VERSION}`; addTrace(run, { kind: 'step', text: '検証エラーを修正' }); save(run); } return runCodexStep(run, directory, 'repair', buildRepairPrompt({ base_commit_id: input.base_commit_id, snapshot: input.snapshot, patch, errors, as_of: asOf }), Math.min(skill.repairTimeoutSeconds, secondsLeft(skill.timeoutSeconds)), { failRunOnTimeout: false }); },
       canRepair: () => skill.repairTimeoutSeconds > 0 && secondsLeft(skill.timeoutSeconds) >= 30,
       output: step => readFileSync(join(directory, outputs[step]), 'utf8'),
       normalize,

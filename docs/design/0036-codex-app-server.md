@@ -17,7 +17,7 @@
 |---|---|---|
 | 途中成果 | commentaryに `SURVEY_CHECKPOINT` とPatchのJSONを書かせ、完了したメッセージから読む | クライアント定義ツール `submit_patch` の引数で受け取る。サーバーが検証し、結果（saved・held・rejected）をその場でモデルに返す |
 | 調査期限 | プロンプトの指示だけ。サーバーは経過に記録する | サーバーが `turn/steer` で「調査期限です。残りを提出して最終応答を返す」を実行中のturnに差し込む |
-| 強制終了 | SIGTERM、5秒後にSIGKILL | `turn/interrupt` を送り、プロセスを止める（同じ5秒の猶予でSIGKILL） |
+| 強制終了 | SIGTERM、5秒後にSIGKILL | そのthreadに `turn/interrupt` を送り、3秒で完了が来なければ打ち切る。プロセスはrunの全threadで共有し、runの終了・取消・サーバー停止のときだけ止める（[0037](0037-ten-minute-survey.md)） |
 | 最終応答 | `--output-last-message` のファイル | turnの最後のagentMessage（`phase: final_answer` を優先）をサーバーが同じファイルに書く |
 | 経過・ログ | `exec --json` のイベント | app-serverの通知をexecと同じ形のイベントに変換し、既存の集計・経過表示・`events.jsonl` をそのまま使う |
 
@@ -44,7 +44,7 @@
 - turnの失敗（`turn/completed` が `failed`）：その理由を失敗の説明にする。途中保存があれば [0034](0034-research-budget-and-checkpoints.md) と同じく保存済みまでを使う。
 - 一時的な `error` 通知（`willRetry`）は失敗にしない。turnが完了すれば成功。
 - 完了通知の前にプロセスが終わったとき：完了イベントなしとして扱う。
-- 同じrunの並行する段階は、それぞれ別のapp-serverプロセスとthreadを持つ。提出はその段階の途中保存にだけ入る。
+- 同じrunの並行する段階は、1つのapp-serverプロセスの中で別々のthreadを持つ（[0037](0037-ten-minute-survey.md)）。提出はその段階の途中保存にだけ入る。打ち切ったthreadのturnには `turn/interrupt` を送り、共有プロセスで動き続けないようにする。
 - ツールの引数は論文由来の文を含みうるモデル出力であり、検証を通った操作だけを保存する。提出の結果の文面にはエラーの要約だけを返す。
 
 ## 移行と運用

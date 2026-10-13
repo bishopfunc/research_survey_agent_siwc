@@ -94,3 +94,9 @@ test('a skill run researches with the routed skill, explains without a patch, an
   assert.deepEqual(await executeSkillRun('q', cancelled), { status: 'stopped' });
   assert.equal(cancelled.log.length, 0, 'a run cancelled while routing does not start the skill');
 });
+test('an explanation a little over the limit is cut at its last sentence that fits, not rejected', async () => {
+  const { parseExplanation, EXPLANATION_MAX_CHARS } = await import('../packages/agent/src/skills/index');
+  const long = '結論です。'.repeat(Math.ceil(EXPLANATION_MAX_CHARS / 5) + 20);
+  const out = parseExplanation(JSON.stringify({ message: long, sources: [], follow_ups: [] }));
+  assert.ok(out.message.length <= EXPLANATION_MAX_CHARS && out.message.endsWith('。'));
+});

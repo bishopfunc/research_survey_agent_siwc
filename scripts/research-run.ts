@@ -92,17 +92,22 @@ export async function executeResearch(steps: ResearchSteps): Promise<ResearchOut
   if (result.unchanged !== undefined) return { status: 'unchanged', message: result.unchanged, searches, ...followUps(result.patch) };
   if (!result.error) return { status: 'succeeded', patch: result.patch as SurveyPatch, repaired: false, searches };
   if (result.patch === undefined) return { status: 'failed', message: result.error, searches };
-  // Without time for a repair run (a one-minute revise, design 0037), the operations the validator names are dropped instead.
-  if (steps.canRepair && !steps.canRepair()) {
+  // Without time for a repair run (a one-minute revise, design 0037), or when the repair does not finish, the operations the
+  // validator names are dropped instead.
+  const dropInstead = (why: string): ResearchOutcome => {
     const kept = dropInvalid(result.patch as SurveyPatch, patch => steps.validate(patch));
-    if (!kept) return { status: 'failed', message: `検証に失敗し、修正する時間がありませんでした：\n${result.error}`, searches };
+    if (!kept) return { status: 'failed', message: `検証に失敗し、${why}：\n${result.error}`, searches };
     const p = kept.patch;
-    return { status: 'succeeded', patch: { ...p, message: [p.message, `検証に通らない操作${kept.dropped}件を外しました（修正する時間がないため）`].filter(Boolean).join('\n') }, repaired: false, searches };
-  }
+    return { status: 'succeeded', patch: { ...p, message: [p.message, `検証に通らない操作${kept.dropped}件を外しました（${why}）`].filter(Boolean).join('\n') }, repaired: false, searches };
+  };
+  if (steps.canRepair && !steps.canRepair()) return dropInstead('修正する時間がないため');
   steps.progress(`検証エラーを修正しています（${result.error.split('\n').length}件）`);
   const second = await steps.repair(result.patch, result.error);
   if (!steps.active()) return { status: 'stopped' };
-  if (!completed(second)) return { status: 'failed', message: `${result.error}\n修正の実行にも失敗しました：${failure(second)}`, searches };
+  if (!completed(second)) {
+    const instead = dropInstead(`修正が終わらなかったため（${failure(second)}）`);
+    return instead.status === 'succeeded' ? instead : { status: 'failed', message: `${result.error}\n修正の実行にも失敗しました：${failure(second)}`, searches };
+  }
   const repaired = await check(steps, 'repair');
   if (repaired.unchanged !== undefined) return { status: 'failed', message: `修正で操作が空になりました：\n${result.error}`, searches };
   const partial = repaired.patch as SurveyPatch | undefined, original = result.patch as SurveyPatch;

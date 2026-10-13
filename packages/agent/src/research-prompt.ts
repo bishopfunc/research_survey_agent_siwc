@@ -2,7 +2,7 @@ import { referenceOutline } from '../../domain/src/tutorial-reference';
 
 /** Prompt versions are the JST time the text last changed. Step and stage texts say what a run writes and refer to the
  * common rules by id ([facts], [issues] …); how to write each kind of entity is stated once, in those rules. */
-export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-12T20:53+09:00';
+export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-14T02:45+09:00';
 /** Agents reading one paper each at the same time in a new survey (design 0037); the server may lower it (EXTRACT_CONCURRENCY). */
 export const DEFAULT_EXTRACT_CONCURRENCY = 16;
 /** The Fill runs as at most this many agents at once, each on gaps of different entities. */
@@ -40,7 +40,7 @@ export const RESEARCH_STEPS = [
   },
   {
     id:'fill',stage:6,level:'具体',short:'Fill',runner:`対象が重ならない組に分け、最大${FILL_PARTS}つのAgentが同時に`,title:'追加調査またはこれまでの情報から埋める',
-    explanation:'5で選んだ抜けを、まず調査とこれまでに開いたページから埋め、検索が必要なものだけ追加で調べる。保存済みの分析は消さず、変えた項目に合わせてチュートリアルの節を直す。埋められなかったものはmessageに書き、最後の候補3つにする。',
+    explanation:'5で選んだ抜けを、まず調査とこれまでに開いたページから埋め、検索が必要なものだけ追加で調べる。保存済みの分析は消さず、組に分かれたAgentは自分の組の項目だけを変える（チュートリアルの抜けは1つの組がまとめて直す）。埋められなかったものはmessageに書き、最後の候補3つにする。',
     instruction:'Fill: fill the gaps chosen in step 5, first from the survey and the pages already opened in this run, searching only for the gaps that need it.',
   },
 ] as const;
@@ -64,7 +64,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:25+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T02:45+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -125,7 +125,7 @@ export function extractInstructions(paper: string, n: number) {
     `Mode: new survey, step 2 of 6 (read one paper in depth). You are one of many agents reading in parallel; each reads one paper. Your paper: ${paper}. The snapshot holds the field, its issues and methods, and your paper.`,
     `2. ${RESEARCH_STEPS[1].instruction}`,
     'Issue candidates (the first step of [issues]): add one Issue per distinct problem the paper says it works on (kind, english_terms as the paper words them, description), citing new Evidence from the paper ([paperparts] says where to read). Add a candidate even when an Issue of the snapshot already names the problem (the integration merges them; an exception to the reuse in [locality]). Do not merge them, relate them, put them in addresses or write achievement Claims for them.',
-    `Output only: replace_entity for your paper with its reading and abstract_ja (the server takes only these two fields from it; its other fields may stay as in the snapshot); at most 2 issue candidates; at most 3 Claims for its main results with about and supports, and only the Evidence they and the reading cite (at most 5). No other Paper, no Tutorial and no follow_ups. If your paper has no proposes or addresses yet, set them to the Methods and Issues of the snapshot it belongs to (the server keeps them only then). Prefix every new ID with ${prefix}. Be quick and short: open the paper's page and full text directly (at most about 6 web actions), keep every reading field to one or two sentences and every excerpt short, and write the final response as soon as you have the facts; it must be done within the time.`,
+    `Output only: replace_entity for your paper with its reading and abstract_ja (the server takes only these, the Claims and Evidence it lists, and proposes and addresses when the paper has none; its other fields may stay as in the snapshot); at most 2 issue candidates; at most 3 Claims for its main results with about and supports, and only the Evidence they and the reading cite (at most 5). No other Paper, no Tutorial and no follow_ups. If your paper has no proposes or addresses yet, set them to the Methods and Issues of the snapshot it belongs to (the server keeps them only then). Prefix every new ID with ${prefix}. Be quick and short: open the paper's page and full text directly (at most about 6 web actions), keep every reading field to one or two sentences and every excerpt short, and write the final response as soon as you have the facts; it must be done within the time.`,
   ].join('\n\n');
 }
 function issueHierarchy(candidates: string[]) {
@@ -144,7 +144,7 @@ export function integrateInstructions(candidates: string[]) {
 export function tutorialInstructions() {
   return [
     'Mode: new survey, the tutorial agent (step 4 of 6, beside the integration). The snapshot holds the map, the readings and the divergent search\'s papers; another agent integrates issues, methods and knowledge at the same time.',
-    'Output only: add_entity one Tutorial (id tutorial) as [tutorial] describes, citing entities of the snapshot as [@ID] and in refs, with media whose labels appear in the readings\' key_figures, key_formulas or captions_ja; no other operation and no follow_ups. For the challenges, cite Issues that are not reading candidates (IDs starting p<N>-) and already have an achievement Claim about them, and cite that Claim (its numbers, conditions and date when it has them).',
+    'Output only: add_entity one Tutorial (id tutorial) as [tutorial] describes, citing entities of the snapshot as [@ID] and in refs, with media whose labels appear in the readings\' key_figures, key_formulas or captions_ja; no other operation and no follow_ups. For the challenges, cite Issues that are not reading candidates (IDs starting p<N>-); where such an Issue already has an achievement Claim about it, cite that Claim (its numbers, conditions and date when it has them), otherwise state what the readings report about how far it is solved, citing their Claims or Evidence.',
     referenceOutline(),
   ].join('\n\n');
 }

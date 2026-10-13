@@ -176,7 +176,7 @@ test('issues are built bottom-up: per-paper candidates with sources, then a hier
 test('one agent per paper; separate agents for the explore, the tutorial, the validate and each fill part; search memory as data', () => {
   const memory = { queries: ['MAPF survey'], opened: ['https://example.org/a'] };
   const extract = extractInstructions('paper-lacam', 7);
-  assert.match(extract, /step 2 of 6[\s\S]*Your paper: paper-lacam[\s\S]*2\. Concrete: read your paper in full[\s\S]*the server takes only these two fields[\s\S]*No other Paper[\s\S]*Prefix every new ID with p7-/);
+  assert.match(extract, /step 2 of 6[\s\S]*Your paper: paper-lacam[\s\S]*2\. Concrete: read your paper in full[\s\S]*the server takes only these, the Claims and Evidence it lists[\s\S]*No other Paper[\s\S]*Prefix every new ID with p7-/);
   assert.match(integrateInstructions(['p1-c']), /step 4 of 6[\s\S]*write no Tutorial[\s\S]*the Issues p1-c are per-paper issue candidates[\s\S]*the three follow_ups/);
   assert.match(tutorialInstructions(), /beside the integration[\s\S]*add_entity one Tutorial \(id tutorial\)[\s\S]*no other operation and no follow_ups[\s\S]*Reference tutorial \(the app's MAPF sample/);
   const diverge = divergeInstructions(memory);

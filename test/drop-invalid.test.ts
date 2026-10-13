@@ -41,5 +41,8 @@ test('without time for a repair run, the research result drops what fails instea
   assert.deepEqual(outcome.patch.operations, [good]);
   assert.match(outcome.patch.message, /検証に通らない操作1件を外しました/);
   const failed = await executeResearch({ ...steps, output: () => JSON.stringify(patch([dangling])) });
-  assert.ok(failed.status === 'failed' && /修正する時間がありませんでした/.test(failed.message));
+  assert.ok(failed.status === 'failed' && /修正する時間がないため/.test(failed.message));
+  // A repair that does not finish (a timeout) falls back to dropping, instead of failing the whole request.
+  const timedOut = await executeResearch({ ...steps, canRepair: () => true, repair: async () => ({ code: null, state: initialCodexState(), timedOut: true }) });
+  assert.ok(timedOut.status === 'succeeded' && /修正が終わらなかったため/.test(timedOut.patch.message));
 });

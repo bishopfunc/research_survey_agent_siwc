@@ -288,3 +288,31 @@ test('the map is told to submit its families; without any, scouts list the field
   assert.deepEqual(placed.proposes, ['cbs'], 'only existing methods are kept');
   assert.ok(placed.addresses.includes('collision'));
 });
+
+test('a reader frees its slot when its agent is done, so readings continue while the map still runs', async () => {
+  const order: string[] = [];
+  const run = steps({ concurrency: 1, onRun: async (stage, o) => {
+    if (stage.startsWith('extract')) order.push(stage);
+    if (stage !== 'outline') return undefined;
+    o.onSaved?.(map);
+    await new Promise(resolve => setTimeout(resolve, 80));
+    order.push('map done');
+    return ok(map);
+  } });
+  await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(order.indexOf('map done') >= 3, `several readings before the map ends: ${order.slice(0, 6).join(',')}`);
+});
+
+test('one invalid fact of a reading is dropped and the reading stays, without the references to it', () => {
+  const result = readingOf(papers[0], 1) as unknown as SurveyPatch;
+  const ops = result.operations as unknown as { op: string; entity: Record<string, unknown> }[];
+  const badEvidence = { ...ops[1].entity, id: 'p1-ev-bad', source_url: 'not a url' };
+  const paperOp = { ...ops[0], entity: { ...ops[0].entity, evidence: ['p1-ev', 'p1-ev-bad'], reading: { ...(ops[0].entity.reading as object), evidence: ['p1-ev', 'p1-ev-bad'] } } };
+  const tutorial = { op: 'add_entity', entity: { ...fixture.entities.find(e => e.type === 'Tutorial')!, id: 'p1-tutorial' } };
+  const patched = { ...result, operations: [paperOp, ...ops.slice(1), { op: 'add_entity', entity: badEvidence }, tutorial] } as unknown as SurveyPatch;
+  const applied = applyReading(outlineSnapshot, patched, papers[0], 'r');
+  const paper = applied.snapshot.entities.find(e => e.id === papers[0]) as Paper;
+  assert.ok(applied.read, 'the reading stays');
+  assert.deepEqual(paper.evidence, ['p1-ev']); assert.deepEqual(paper.reading?.evidence, ['p1-ev']);
+  assert.ok(!applied.snapshot.entities.some(e => e.id === 'p1-ev-bad' || e.id === 'p1-tutorial'), 'the bad fact and a Tutorial from a reader are not kept');
+});

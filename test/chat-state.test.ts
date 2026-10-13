@@ -115,3 +115,11 @@ test('repeated queued sends recover the same run; reusing an ID with a different
   assert.equal(requestIdentity({ ...input, request_id: undefined }), null);
   assert.throws(() => requestIdentity({ ...input, request_id: 'invalid' }));
 });
+test('a new survey shows steps 1–3 running side by side until step 4 starts, then only the latest', async () => {
+  const { stepState } = await import('../apps/web/src/chat-state');
+  const states = (reached: number[], running = true) => [1, 2, 3, 4, 5, 6].map(s => stepState(s, new Set(reached), running));
+  assert.deepEqual(states([1, 2]), ['current', 'current', undefined, undefined, undefined, undefined]);
+  assert.deepEqual(states([1, 2, 3]), ['current', 'current', 'current', undefined, undefined, undefined]);
+  assert.deepEqual(states([1, 2, 3, 4]), ['done', 'done', 'done', 'current', undefined, undefined]);
+  assert.deepEqual(states([1, 2, 3, 4, 5], false), ['done', 'done', 'done', 'done', 'done', undefined]);
+});

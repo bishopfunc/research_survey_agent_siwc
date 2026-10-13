@@ -83,22 +83,30 @@ export function applyReading(snapshot: SurveySnapshot, patch: SurveyPatch, paper
   const current = snapshot.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
   if (!current) throw Error(`論文 ${paper} が調査にありません`);
   const sent = patch.operations.flatMap(op => (op.op === 'replace_entity' || op.op === 'add_entity') && op.entity.id === paper && op.entity.type === 'Paper' ? [op.entity as Paper] : [])[0];
-  const others = restrictToWorker(patch, snapshot, []).operations.filter(op => !(op.op === 'add_entity' && op.entity.type === 'Paper'));
+  // A reader adds the facts of its paper: issue candidates, Claims, Evidence and Keywords, and relations; nothing else.
+  const others = restrictToWorker(patch, snapshot, []).operations.filter(op => op.op !== 'add_entity' || READING_TYPES.has(op.entity.type));
+  // Its own additions are dropped where the validator names them; the paper itself is never dropped for them.
+  const kept = others.length ? dropInvalid({ ...patch, base_commit_id: id, operations: others as SurveyPatch['operations'] }, p => applyPatch(snapshot, p, id)) : { patch: { ...patch, operations: [] as unknown as SurveyPatch['operations'] }, dropped: 0 };
+  const added = kept ? applyPatch(snapshot, { ...kept.patch, base_commit_id: id }, id) : snapshot;
+  const has = (ids: string[] | undefined, type?: string) => (ids ?? []).filter(x => added.entities.some(e => e.id === x && (!type || e.type === type)));
   // A paper listed without a place (a scout's) takes the methods and issues its reader names, when they exist.
-  const exists = (type: string) => (id: string) => snapshot.entities.some(e => e.id === id && e.type === type);
-  const proposes = current.proposes.length ? current.proposes : (sent?.proposes ?? []).filter(exists('Method'));
-  const addresses = current.addresses.length ? current.addresses : (sent?.addresses ?? []).filter(exists('Issue'));
+  const proposes = current.proposes.length ? current.proposes : has(sent?.proposes, 'Method');
+  const addresses = current.addresses.length ? current.addresses : has(sent?.addresses, 'Issue');
+  const reading = sent?.reading ? { ...sent.reading,
+    ...(sent.reading.evidence ? { evidence: has(sent.reading.evidence, 'Evidence') } : {}),
+    ...(sent.reading.cites ? { cites: Object.fromEntries(Object.entries(sent.reading.cites).map(([k, v]) => [k, has(v as string[], 'Evidence')]).filter(([, v]) => (v as string[]).length)) } : {}) } : null;
   const merged: Paper = { ...current, proposes, addresses,
-    ...(sent?.reading ? { reading: sent.reading } : {}),
+    ...(reading ? { reading } : {}),
     ...(sent?.abstract_ja && current.abstract ? { abstract_ja: sent.abstract_ja } : {}),
-    claims: [...new Set([...current.claims, ...(sent?.claims ?? [])])], evidence: [...new Set([...current.evidence, ...(sent?.evidence ?? [])])] };
-  const operations = [...others, { op: 'replace_entity', entity: merged }] as unknown as SurveyPatch['operations'];
-  const checked = dropInvalid({ ...patch, base_commit_id: id, operations }, p => applyPatch(snapshot, p, id));
-  if (!checked) throw Error('読んだ結果が検証に通りませんでした');
-  const next = applyPatch(snapshot, checked.patch, id);
+    claims: [...new Set([...current.claims, ...has(sent?.claims, 'Claim')])], evidence: [...new Set([...current.evidence, ...has(sent?.evidence, 'Evidence')])] };
+  let next = added;
+  try { next = applyPatch(added, { ...patch, base_commit_id: id, operations: [{ op: 'replace_entity', entity: merged }] as unknown as SurveyPatch['operations'] }, id); }
+  catch { /* the reading text itself does not validate: the facts stay, the paper keeps its fields */ }
   const after = next.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
-  return { snapshot: next, read: !!after?.reading, dropped: checked.dropped };
+  if (!kept && !after?.reading) throw Error('読んだ結果が検証に通りませんでした');
+  return { snapshot: next, read: !!after?.reading, dropped: kept ? kept.dropped : others.length };
 }
+const READING_TYPES = new Set(['Issue', 'Claim', 'Evidence', 'Keyword']);
 /** The method families of a snapshot with their Methods (a family is a Concept that Methods are instance_of). */
 export function familiesOf(snapshot: SurveySnapshot): Map<string, string[]> {
   const families = new Map<string, string[]>();
@@ -132,7 +140,9 @@ export function surveyOutline(snapshot: SurveySnapshot): string {
  * replace the same entity. */
 export function splitGaps(gaps: CheckedGap[], parts: number): CheckedGap[][] {
   const byTarget = new Map<string, CheckedGap[]>();
-  for (const gap of gaps) byTarget.set(gap.target, [...(byTarget.get(gap.target) ?? []), gap]);
+  // A survey-level check (the tutorial, methods without family…) may need any entity; it goes with the Tutorial's gaps into one part.
+  const groupOf = (gap: CheckedGap) => gap.target === 'survey' || /^tutorial/i.test(gap.target) ? 'survey' : gap.target;
+  for (const gap of gaps) byTarget.set(groupOf(gap), [...(byTarget.get(groupOf(gap)) ?? []), gap]);
   const out: CheckedGap[][] = Array.from({ length: Math.max(1, Math.min(parts, byTarget.size)) }, () => []);
   for (const group of byTarget.values()) out.reduce((min, g) => g.length < min.length ? g : min).push(...group);
   return out.filter(g => g.length);
@@ -218,7 +228,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // Step 2, the readings: a queue fed by the map's and the explore's saved submissions, read by up to `concurrency` agents.
   const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot }[] = [], reads: Promise<void>[] = [];
   let running = 0, extractIndex = 0;
-  const count = { read: 0, failed: 0, late: 0 };
+  const count = { read: 0, failed: 0, late: 0, dropped: 0 };
   let resolveOutline!: () => void, resolveDiscovery!: () => void;
   const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
   const discoveryApplied = new Promise<void>(resolve => { resolveDiscovery = resolve; });
@@ -232,15 +242,21 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       if (remaining < T.extractMin) { count.late += queue.length; queue.length = 0; return; }
       const { paper, view } = queue.shift()!;
       running++;
-      reads.push(readPaper(paper, view, ++extractIndex, Math.min(T.extract, remaining)).finally(() => { running--; pump(); }));
+      const n = ++extractIndex;
+      // The slot is free as soon as the agent is done; applying its result may wait for the map or a lister.
+      reads.push(readPaper(paper, view, n, Math.min(T.extract, remaining)).finally(() => { running--; pump(); }).then(result => applyPaper(paper, n, result)));
     }
   };
-  const readPaper = async (paper: string, view: SurveySnapshot, n: number, seconds: number) => {
+  const readPaper = async (paper: string, view: SurveySnapshot, n: number, seconds: number): Promise<StageResult> => {
     const stage: StageId = `extract-${n}`, context = paperContext(view, paper);
     const prompt = steps.prompt.extract(context, paper, n);
-    let result = await steps.run(stage, prompt, context, { seconds, effort: 'low' });
+    const result = await steps.run(stage, prompt, context, { seconds, effort: 'low' });
     const again = left(T.extractEnd);
-    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); result = await steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low' }); }
+    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low' }); }
+    return result;
+  };
+  const applyPaper = async (paper: string, n: number, result: StageResult) => {
+    const stage: StageId = `extract-${n}`;
     // A paper of a lister or the explore exists in the survey only once that agent's result is applied.
     await outlineApplied;
     if (!snapshot.entities.some(e => e.id === paper)) await discoveryApplied;
@@ -250,6 +266,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         const applied = applyReading(snapshot, own, paper, stage);
         snapshot = applied.snapshot;
         if (applied.read) count.read++; else count.failed++;
+        count.dropped += applied.dropped;
       } catch (e) { count.failed++; if (steps.active()) notes.push(`${stageTraceText(stage)}（${paper}）を使えませんでした：${reason(e)}`); }
     });
   };
@@ -328,7 +345,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   await allReads();
   if (!steps.active()) return { status: 'stopped' };
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
-  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}）`);
+  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
 
   // Step 4: one integration, and a separate agent writing the Tutorial from the same snapshot.
   const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin));
@@ -390,7 +407,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const results = await Promise.all(parts.map((gaps, i) => steps.run(`fill-${i + 1}`, steps.prompt.fill(before, gaps, memory, i + 1, parts.length), before, { seconds: fillSeconds, checkpoints: true })));
     if (!steps.active()) return { status: 'stopped' };
     for (const [i, result] of results.entries()) {
-      try { const patch = await parse(`fill-${i + 1}`, result); snapshot = apply(snapshot, withoutRemovals(patch), `fill-${i + 1}`, patch); keep(patch); }
+      // The fill ends next to the deadline: its result is not enriched (that may take tens of seconds), and every part's message counts.
+      try { const patch = await parse(`fill-${i + 1}`, result, false); snapshot = apply(snapshot, withoutRemovals(patch), `fill-${i + 1}`, patch); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
       catch (e) { notes.push(`補完（作業${i + 1}）を使えませんでした：${reason(e)}`); }
     }
   } else if (chosen.length) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);

@@ -64,3 +64,15 @@ export function provisionalName(snapshot: { title: string; entities: readonly un
 export function loadContexts(text: string | null): Record<string, string[]> {
   try { const value = JSON.parse(text ?? '{}'); if (!value || typeof value !== 'object' || Array.isArray(value)) return {}; return Object.fromEntries(Object.entries(value).map(([id, list]) => [id, Array.isArray(list) ? [...new Set(list.filter((x): x is string => typeof x === 'string'))].slice(0, MAX_CONTEXT_PAPERS) : []])); } catch { return {}; }
 }
+
+/** The steps of a new survey that run side by side (design 0037): the map with its listers, the readings and the explore. */
+const OVERLAPPING_STEPS = 3;
+/** How each step of a running new survey shows: steps 1–3 overlap, so each reached one runs until step 4 starts; after that the
+ * latest step runs and the earlier ones are done. */
+export function stepState(step: number, reached: ReadonlySet<number>, running: boolean): 'current' | 'done' | undefined {
+  if (!reached.has(step)) return undefined;
+  if (!running) return 'done';
+  const latest = Math.max(...reached);
+  if (latest <= OVERLAPPING_STEPS) return 'current';
+  return step === latest ? 'current' : 'done';
+}

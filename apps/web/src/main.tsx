@@ -22,7 +22,7 @@ import { CardFigure, Diagrams, KeySections, arxivIdOf, useArxivData } from './Ke
 import { overviewOf, overviewSources } from '../../../packages/domain/src/overview';
 import { TutorialView } from './TutorialView';
 import { validateContextPapers } from '../../../packages/agent/src/chat-context';
-import { addContext, canCiteAfterSave, canDispatchQueue, citeDone, citeLater, enqueue, loadContexts, loadQueues, keepPolling, nextRunStates, pollDelay, provisionalName, removeQueued, requestTitle, retryRequest, runGone, NEW_SURVEY_TITLE, QUICK_REQUESTS, QUEUE_KEY, CONTEXT_KEY, type ChatQueues, type CiteRequests, type QueuedRequest } from './chat-state';
+import { addContext, canCiteAfterSave, canDispatchQueue, citeDone, citeLater, enqueue, loadContexts, loadQueues, keepPolling, nextRunStates, pollDelay, provisionalName, removeQueued, stepState, requestTitle, retryRequest, runGone, NEW_SURVEY_TITLE, QUICK_REQUESTS, QUEUE_KEY, CONTEXT_KEY, type ChatQueues, type CiteRequests, type QueuedRequest } from './chat-state';
 import { buildLibrary } from '../../../packages/agent/src/library';
 
 function Icon({ name, className = '' }: { name: 'network' | 'arrow' | 'send' | 'pen' | 'spark' | 'search' | 'branch' | 'plus' | 'layers' | 'grid' | 'paper' | 'clock' | 'panel' | 'stop' | 'chevron' | 'refresh' | 'book' | 'back'; className?: string }) {
@@ -567,10 +567,9 @@ function App() {
   const savedFollowUps = (lastTurn?.kind === 'explanation' ? lastTurn.explanation.follow_ups : lastTurn?.commit.patch?.follow_ups) ?? [];
   const codexFollowUps = run?.follow_ups?.length ? run.follow_ups : run?.patch?.follow_ups?.length ? run.patch.follow_ups : savedFollowUps;
   const followUps = (codexFollowUps.length ? codexFollowUps : gaps).slice(0, 3);
-  // A new survey's trace starts with its eight steps (design 0028): done, running and still to come.
+  // A new survey's trace shows its six steps (design 0037): running (steps 1–3 run side by side), done and still to come.
   const reachedSteps = new Set(run?.trace?.flatMap(t => t.kind === 'step' && t.step ? [t.step] : []) ?? []);
-  const currentStep = run?.status === 'running' && reachedSteps.size ? Math.max(...reachedSteps) : 0;
-  const runSteps = reachedSteps.size > 0 && <ol className="run-steps">{RESEARCH_STEPS.map(s => <li key={s.id} className={s.stage === currentStep ? 'current' : reachedSteps.has(s.stage) ? 'done' : undefined}>{s.stage === currentStep ? '◌' : reachedSteps.has(s.stage) ? '✓' : s.stage} {s.short}</li>)}</ol>;
+  const runSteps = reachedSteps.size > 0 && <ol className="run-steps">{RESEARCH_STEPS.map(s => { const state = stepState(s.stage, reachedSteps, run?.status === 'running'); return <li key={s.id} className={state}>{state === 'current' ? '◌' : state === 'done' ? '✓' : s.stage} {s.short}</li>; })}</ol>;
   const runTrace = run?.trace?.length ? <details className="run-trace" open={run.status === 'running'}><summary><Icon name="chevron"/><span>{run.status === 'running' ? run.trace[run.trace.length - 1].text : `経過 · 検索 ${run.searches ?? run.trace.filter(t => t.kind === 'search').length}回`}</span></summary>{runSteps}<ol>{run.trace.map((t, i) => <li key={i} className={`trace-${t.kind}`}>{t.kind === 'search' ? `検索：${t.text}` : t.kind === 'open' ? `参照：${t.text}` : t.kind === 'error' ? `エラー：${t.text}` : t.text}</li>)}</ol></details> : null;
   const messageContext = (ids: string[] | undefined, source = snapshot) => ids?.length ? <div className="sent-context">{ids.map(id => <button key={id} data-entity-id={id} disabled={!linked(id)} onClick={() => select(id)}><Icon name="paper"/>{source.entities.find(e => e.id === id)?.label ?? id}</button>)}</div> : null;
   // The running survey and its proposal: in the right chat, or under the input while a new survey is being made.

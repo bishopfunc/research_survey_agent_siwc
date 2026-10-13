@@ -136,6 +136,8 @@ export class AppServerHost {
         this.turns.set(t.threadId, t);
         const turn = await this.rpc.request('turn/start', { threadId: t.threadId, input: text(o.text), effort: o.effort, summary: o.summary, ...(o.outputSchema ? { outputSchema: o.outputSchema } : {}) }) as { turn?: { id?: string } };
         t.turnId ??= turn.turn?.id;
+        // A step given up while its turn was starting must not run on unseen in the shared process.
+        if (t.settled && t.turnId && !t.ended) void this.rpc.request('turn/interrupt', { threadId: t.threadId, turnId: t.turnId }).catch(() => {});
       } catch (e) {
         if (t.settled) return;
         t.error = e instanceof Error ? e.message : 'app-server failed to start the turn';
@@ -150,7 +152,11 @@ export class AppServerHost {
       },
       stop: signal => {
         if (t.settled) return;
-        if (signal === 'SIGKILL' || !t.threadId || !t.turnId || t.ended) { this.settle(t, { code: null, signal: signal === 'SIGKILL' ? 'SIGKILL' : 'SIGTERM', error: t.error }); return; }
+        if (signal === 'SIGKILL' || !t.threadId || !t.turnId || t.ended) {
+          // Given up: its turn is interrupted too, so it stops using the plan in the run's shared process.
+          if (t.threadId && t.turnId && !t.ended) void this.rpc.request('turn/interrupt', { threadId: t.threadId, turnId: t.turnId }).catch(() => {});
+          this.settle(t, { code: null, signal: signal === 'SIGKILL' ? 'SIGKILL' : 'SIGTERM', error: t.error }); return;
+        }
         void this.rpc.request('turn/interrupt', { threadId: t.threadId, turnId: t.turnId }).catch(() => {});
         setTimeout(() => this.settle(t, { code: 1, signal: 'SIGTERM', status: 'interrupted', error: t.error }), INTERRUPT_WAIT_MS).unref?.();
       },
