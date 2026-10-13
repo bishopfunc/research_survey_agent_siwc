@@ -10,6 +10,7 @@ import { fixture, patchSchema, snapshotSchema, validateSnapshot } from '../../..
 import { assessTutorial } from '../../../packages/domain/src/tutorial';
 import { REFERENCE_TUTORIAL, compareToReference } from '../../../packages/domain/src/tutorial-reference';
 import { assessSurvey } from '../../../packages/domain/src/survey-assessment';
+import { clock, concurrency, followUpTimeline, newSurveyTimeline, span, type Timeline, type TimelineRow } from './workflow-timeline';
 import './lab.css';
 
 const invalidExamples: Record<string,string> = {
@@ -48,6 +49,47 @@ function Flow({selected,onSelect}:{selected:number;onSelect:(index:number)=>void
   </figure>;
 }
 
+const NEW_SURVEY = newSurveyTimeline(), FOLLOW_UP = followUpTimeline(), NEW_CONCURRENCY = concurrency(NEW_SURVEY);
+const MAX_CONCURRENT = Math.max(...NEW_CONCURRENCY.map(c => c.count));
+const segmentText = (s: TimelineRow['segments'][number]) => s.kind === 'server' ? `${s.label} ${clock(s.start)}（サーバー）` : `${s.label} ${clock(s.start)}〜${clock(s.start + s.seconds)}（調べる${span(s.research)}＋書き出し${span(s.write)}＝上限${span(s.seconds)}）`;
+
+function Gantt({timeline,label,selected,onSelect,strip}:{timeline:Timeline;label:string;selected:string;onSelect:(id:string)=>void;strip?:{start:number;end:number;count:number}[]}) {
+  const pct = (seconds: number) => `${seconds / timeline.total * 100}%`;
+  const step = timeline.total > 1800 ? 300 : 120;
+  const ticks = Array.from({length: Math.floor(timeline.total / step) + 1}, (_, i) => i * step);
+  const row = timeline.rows.find(r => r.id === selected) ?? timeline.rows[0];
+  return <figure className="lab-gantt" aria-label={label}>
+    <div className="lab-gantt-scroll"><div className="lab-gantt-grid">
+      <span className="lab-gantt-corner">経過</span>
+      <div className="lab-gantt-axis" aria-hidden="true">{ticks.map(t => <span key={t} style={{left: pct(t)}}>{t / 60}分</span>)}</div>
+      <div className="lab-gantt-guides" aria-hidden="true">{ticks.map(t => <span key={t} style={{left: pct(t)}}/>)}{timeline.waves.map(w => <span key={w.at} className="wave" style={{left: pct(w.at)}}/>)}</div>
+      {timeline.rows.map(r => <div key={r.id} className="lab-gantt-row" data-skipped={r.skipped || undefined}>
+        <button aria-pressed={row.id === r.id} onClick={() => onSelect(r.id)}>{r.step && <span className="lab-gantt-step">{r.step}</span>}<span className="lab-gantt-name">{r.name}</span>{r.count > 1 && <span className="lab-gantt-count">×{r.count}</span>}</button>
+        <div className="lab-gantt-track">{r.segments.map((g, i) => g.kind === 'server'
+          ? <span key={i} className="lab-gantt-mark" style={{left: pct(g.start)}} title={segmentText(g)}/>
+          : <span key={i} className={`lab-gantt-bar ${g.kind}${(r.skipped || (i > 0 && r.conditional && g.label === '修正')) ? ' maybe' : ''}`} style={{left: pct(g.start), width: `calc(${pct(g.seconds)} - 2px)`}} title={segmentText(g)}>
+              <span className="research" style={{flexGrow: g.research}}/><span className="write" style={{flexGrow: g.write}}/>
+              {g.seconds / timeline.total > .08 && <span className="lab-gantt-label">{r.skipped ? '省略' : span(g.seconds)}</span>}
+            </span>)}</div>
+      </div>)}
+      {strip && <div className="lab-gantt-row lab-gantt-strip"><span className="lab-gantt-strip-label">同時に動くCodex</span><div className="lab-gantt-track">{strip.map(c => <span key={c.start} style={{left: pct(c.start), width: `calc(${pct(c.end - c.start)} - 2px)`, height: `${c.count / MAX_CONCURRENT * 70}%`}} title={`${clock(c.start)}〜${clock(c.end)}：${c.count}つ`}><b>{c.count}</b></span>)}</div></div>}
+    </div></div>
+    <ul className="lab-gantt-legend"><li><span className="swatch research"/>調べる時間</li><li><span className="swatch write"/>書き出しに予約した時間</li><li><span className="swatch maybe"/>条件つき・省略</li><li><span className="swatch wave"/>前の実行がすべて終わるのを待つ境目</li></ul>
+    <figcaption className="lab-gantt-detail" aria-live="polite">
+      <h4>{row.step && `${row.step} `}{row.name}{row.count > 1 && `：${row.count}つを並行`}</h4>
+      <dl className="lab-defs">
+        <div><dt>時間</dt><dd>{row.segments.map(segmentText).join('、')}</dd></div>
+        {row.conditional && <div><dt>条件</dt><dd>{row.conditional}</dd></div>}
+        <div><dt>受け取る</dt><dd>{row.reads}</dd></div>
+        <div><dt>書き出す</dt><dd>{row.writes}</dd></div>
+        <div><dt>途中保存</dt><dd>{row.checkpoints ? 'する。検証済みの途中保存を残し、時間切れならそこまでを結果にする。' : 'しない'}</dd></div>
+      </dl>
+      {row.prompt && <Source summary="この実行に渡す指示を読む（共通のルール、時間の指示、今の調査と依頼は省略）"><pre>{row.prompt}</pre></Source>}
+    </figcaption>
+    <Source summary="表で見る"><div className="lab-table-wrap"><table><thead><tr><th>実行</th><th>本数</th><th>時間</th><th>書き出す</th></tr></thead><tbody>{timeline.rows.map(r => <tr key={r.id}><td>{r.step} {r.name}</td><td>{r.count || '—'}</td><td>{r.segments.map(segmentText).join('、')}{r.conditional ? `（${r.conditional}）` : ''}</td><td>{r.writes}</td></tr>)}</tbody></table></div></Source>
+  </figure>;
+}
+
 function Source({summary,children}:{summary:string;children:ReactNode}) {
   return <details className="lab-source"><summary>{summary}</summary>{children}</details>;
 }
@@ -58,6 +100,8 @@ function Sub({id,title,stamp,children}:{id:string;title:string;stamp?:string;chi
 
 export function Lab() {
   const [step,setStep] = useState(0);
+  const [stage,setStage] = useState('deepen');
+  const [followUp,setFollowUp] = useState<string>(ROUTED_SKILLS.find(s => s.output === 'patch')?.id ?? ROUTED_SKILLS[0].id);
   const [schemaType,setSchemaType] = useState('Issue');
   const [scenario,setScenario] = useState('valid');
   const entityNames = snapshotSchema.$defs.Entity.anyOf.map(ref => ref.$ref.split('/').at(-1)!);
@@ -80,6 +124,7 @@ export function Lab() {
         <a href="#overview">全体の流れ</a>
         <a className="lab-nav-group" href="#prompt"><span>01</span>Codexへの指示</a>
         <a className="lab-nav-sub" href="#routing">スキルの選び方</a>
+        <a className="lab-nav-sub" href="#timeline">実行の時間軸</a>
         <a className="lab-nav-sub" href="#new-survey">新規調査の手順</a>
         <a className="lab-nav-sub" href="#skills">追加の依頼のスキル</a>
         <a className="lab-nav-sub" href="#rules">共通のルール</a>
@@ -117,6 +162,16 @@ export function Lab() {
             </div>
             <div className="lab-prose"><p>{explainers}のスキルだけは調査を変えず、解説と出典を返す。新規調査とほかのスキルは、結果を変更案として返す。選んだスキルと理由は、実行の経過に表示する。</p></div>
             <Source summary="判定の指示を読む（サンプルの調査で組み立てた例）"><pre>{buildRouterPrompt('LaCAMの詳しい内容を解説してほしい', fixture)}</pre></Source>
+          </Sub>
+
+          <Sub id="timeline" title="実行の時間軸" stamp={BUDGET_PROMPT_VERSION}>
+            <div className="lab-prose">
+              <p>新規調査は4つの波で進む。同じ波の実行は同時に始まり、次の波は前の波の実行がすべて終わってから始まる。行は1つのCodexの実行（×は並行する本数）、棒はその上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。各実行が上限まで使ったときの配置で、波のあいだのサーバーの書誌補完と、{RETRY_IF_FAILED_WITHIN_MS / 1000}秒以内に失敗した作業のやり直しの時間は含めない。この配置で新規調査は約{Math.round(NEW_SURVEY.end / 60)}分かかり、同時に動くCodexは最大{MAX_CONCURRENT}つになる。</p>
+              <p>行を選ぶと、その実行が受け取るもの、書き出すもの、渡す指示を表示する。</p>
+            </div>
+            <Gantt timeline={NEW_SURVEY} label="新規調査の実行の時間軸" selected={stage} onSelect={setStage} strip={NEW_CONCURRENCY}/>
+            <div className="lab-prose"><p>追加の依頼は並行しない。Web検索なしの判定のあと、選んだスキルが1つの実行で調べる。変更案が検証に通らなければ、Web検索なしで1回だけ修正する。同時に動くCodexは常に1つである。</p></div>
+            <Gantt timeline={FOLLOW_UP} label="追加の依頼の実行の時間軸" selected={followUp} onSelect={setFollowUp}/>
           </Sub>
 
           <Sub id="new-survey" title="新規調査の手順" stamp={RESEARCH_PROMPT_VERSION}>
