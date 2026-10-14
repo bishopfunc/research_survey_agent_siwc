@@ -212,7 +212,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
           if (tool !== SUBMIT_PATCH_TOOL.name || !cp) return { text: `unknown tool ${tool}`, success: false };
           const result = run.status === 'running' && !supervisor.timedOut ? cp.chunks.submit(args) : { status: 'stopped' as const, operations: 0 };
           const note = cp.note?.();
-          record(JSON.stringify({ type: 'app.tool', tool, status: result.status, operations: result.operations, error: result.error?.split('\n')[0], note }));
+          record(JSON.stringify({ type: 'app.tool', step, tool, status: result.status, operations: result.operations, error: result.error?.split('\n')[0], note }));
           noted(result.status);
           return { text: note ? `${submitReply(result)}\n${note}` : submitReply(result), success: result.status === 'saved' || result.status === 'held' };
         },
