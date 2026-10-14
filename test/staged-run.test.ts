@@ -201,6 +201,50 @@ test('a reader sees its paper in full and the rest by ID and label; it is pointe
   assert.equal(fullTextUrl({}), undefined);
 });
 
+test('a started tutorial is used when the integration is skipped or the usage limit stops later steps; no reader is retried after the limit', async () => {
+  const tutorialEntity = fixture.entities.find(e => e.type === 'Tutorial')!;
+  for (const ending of ['limit', 'late'] as const) {
+    let now = 0, limit: string | undefined;
+    const parsed: string[] = [];
+    const run = steps({ now: () => now, concurrency: 1, onRun: async (stage, _o, attempt) => {
+      if (stage === 'outline') now = (SURVEY_TIMING.tutorialStart + 1) * 1000;
+      if (stage === 'tutorial') { await new Promise(resolve => setTimeout(resolve, 30)); return ok(patch('tutorial', [{ op: 'add_entity', entity: tutorialEntity }])); }
+      if (stage === 'extract-1' && ending === 'limit') { limit = 'ChatGPTの利用上限に達しました'; return { ok: false, error: 'usage limit', searches: 0, elapsedMs: 1_000 }; }
+      if (stage.startsWith('extract') && ending === 'late') now = (SURVEY_TIMING.total - SURVEY_TIMING.tail - SURVEY_TIMING.validate - SURVEY_TIMING.fillMin - 10) * 1000;
+      return undefined;
+    } });
+    run.s.halted = () => limit;
+    run.s.checkpoint = stage => { parsed.push(stage); };
+    const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+    assert.ok(outcome.status === 'succeeded');
+    assert.ok(!run.calls.includes('integrate'), `${ending}: no integration`);
+    assert.ok(parsed.includes('tutorial'), `${ending}: the tutorial's result is used`);
+    if (ending === 'limit') assert.equal(run.calls.filter(c => c === 'extract-1').length, 1, 'a reader failing on the limit is not tried again');
+  }
+});
+
+test('two copies of one paper read before the bibliography matched them give one reading', async () => {
+  const method = [...families.values()][0][0];
+  const plain = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
+  const paper = (id: string, title: string) => ({ ...plain, id, label: title, title, doi: null, arxiv_id: null, url: null, proposes: [method], addresses: [], reading: null, claims: [], evidence: [], abstract_ja: null });
+  const a = paper('m1-a', 'Alpha conference title'), b = paper('m2-b', 'Alpha with other wording');
+  const run = steps({ onRun: async (stage, o) => {
+    if (stage === 'list-1') { o.onSaved?.(patch('a', [{ op: 'add_entity', entity: a }]) as unknown as SurveyPatch); return ok(patch('l1', [{ op: 'add_entity', entity: a }])); }
+    if (stage === 'list-2') { await new Promise(resolve => setTimeout(resolve, 5)); o.onSaved?.(patch('b', [{ op: 'add_entity', entity: b }]) as unknown as SurveyPatch); return ok(patch('l2', [{ op: 'add_entity', entity: b }])); }
+    if (stage.startsWith('list')) return ok(patch('none', []));
+    // m1-a's reader is slow, so m2-b's reading reaches m1-a first.
+    if (stage === 'extract-1') await new Promise(resolve => setTimeout(resolve, 80));
+    return undefined;
+  } });
+  run.s.prepare = async p => { const patched = p as SurveyPatch; return { ...patched, operations: patched.operations.map(op => op.op === 'add_entity' && op.entity.type === 'Paper' && /alpha/i.test(op.entity.title) ? { ...op, entity: { ...op.entity, doi: '10.1/same' } } : op) }; };
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  assert.match(outcome.patch.message, /この調査で読んだ1本/);
+  assert.match(outcome.patch.message, /同じ論文（m1-a）を読み済みです/);
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
+  assert.ok((final.entities.find(e => e.id === 'm1-a') as Paper).reading);
+});
+
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);

@@ -263,6 +263,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const queuedPapers: PaperIds[] = [];
   /** A paper dropped from a lister's result as another ID of a paper in the survey, and that ID. */
   const aliases = new Map<string, string>();
+  const readThisRun = new Set<string>();
   const queuedAlready = (paper: Paper) => { const ids = paperIds(paper); return queuedPapers.some(other => samePaper(ids, other)); };
   const enqueue = (view: SurveySnapshot) => {
     for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id) && !queuedAlready(e)) { queued.add(e.id); queuedPapers.push(paperIds(e)); queue.push({ paper: e.id, view }); }
@@ -292,7 +293,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     // A reader submits its paper's fields it changes (submit_patch), so a timed-out reader keeps what it submitted.
     const result = await steps.run(stage, prompt, context, { seconds, effort: 'low', checkpoints: true });
     const again = left(T.extractEnd);
-    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true }); }
+    if (!result.ok && steps.active() && !halted() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true }); }
     return result;
   };
   const applyPaper = async (paper: string, n: number, result: StageResult, view: SurveySnapshot) => {
@@ -308,14 +309,15 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         // goes to that paper instead, unless it was read already.
         const listed = view.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
         if (listed && !snapshot.entities.some(e => e.id === paper)) {
-          const ids = paperIds(listed), alias = aliases.get(paper);
-          const same = snapshot.entities.find((e): e is Paper => e.type === 'Paper' && (e.id === alias || samePaper(ids, paperIds(e))));
-          if (same?.reading) throw Error(`同じ論文（${same.id}）を読み済みです`);
+          const ids = paperIds(listed), alias = aliases.get(paper), isPaper = (e: Entity): e is Paper => e.type === 'Paper';
+          const same = snapshot.entities.find((e): e is Paper => isPaper(e) && e.id === alias) ?? snapshot.entities.find((e): e is Paper => isPaper(e) && samePaper(ids, paperIds(e)));
           if (same) { own = JSON.parse(JSON.stringify(own).split(JSON.stringify(paper)).join(JSON.stringify(same.id))) as SurveyPatch; target = same.id; }
         }
+        // Two copies of one paper may both be read before the bibliography shows they are one: only the first reading counts.
+        if (readThisRun.has(target)) throw Error(`同じ論文（${target}）を読み済みです`);
         const applied = applyReading(snapshot, own, target, stage);
         snapshot = applied.snapshot;
-        if (applied.read) count.read++; else count.failed++;
+        if (applied.read) { count.read++; readThisRun.add(target); } else count.failed++;
         count.dropped += applied.dropped;
       } catch (e) { count.failed++; if (steps.active()) notes.push(`${stageTraceText(stage)}（${paper}）を使えませんでした：${reason(e)}`); }
     });
@@ -415,16 +417,19 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const explored = new Set((explorePatch as SurveyPatch | null)?.operations.flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []) ?? []);
   const candidates = snapshot.entities.filter(e => e.type === 'Issue' && !outline.entities.some(o => o.id === e.id) && !explored.has(e.id)).map(e => e.id);
   startTutorial();
+  let integrating: Promise<StageResult> | null = null;
   if (synthSeconds >= 30 && !halted()) {
     steps.progress(`4/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
-    const before = snapshot;
-    const [integration, tutorial] = await Promise.all([
-      steps.run('integrate', steps.prompt.integrate(before, candidates), before, { seconds: synthSeconds, checkpoints: true }),
-      tutorialRun ?? Promise.resolve(null),
-    ]);
+    integrating = steps.run('integrate', steps.prompt.integrate(snapshot, candidates), snapshot, { seconds: synthSeconds, checkpoints: true });
+  } else if (!halted()) notes.push('時間の上限のため統合を省きました');
+  // A tutorial already started is used even when the integration is skipped (its limit ends before the validate).
+  {
+    const [integration, tutorial] = await Promise.all([integrating ?? Promise.resolve(null), tutorialRun ?? Promise.resolve(null)]);
     if (!steps.active()) return { status: 'stopped' };
-    try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
-    catch (e) { notes.push(`統合の段階を使えませんでした：${reason(e)}`); }
+    if (integration) {
+      try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
+      catch (e) { notes.push(`統合の段階を使えませんでした：${reason(e)}`); }
+    }
     if (tutorial) {
       try {
         const patch = await parse('tutorial', tutorial);
@@ -434,7 +439,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         snapshot = apply(snapshot, { ...patch, operations: ops.map(op => ({ ...op, op: exists ? 'replace_entity' : 'add_entity' })) as SurveyPatch['operations'] }, 'tutorial');
       } catch (e) { notes.push(`チュートリアルの段階を使えませんでした：${reason(e)}`); }
     }
-  } else if (!halted()) notes.push('時間の上限のため統合を省きました');
+  }
   if (candidates.length) {
     const settled = settleIssueCandidates(snapshot, candidates);
     const errors = validateSnapshot(settled);
