@@ -4,7 +4,7 @@ import { referenceOutline } from '../../domain/src/tutorial-reference';
  * common rules by id ([facts], [issues] …); how to write each kind of entity is stated once, in those rules. */
 export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-14T02:45+09:00';
 /** Agents reading one paper each at the same time in a new survey (design 0037); the server may lower it (EXTRACT_CONCURRENCY). */
-export const DEFAULT_EXTRACT_CONCURRENCY = 24;
+export const DEFAULT_EXTRACT_CONCURRENCY = 16;
 /** The Fill runs as at most this many agents at once, each on gaps of different entities. */
 export const FILL_PARTS = 3;
 /** What a survey usually misses; the divergent search (step 4) and the perspective skill look for these. */
@@ -64,7 +64,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T11:45+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T17:21+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -86,12 +86,13 @@ export const SURVEY_TIMING = {
 } as const;
 /** Step 3 adds at most this many papers; step 2 reads them. */
 export const DIVERGE_MAX_PAPERS = 10;
-/** Papers the listers find in all, shared over the families (design 0037: fifty read in depth). */
-export const TARGET_PAPERS = 55;
+/** Papers the listers find in all, shared over the families (design 0037: thirty read in depth, a few more listed for the ones
+ * that cannot be read). */
+export const TARGET_PAPERS = 33;
 /** Where the scouts look when the map has submitted no family in time. */
 export const SCOUT_ANGLES = ['surveys and the papers they cite', 'curated reading lists and awesome repositories', 'leaderboards and official benchmark pages', 'the main venues and arXiv of the last two years', 'the seminal and most cited papers'] as const;
 export const FAMILY_NUDGE = 'Server message: submit the method families you have now, each with its Methods (submit_patch), before anything else; their papers are listed while you continue.';
-export function papersPerFamily(families: number) { return Math.min(15, Math.max(6, Math.ceil(TARGET_PAPERS / Math.max(1, families)))); }
+export function papersPerFamily(families: number) { return Math.min(10, Math.max(4, Math.ceil(TARGET_PAPERS / Math.max(1, families)))); }
 /** The server's check lists at most MAX_GAPS gaps; the validate agent chooses at most MAX_CHOSEN_GAPS of them to fill. */
 export const MAX_GAPS = 40;
 export const MAX_CHOSEN_GAPS = 12;
