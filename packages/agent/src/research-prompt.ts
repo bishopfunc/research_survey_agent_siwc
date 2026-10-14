@@ -66,7 +66,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T17:21+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T18:13+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -83,8 +83,9 @@ export const SURVEY_TIMING = {
   /** Explore starts after the map, beside the readings, and must leave its papers time to be read. */
   explore: 120,
   /** The tutorial starts beside the readings, from the papers read so far, and must be over before the validate. */
-  tutorialStart: 280, tutorial: 210,
-  synthesize: 90, validate: 30, fill: 55, fillMin: 30,
+  tutorialStart: 200, tutorial: 290,
+  /** The integration's limit; it ends by then or before the validate, whichever is first (the readings often end near 300 s). */
+  synthesize: 190, validate: 40, fill: 50, fillMin: 30,
 } as const;
 /** Step 3 adds at most this many papers; step 2 reads them. */
 export const DIVERGE_MAX_PAPERS = 10;
@@ -149,7 +150,7 @@ export function integrateInstructions(candidates: string[]) {
 /** Step 4, a separate agent beside the integration: writes only the Tutorial, after the sample tutorial's outline. */
 export function tutorialInstructions() {
   return [
-    'Mode: new survey, the tutorial agent (step 4 of 6, started beside the readings). The snapshot holds the map and the papers read so far; more are still being read, and another agent integrates issues, methods and knowledge later. Write from what the snapshot holds, and submit the whole Tutorial in one submit_patch call as soon as it is written.',
+    'Mode: new survey, the tutorial agent (step 4 of 6, started beside the readings). The snapshot holds the map and the papers read so far; more are still being read, and another agent integrates issues, methods and knowledge later. Write from what the snapshot holds. Submit it in parts with submit_patch as you write, so a deadline keeps what is written: first add_entity the Tutorial (id tutorial, label, summary) with its first two or three sections, then after every two or three more sections a replace_entity with only id, type and those new sections; the server appends them in order, and a section with the heading of an earlier one replaces it.',
     'Output only: add_entity one Tutorial (id tutorial) as [tutorial] describes, citing entities of the snapshot as [@ID] and in refs, with media whose labels appear in the readings\' key_figures, key_formulas or captions_ja; no other operation and no follow_ups. For the challenges, cite Issues that are not reading candidates (IDs starting p<N>-); where such an Issue already has an achievement Claim about it, cite that Claim (its numbers, conditions and date when it has them), otherwise state what the readings report about how far it is solved, citing their Claims or Evidence.',
     referenceOutline(),
   ].join('\n\n');

@@ -226,7 +226,9 @@ test('a new survey lists about thirty-three papers family by family and reads th
   assert.match(listInstructions(null, [], 11, 2, 'leaderboards'), /scout the papers of the field[\s\S]*found through leaderboards[\s\S]*Methods of the snapshot that fit, or empty/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /never add the same paper twice/);
   assert.equal(SURVEY_TIMING.total, 600);
-  assert.ok(SURVEY_TIMING.listEnd < SURVEY_TIMING.extractEnd && SURVEY_TIMING.extractEnd + SURVEY_TIMING.synthesize + SURVEY_TIMING.validate + SURVEY_TIMING.fill + SURVEY_TIMING.tail <= SURVEY_TIMING.total);
+  // Readings that end late still leave the validate and the least fill; the integration and the tutorial are cut to what is left.
+  const T = SURVEY_TIMING;
+  assert.ok(T.listEnd < T.extractEnd && T.extractEnd + T.validate + T.fillMin + T.tail <= T.total && T.tutorialStart < T.extractEnd);
 });
 test('the paper list is shared over the families, every tutorial method section cites a paper and no method is unclassified', () => {
   for (const families of [3, 4, 5, 6, 8]) assert.ok(papersPerFamily(families) * families >= 30, `${families} families list thirty papers`);

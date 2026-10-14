@@ -26,7 +26,9 @@ function relax(patch: SurveyPatch): SurveyPatch {
 
 /** A checkpoint never mutates the run snapshot. A cumulatively valid Patch is saved at once; a well-formed checkpoint that
  * does not validate yet is held and validated with the final remainder. Only an unreadable checkpoint spoils the final. */
-export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, normalize: (value: unknown) => unknown, save: (patch: SurveyPatch, sequence: number) => void, active = () => true) {
+/** `appendSections`: the tutorial agent of a new survey submits its Tutorial in parts (design 0037); each part's sections join the
+ * stored ones (a section with an earlier heading replaces it in place) instead of replacing them, so a deadline keeps what was written. */
+export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, normalize: (value: unknown) => unknown, save: (patch: SurveyPatch, sequence: number) => void, active = () => true, options: { appendSections?: boolean } = {}) {
   let accepted: SurveyPatch | undefined, all: SurveyPatch | undefined, sequence = 0, unreadable = false;
   const validate = (patch: SurveyPatch) => applyPatch(snapshot, relax(patch), baseId);
   const valid = (patch: SurveyPatch) => { try { validate(patch); return true; } catch { return false; } };
@@ -35,7 +37,14 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
    * stage's snapshot), as [keepstored] asks; the strict final output always sends every key. A null never erases a stored value. */
   const stored = (id: string) => [...(all?.operations ?? [])].reverse().flatMap(op => 'entity' in op && op.entity.id === id ? [op.entity] : [])[0] ?? snapshot.entities.find(e => e.id === id);
   const over = (before: object, after: object) => ({ ...before, ...Object.fromEntries(Object.entries(after).filter(([key, value]) => value !== null || (before as Record<string, unknown>)[key] == null)) });
-  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => { const before = op?.op === 'replace_entity' && op.entity ? stored(op.entity.id) : undefined; return before && 'entity' in op && before.type === op.entity.type ? { ...op, entity: over(before, op.entity) } : op; }) }) as SurveyPatch;
+  type Section = { heading?: unknown };
+  const joined = (before: Section[], after: Section[]) => [...before.map(s => after.find(a => a.heading === s.heading) ?? s), ...after.filter(a => !before.some(s => s.heading === a.heading))];
+  const part = (op: SurveyPatch['operations'][number]) => {
+    if (!options.appendSections || !op || !('entity' in op) || op.entity?.type !== 'Tutorial' || !Array.isArray((op.entity as { sections?: unknown }).sections)) return undefined;
+    const before = stored(op.entity.id) as { type?: string; sections?: Section[] } | undefined;
+    return before?.type === 'Tutorial' && Array.isArray(before.sections) ? { ...op, entity: over(before, { ...op.entity, sections: joined(before.sections, (op.entity as { sections: Section[] }).sections) }) } : undefined;
+  };
+  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => { const tutorial = part(op); if (tutorial) return tutorial; const before = op?.op === 'replace_entity' && op.entity ? stored(op.entity.id) : undefined; return before && 'entity' in op && before.type === op.entity.type ? { ...op, entity: over(before, op.entity) } : op; }) }) as SurveyPatch;
   return {
     accept(line: string): 'ignored' | 'saved' | 'held' | 'rejected' {
       if (!active()) return 'ignored';

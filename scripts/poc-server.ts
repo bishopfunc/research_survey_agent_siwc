@@ -313,7 +313,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
         writeFileSync(join(directory, `checkpoint-${stage}-${attemptId}-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
         addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存 ${sequence}` }); save(run);
         note = options.onSaved?.(patch) || undefined;
-      }, () => run.status === 'running') : undefined;
+      }, () => run.status === 'running', { appendSections: options.tutorialParts }) : undefined;
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
       const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, model: options.model, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage), note: () => { const text = note; note = undefined; return text; } } : undefined });

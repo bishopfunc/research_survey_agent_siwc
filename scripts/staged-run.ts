@@ -32,6 +32,8 @@ export interface StageOptions {
   effort?: string;
   /** A model other than the default (the readers', design 0037). */
   model?: string;
+  /** The tutorial agent submits its Tutorial in parts; their sections are joined (design 0037). */
+  tutorialParts?: boolean;
   /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
   checkpoints?: boolean;
   /** A text it returns is added to the tool's answer (a lister learns which of its papers another agent listed). */
@@ -387,7 +389,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const startTutorial = () => {
     const seconds = Math.min(T.tutorial, left(T.total - T.tail - T.validate - T.fillMin));
     if (tutorialRun || !steps.prompt.tutorial || !steps.active() || halted() || seconds < 30) return;
-    tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true });
+    tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true, tutorialParts: true });
   };
   const tutorialTimer = setTimeout(startTutorial, Math.max(0, (T.tutorialStart - elapsed()) * 1000));
   tutorialTimer.unref?.();

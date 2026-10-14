@@ -19,7 +19,9 @@ test('the /lab timeline places the ten-minute survey as the staged run does, fro
   // The tutorial starts beside the readings and is over before the validate.
   assert.equal(at('tutorial').start, T.tutorialStart); assert.ok(at('tutorial').start + at('tutorial').seconds <= T.extractEnd + T.synthesize);
   assert.ok(row('extract').checkpoints && row('tutorial').checkpoints);
-  assert.equal(at('validate').start, T.extractEnd + T.synthesize);
+  // The integration is cut to leave the validate and the least fill before the tail.
+  assert.equal(at('validate').start, Math.min(T.extractEnd + T.synthesize, T.total - T.tail - T.validate - T.fillMin));
+  assert.equal(at('integrate').seconds, at('validate').start - T.extractEnd);
   assert.equal(at('fill').start, at('validate').start + T.validate); assert.equal(row('fill').count, FILL_PARTS);
   assert.ok(t.end + T.tail <= T.total && t.total === T.total);
   assert.ok(t.rows.every(r => r.prompt && r.reads && r.writes));
@@ -28,7 +30,8 @@ test('the /lab timeline places the ten-minute survey as the staged run does, fro
   // The listers start with the first family and end before the readings must; the readers run beside the map, the listers and the explore.
   assert.deepEqual([at('list').start, row('list').count], [FIRST_FAMILY, EXAMPLE_FAMILIES]);
   assert.ok(at('list').start + at('list').seconds <= T.listEnd);
-  assert.equal(Math.max(...strip.map(s => s.count)), DEFAULT_EXTRACT_CONCURRENCY + EXAMPLE_FAMILIES + 1);
+  // At 200 s the readers, the listers, the explore and the tutorial run at once.
+  assert.equal(Math.max(...strip.map(s => s.count)), DEFAULT_EXTRACT_CONCURRENCY + EXAMPLE_FAMILIES + 2);
   assert.ok(strip.every(s => s.end <= t.total));
 });
 test('a follow-up runs one agent at a time within its limit: the judge, the skill, and a repair only where time is kept for it', () => {

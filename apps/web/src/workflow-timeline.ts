@@ -33,7 +33,9 @@ export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY
   const T = SURVEY_TIMING;
   const readings: Segment[] = [];
   for (let at = FIRST_SUBMISSION; T.extractEnd - at >= T.extractMin; at += T.extract) readings.push(codex(at, Math.min(T.extract, T.extractEnd - at), '1本'));
-  const synth = T.extractEnd, validate = synth + T.synthesize, fill = validate + T.validate;
+  // As in the staged run: the integration ends by its limit or before the validate (the fill keeps at least fillMin).
+  const synth = T.extractEnd, validate = synth + Math.min(T.synthesize, T.total - T.tail - T.validate - T.fillMin - synth), fill = validate + T.validate;
+  const fillSeconds = Math.min(T.fill, T.total - T.tail - fill);
   const rows: TimelineRow[] = [
     { id: 'outline', step: '1', name: 'Map', count: 1, segments: [codex(0, T.map, '全体像')], checkpoints: true,
       reads: '依頼と、論文キャッシュがオンならライブラリの論文', writes: '題、分野、課題の草案、手法の系統と手法、文献（論文は挙げない）。系統を決めるたびに提出し、その系統の論文を別のAgentが挙げ始める',
@@ -47,20 +49,20 @@ export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY
     { id: 'diverge', step: '3', name: 'Explore', count: 1, segments: [codex(T.map, T.explore, '発散')], checkpoints: true,
       reads: 'Mapの結果と、ここまでの検索の記録', writes: `追加だけ：論文（${DIVERGE_MAX_PAPERS}本まで、提出したらすぐ読まれる）、他分野の手法、抜けていた観点の課題と根拠、開いた文献`,
       prompt: withCheckpoints(divergeInstructions(memory)) },
-    { id: 'integrate', step: '4', name: 'Synthesize', count: 1, segments: [codex(synth, T.synthesize, '統合')], checkpoints: false,
+    { id: 'integrate', step: '4', name: 'Synthesize', count: 1, segments: [codex(synth, validate - synth, '統合')], checkpoints: false,
       reads: 'Map・精読・Exploreの結果と、精読が出した課題の候補', writes: '課題の木、ナレッジ、達成度の主張、手法と系統の更新、次の依頼の候補3つ',
       prompt: integrateInstructions(exampleIssues.slice(0, 2)) },
     { id: 'tutorial', step: '4', name: 'Tutorial', count: 1, segments: [codex(T.tutorialStart, Math.min(T.tutorial, validate - T.tutorialStart), 'チュートリアル')], checkpoints: true,
-      reads: 'Mapの結果と、開始までに読んだ論文', writes: 'チュートリアル1つだけ（書き終えたら提出）',
+      reads: 'Mapの結果と、開始までに読んだ論文', writes: 'チュートリアル1つだけ（2〜3節ずつ提出し、サーバーがつなげる）',
       prompt: withCheckpoints(tutorialInstructions()) },
     { id: 'validate', step: '5', name: 'Validate', count: 1, segments: [codex(validate, T.validate, '点検')], checkpoints: false,
       reads: `サーバーの点検（スキーマと要件の未達、最大${MAX_GAPS}件）`, writes: `埋める抜け（最大${MAX_CHOSEN_GAPS}件）と、調査済みの情報で埋めるか検索するか（Web検索なし）`,
       prompt: validateInstructions([]) },
-    { id: 'fill', step: '6', name: 'Fill', count: FILL_PARTS, segments: [codex(fill, T.fill, '補完')], checkpoints: false,
+    { id: 'fill', step: '6', name: 'Fill', count: FILL_PARTS, segments: [codex(fill, fillSeconds, '補完')], checkpoints: false,
       reads: '調査と、Validateが選んだ抜け、検索の記録', writes: `抜けの補完（対象が重ならない最大${FILL_PARTS}組、削除はしない）と、次の依頼の候補3つ`,
       prompt: fillInstructions([], memory, 1, FILL_PARTS) },
   ];
-  return { rows, total: T.total, end: fill + T.fill, waves: [{ at: FIRST_FAMILY, label: '論文を挙げる' }, { at: FIRST_SUBMISSION, label: '精読の開始' }, { at: T.map, label: '発散' }, { at: T.tutorialStart, label: 'チュートリアル' }, { at: synth, label: '統合' }, { at: validate, label: '点検' }] };
+  return { rows, total: T.total, end: fill + fillSeconds, waves: [{ at: FIRST_FAMILY, label: '論文を挙げる' }, { at: FIRST_SUBMISSION, label: '精読の開始' }, { at: T.map, label: '発散' }, { at: T.tutorialStart, label: 'チュートリアル' }, { at: synth, label: '統合' }, { at: validate, label: '点検' }] };
 }
 
 /** One row per routed skill, as alternatives (a request runs one of them): the judge, the skill's run and, for a change with time

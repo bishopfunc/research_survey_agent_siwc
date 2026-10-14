@@ -141,6 +141,24 @@ test('submit_patch: a replace of a survey entity with only its id, type and the 
   assert.ok(stored.citation_count !== null && stored.reading);
   assert.deepEqual([out.label, out.title, out.citation_count, out.reading, out.proposes], [stored.label, stored.title, stored.citation_count, stored.reading, stored.proposes]);
 });
+test('the tutorial agent submits its Tutorial in parts: sections join in order, an earlier heading is replaced in place', () => {
+  const sec = (heading: string, body = heading) => ({ role: 'methods', heading, body, refs: [] });
+  const tutorial = (sections: unknown[]) => ({ id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections });
+  const normalize = (p: unknown) => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
+  const parts = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true });
+  assert.equal(parts.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] }).status, 'saved');
+  assert.equal(parts.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C'), sec('A', 'A2')] } }] }).status, 'saved');
+  // A part sent again as an addition joins too.
+  assert.equal(parts.submit({ message: '3', operations: [{ op: 'add_entity', entity: tutorial([sec('D')]) }] }).status, 'saved');
+  const out = applyPatch(emptySurvey('t'), JSON.parse(parts.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === 'tutorial') as { sections: { heading: string; body: string }[] };
+  assert.deepEqual(out.sections.map(s => `${s.heading}:${s.body}`), ['A:A2', 'B:B', 'C:C', 'D:D']);
+  // Elsewhere a replace keeps its own sections.
+  const whole = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {});
+  whole.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] });
+  whole.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C')] } }] });
+  const replaced = applyPatch(emptySurvey('t'), JSON.parse(whole.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === 'tutorial') as { sections: { heading: string }[] };
+  assert.deepEqual(replaced.sections.map(s => s.heading), ['C']);
+});
 test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
   const fence = '```';
   const forms = ['**SURVEY_CHECKPOINT**\n', '`SURVEY_CHECKPOINT`\n', 'SURVEY_CHECKPOINT 2/4:\n', 'SURVEY_CHECKPOINT — 論文1本\n', `SURVEY_CHECKPOINT\n${fence}JSON\n`];

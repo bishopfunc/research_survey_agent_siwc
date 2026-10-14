@@ -173,7 +173,7 @@ test('readers submit with submit_patch; a reading of only the paper is kept; the
   const tutorialAt = run.calls.indexOf('tutorial'), lastRead = run.calls.reduce((at, c, i) => c.startsWith('extract-') ? i : at, -1);
   assert.ok(tutorialAt >= 0 && tutorialAt < lastRead, 'the tutorial starts while papers are still read');
   assert.equal(run.calls.filter(c => c === 'tutorial').length, 1);
-  assert.ok(run.options.tutorial[0].checkpoints && run.options.tutorial[0].seconds <= SURVEY_TIMING.tutorial);
+  assert.ok(run.options.tutorial[0].checkpoints && run.options.tutorial[0].tutorialParts && run.options.tutorial[0].seconds <= SURVEY_TIMING.tutorial);
   // Without reaching its start time, the tutorial starts when the readings are over, beside the integration.
   const early = steps();
   await executeStagedResearch(emptySurvey('t'), 'b', early.s);
