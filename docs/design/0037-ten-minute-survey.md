@@ -80,7 +80,7 @@
 - Map・Exploreの提出は保存のたびにExtractの順番待ちへ入る。同じ論文は1回だけ読む。
 - Synthesize・Fillが失敗・時間切れなら、それまでの調査で変更案を作り、説明に書く。
 - 取消：すべてのthreadを中断し、プロセスを止める。以降のAgentは始めない。
-- ChatGPTプランの利用上限（「You’ve hit your usage limit」）に1つのAgentが当たったら、以降のAgent（系統ごと・精読・Explore・Synthesize・Tutorial・Validate・Fill）を始めず、それまでに保存した結果で変更案を作り、説明の先頭に上限と解除の時刻を書く（試行6では上限の後も約40のAgentを始め、すべて即座に失敗した）。
+- ChatGPTプランの利用上限（「You’ve hit your usage limit」）に1つのAgentが当たったら、以降のAgent（系統ごと・精読・Explore・Synthesize・Tutorial・Validate・Fill）を始めず、それまでに保存した結果で変更案を作り、説明の先頭に上限に達したことを書く（試行6では上限の後も約40のAgentを始め、すべて即座に失敗した）。上限のエラーはCodexの文言（「You’ve hit your usage limit」、SIWCのトークンでは「reached their Subscription Sharing usage limit」）によらず、日本語の短い文「ChatGPTの利用上限に達しました。利用枠が回復してから再実行してください」にする。解除時刻はCodexが動く機械の時計で表示され、VPSではUTCになるので出さない。手元とVPSは同じアカウントの同じ利用枠を使う（2026-10-14、手元の試行の後にVPSの依頼が上限に当たった）。
 - 修正・補完の自動の取り外し：検証エラーに名前（ID）か位置が挙がった操作と、それを参照する操作を外して検証し直す（最大3回）。外した操作の数を説明に書く。
 
 ## 移行と運用

@@ -39,7 +39,10 @@ test('a rejected patch gets exactly one repair with the validator errors, then m
 });
 test('Codex failures, missing output, cancellation and a failed repair never pretend success', async () => {
   const limit = steps({ research: async () => ({ code: 1, state: { ...initialCodexState(), error: 'You have hit your usage limit.' } }) });
-  assert.deepEqual(await executeResearch(limit.s), { status: 'failed', message: 'Codexの実行に失敗しました：You have hit your usage limit.', searches: 0 });
+  assert.deepEqual(await executeResearch(limit.s), { status: 'failed', message: 'Codexの実行に失敗しました：ChatGPTの利用上限に達しました。利用枠が回復してから再実行してください', searches: 0 });
+  // The SIWC token's wording on the VPS (2026-10-14) is the same limit.
+  const sharing = steps({ research: async () => ({ code: 1, state: { ...initialCodexState(), error: 'stream disconnected before completion: The ChatGPT user has reached their Subscription Sharing usage limit. Ask the user to try again after their usage limit resets or use an API key instead.' } }) });
+  assert.match((await executeResearch(sharing.s) as { message: string }).message, /ChatGPTの利用上限に達しました/);
   const noTurn = steps({ research: async () => ({ code: 0, state: initialCodexState() }), outputs: { research: patch('ok') } });
   assert.equal((await executeResearch(noTurn.s)).status, 'failed');
   const missing = steps({});

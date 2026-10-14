@@ -20,7 +20,7 @@ import { busyRuns, requestFailure, requestIdentity, repeatedRequest } from './ru
 import { CONTEXT_PROMPT_VERSION, contextInstructions, validateContextPapers } from '../packages/agent/src/chat-context';
 import { BUDGET_PROMPT_VERSION, budgetInstructions, checkpointInstructions, deadlineSteer, SUBMIT_PATCH_TOOL, submitReply, timeBudget, type CodexTransport } from '../packages/agent/src/time-budget';
 import { AppServerHost, isolationProblems } from './codex-app-server';
-import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
+import { attemptSucceeded, attemptError, isUsageLimit, startWhileActive, superviseProcess } from './codex-supervisor';
 import { settleCheckpoints, streamCheckpoints, type Checkpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
 import { executeStagedResearch, familiesOf, fullTextUrl, readerView, stageStep, stageTraceText, surveyOutline } from './staged-run';
@@ -319,8 +319,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, model: options.model, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage), note: () => { const text = note; note = undefined; return text; } } : undefined });
       const ok = attemptSucceeded(attempt);
       // The plan's usage limit fails every later agent at once: none is started after it (design 0037).
-      const limit = attemptError(attempt)?.match(/usage limit[\s\S]*?try again at ([^.\n]+)/i) ?? (/usage limit/i.test(attemptError(attempt) ?? '') ? [''] : null);
-      if (limit && !usageLimit) usageLimit = `ChatGPTの利用上限に達しました${limit[1] ? `（解除 ${limit[1].trim()}）` : ''}`;
+      if (isUsageLimit(attempt.state.error)) usageLimit ??= 'ChatGPTの利用上限に達しました';
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
       const error = ok ? outputError : attemptError(attempt);
