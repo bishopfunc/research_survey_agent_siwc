@@ -30,7 +30,7 @@ function relax(patch: SurveyPatch): SurveyPatch {
  * stored ones (a section with an earlier heading replaces it in place) instead of replacing them, so a deadline keeps what was written.
  * A whole Tutorial (with its label or summary, starting again from the first stored heading) still replaces it; the final response
  * is joined the same way. */
-export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, normalize: (value: unknown) => unknown, save: (patch: SurveyPatch, sequence: number) => void, active = () => true, options: { appendSections?: boolean } = {}) {
+export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, normalize: (value: unknown) => unknown, save: (patch: SurveyPatch, sequence: number) => void, active = () => true, options: { appendSections?: boolean; dropped?(reason: string): void } = {}) {
   let accepted: SurveyPatch | undefined, all: SurveyPatch | undefined, sequence = 0, unreadable = false;
   const validate = (patch: SurveyPatch) => applyPatch(snapshot, relax(patch), baseId);
   const valid = (patch: SurveyPatch) => { try { validate(patch); return true; } catch { return false; } };
@@ -131,7 +131,7 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
         if (!all) throw error;
         // Tutorial parts: a held part that was never fixed does not cost the final response's valid sections (as with submissions).
         const alone = options.appendSections && accepted && accepted !== all ? merge(accepted, finalParts(patch, accepted)) : undefined;
-        if (alone && valid(alone)) return JSON.stringify(alone);
+        if (alone && valid(alone)) { options.dropped?.((error instanceof Error ? error.message : '').split('\n')[0]); return JSON.stringify(alone); }
         throw Error(`途中保存と最終出力を合わせた変更案が検証に通りません：${(error instanceof Error ? error.message : '').split('\n')[0]}`);
       }
       return JSON.stringify(merged);

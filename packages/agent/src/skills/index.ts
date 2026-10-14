@@ -53,19 +53,21 @@ export function parseRoute(raw: string): { skill: RoutedSkillId; reason: string 
     return { skill: value.skill as RoutedSkillId, reason: value.reason.trim() };
   } catch { return null; }
 }
-/** The fallback when the router fails: words of the request. */
+/** The router's fallback (design 0023): the words of the request. A Japanese request's predicate is a request form at its end
+ * (〜して, 〜てください, 〜てもらえますか？); a verb counts as an edit only in such a form, and a viewpoint only as a phrase, because
+ * 翻訳, 誤り, 削除, 視点 or 隣接 may be the field's own topic. In order: an explanation asked for; a viewpoint; an edit of what is
+ * stored; a question that asks for nothing else; a looser other-approach word; deepening; anything else is a revise. */
 export function guessSkill(instruction: string): RoutedSkillId {
   const text = instruction.normalize('NFKC');
   const research = /調べ|追加|加え|深掘|調査|更新|集め|探し/.test(text);
-  // In order (design 0023): an explicit request for an explanation; a viewpoint; an edit of what is stored; a question; a looser
-  // viewpoint word; deepening; anything else is a revise.
-  if (/解説|説明|教えて/.test(text) && !research) return 'explain';
-  if (/視点|観点|他分野|ほかの分野|他の分野|隣接/.test(text)) return 'perspective';
-  // An edit ("もっと短く直してもらえますか？", "別の言葉で言い換えて") is a revise even with もっと or ？, unless it asks for new research.
-  // Topic nouns (翻訳, 誤り, 訂正符号) count only in a request form.
-  if (/(直|修正|訂正|補完|書き直|言い換え|和訳|翻訳|消|削除)(して|す|せ)|短く|簡潔に|言い換え|書き直/.test(text) && !/調べ|深掘|網羅|最新|集め|探し/.test(text)) return 'revise';
-  // A question: 違い not in 間違い or 違います ("is wrong"), とは not in ことは.
-  if (/(?<!こ)とは|なぜ|(?<!間)違い(?!ます)|わかりやすく|分かりやすく|どういう|どうやって|仕組み|[?？]/.test(text) && !research) return 'explain';
+  const newResearch = /調べ|深掘|網羅|最新|集め|探し|さらに/.test(text);
+  const request = /て(ください|下さい|ほしい|欲しい|もらえ|もらい|くれ|いただ)|[てで]([。！!]|$)/.test(text);
+  if (/解説|説明|教え|答え/.test(text) && !research) return 'explain';
+  if (/(視点|観点|角度)(で|から|を変え)|他分野|ほかの分野|他の分野|隣接(する)?分野|(別の|違う|異なる)(アプローチ|分野|視点|観点|角度)/.test(text)) return 'perspective';
+  const edit = /(直|修正|訂正|補完|書き直|言い換え|和訳|翻訳|消|削除|分類|変更|付け|入れ|加え|まとめ|短く|簡潔に)(して|て|し)(ください|下さい|ほしい|もらえ|くれ|いただ|[。！!?？]|$)|(短く|簡潔に)(して|まとめ|書い|直)/;
+  if (edit.test(text) && !newResearch) return 'revise';
+  // A question: 違い not in 間違い or 違います ("is wrong"), とは not in ことは; ？ only without a request form.
+  if ((/(?<!こ)とは|なぜ|どうやって|どうして|どう違う|違う(のか|点)|異なる点|仕組み|(?<!間)違い(?!ます)|わかりやすく|分かりやすく|どういう/.test(text) || (/[?？]/.test(text) && !request)) && !research) return 'explain';
   if (/別の|違う|異なる|反対/.test(text)) return 'perspective';
   if (/深掘|もっと|さらに|最新|詳しく調べ|網羅/.test(text)) return 'deepen';
   return 'revise';

@@ -180,9 +180,13 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
   assert.equal(held.submit({ message: '5', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('E', 'fixed')] } }] }).status, 'saved');
   assert.deepEqual(headings(held.partial()!), ['A', 'B', 'C', 'D', 'E=fixed', 'F', 'G']);
   // A held part never fixed does not cost the final response's valid sections.
-  const abandoned = start();
+  const dropped: string[] = [];
+  const abandoned = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true, dropped: reason => dropped.push(reason) });
+  abandoned.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] });
+  abandoned.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C'), sec('D')] } }] });
   assert.equal(abandoned.submit({ message: '3', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('X', 'see [@nowhere]')] } }] }).status, 'held');
   assert.deepEqual(headings(abandoned.finish(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['A', 'B', 'C', 'D', 'E', 'F']);
+  assert.equal(dropped.length, 1); assert.match(dropped[0], /nowhere/);
   // A labelled part that fixes the first section and adds a new one is still a part.
   const fixFirst = start();
   assert.equal(fixFirst.submit({ message: '3', operations: [{ op: 'add_entity', entity: tutorial([sec('A', 'A2'), sec('E')]) }] }).status, 'saved');
