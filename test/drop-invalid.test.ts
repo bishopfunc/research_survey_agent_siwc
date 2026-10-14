@@ -66,3 +66,25 @@ test('an error line names its owner only: one misspelt family axis does not drop
   const rest = dropInvalid(removing, validate);
   assert.ok(rest); assert.deepEqual(rest.patch.operations.map(op => op.op), ['set_title']);
 });
+
+test('a failing operation goes back to its saved version once; only an added entity takes its relations along; a tutorial section line names the tutorial', () => {
+  const issue = fixture.entities.find(e => e.id === 'collision')!;
+  // A held correction of a saved replace (a missing Evidence) goes back to the saved version instead of going.
+  const savedVersion = { op: 'replace_entity', entity: { ...issue, description: 'saved' } } as SurveyPatch['operations'][number];
+  const held = patch([{ op: 'replace_entity', entity: { ...issue, evidence: ['f1-ev-typo'] } }, { op: 'set_title', title: 't' }]);
+  const back = dropInvalid(held, validate, 3, id => id === 'collision' ? savedVersion : undefined);
+  assert.ok(back); assert.equal(back.dropped, 0);
+  assert.equal((back.patch.operations[0] as { entity: { description: string } }).entity.description, 'saved');
+  // A dropped replace of a stored entity keeps the relations to it; a dropped addition takes its relations along.
+  const withClaim = patch([{ op: 'replace_entity', entity: { ...issue, evidence: ['f1-ev-typo'] } }, { op: 'add_entity', entity: claim('f1-claim') }, { op: 'add_relation', relation: { id: 'f1-about', type: 'about', from: 'f1-claim', to: 'collision' } }]);
+  const kept = dropInvalid(withClaim, validate);
+  assert.ok(kept); assert.equal(kept.dropped, 1);
+  assert.deepEqual(kept.patch.operations.map(op => op.op), ['add_entity', 'add_relation']);
+  // "tutorialの節N:" names the tutorial: a valid Claim the section cites stays when the tutorial goes.
+  const tutorial = fixture.entities.find(e => e.type === 'Tutorial')!;
+  if (tutorial.type !== 'Tutorial') throw Error('no tutorial');
+  const sections = tutorial.sections.map((s, i) => i === 0 ? { ...s, body: `${s.body} [@f2-claim] [@nowhere]` } : s);
+  const tutorialPatch = patch([{ op: 'replace_entity', entity: { ...tutorial, sections } }, { op: 'add_entity', entity: claim('f2-claim') }]);
+  const rest = dropInvalid(tutorialPatch, validate);
+  assert.ok(rest); assert.deepEqual(rest.patch.operations.map(op => 'entity' in op ? op.entity.id : op.op), ['f2-claim']);
+});

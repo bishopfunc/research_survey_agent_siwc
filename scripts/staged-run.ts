@@ -6,7 +6,7 @@ import { applyPatch, validateSnapshot, type Entity, type SurveyPatch, type Surve
 import { assessSurvey, findGaps, type SurveyGap } from '../packages/domain/src/survey-assessment';
 import { FAMILY_NUDGE, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SCOUT_ANGLES, SURVEY_TIMING, type SearchMemory } from '../packages/agent/src/research-prompt';
 import type { ResearchOutcome } from './research-run';
-import { dropInvalid } from './drop-invalid';
+import { dropInvalid, targetOf } from './drop-invalid';
 
 export type StageId = 'outline' | `list-${number}` | `extract-${number}` | 'diverge' | 'integrate' | 'tutorial' | 'check' | 'validate' | `fill-${number}`;
 /** The step (1–6) a stage runs. */
@@ -21,7 +21,8 @@ export function stageTraceText(stage: StageId): string {
 }
 /** A gap for the fill: from the server's check, as the validate agent chose and interpreted it. */
 export interface CheckedGap extends SurveyGap { fill: 'existing' | 'search'; query: string | null; why?: string }
-export interface StageResult { ok: boolean; output?: string; error?: string; partial?: string; searches: number; elapsedMs?: number; searched?: SearchMemory }
+/** `saved`: a lenient stage's saved checkpoints (validated), beside its whole output (`output`, not validated). */
+export interface StageResult { ok: boolean; output?: string; error?: string; partial?: string; saved?: string; searches: number; elapsedMs?: number; searched?: SearchMemory }
 export interface StageOptions {
   /** The agent's limit, already cut to what is left of its step. */
   seconds: number;
@@ -259,6 +260,17 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     if (!patch.operations.length) throw Error('操作はすべて担当外でした');
     return applyPatch(snapshot, { ...patch, base_commit_id: id }, id);
   };
+  /** A lenient stage's result (listers, the explore, the fill): its whole output applied operation by operation; an operation
+   * that fails goes back to its saved version; when nothing more can be dropped, the saved checkpoints alone. */
+  const lenientApply = (stage: StageId, result: StageResult, prepared: SurveyPatch, prepare: (patch: SurveyPatch) => SurveyPatch) => {
+    if (!prepared.operations.length) return { patch: prepared, dropped: 0 };
+    const validate = (p: SurveyPatch) => applyPatch(snapshot, p, stage);
+    let saved: SurveyPatch | undefined;
+    try { saved = result.saved ? prepare(steps.normalize(JSON.parse(result.saved)) as SurveyPatch) : undefined; } catch { saved = undefined; }
+    const savedOps = new Map((saved?.operations ?? []).map(op => [targetOf(op), op] as const));
+    return dropInvalid({ ...prepared, base_commit_id: stage }, validate, 3, id => savedOps.get(id))
+      ?? (saved?.operations.length ? dropInvalid({ ...saved, base_commit_id: stage }, validate) : null);
+  };
   let followUps: string[] | undefined, message = '';
   const keep = (patch: SurveyPatch) => { if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) message = patch.message; };
   // Agents finish in any order; their results change the survey one at a time.
@@ -359,7 +371,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
           const scoped = restrictToWorker(own, snapshot, []), patch = newPapersOnly(scoped, snapshot, (dropped, kept) => aliases.set(dropped, kept));
           // Every paper it listed was listed by another agent first: nothing to add.
           if (!patch.operations.length && scoped.operations.length) return;
-          const checked = patch.operations.length ? dropInvalid({ ...patch, base_commit_id: stage }, p => applyPatch(snapshot, p, stage)) : { patch, dropped: 0 };
+          const checked = lenientApply(stage, result, patch, p => newPapersOnly(restrictToWorker(p, snapshot, []), snapshot));
           if (!checked) throw Error('論文の一覧が検証に通りませんでした');
           snapshot = apply(snapshot, checked.patch, stage, own);
         } catch (e) { if (steps.active()) notes.push(`${stageTraceText(stage)}を使えませんでした：${reason(e)}`); }
@@ -414,7 +426,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         const scoped = restrictToWorker(own, snapshot, []), found = newPapersOnly(scoped, snapshot, (dropped, kept) => aliases.set(dropped, kept));
         // As with the listers, an addition that does not validate (a family on an axis the Domain does not have) is dropped, not
         // the whole result.
-        const checked = found.operations.length ? dropInvalid({ ...found, base_commit_id: 'diverge' }, p => applyPatch(snapshot, p, 'diverge')) : { patch: found, dropped: 0 };
+        const checked = lenientApply('diverge', result, found, p => newPapersOnly(restrictToWorker(p, snapshot, []), snapshot));
         if (!checked) throw Error('発散の結果が検証に通りませんでした');
         const patch = checked.patch;
         snapshot = apply(snapshot, patch, 'diverge', patch.operations.length || !scoped.operations.length ? own : patch);
@@ -498,6 +510,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // Step 6: the fill, split over agents that change different entities.
   const fillSeconds = Math.min(T.fill, left(T.total - T.tail));
   if (chosen.length && fillSeconds >= T.fillMin && !halted()) {
+    // A survey-level axes gap names no family: the families without an axis join it, so its part may give them one (ADR 0026).
+    if (chosen.some(g => g.field === 'axes' || g.field === 'classification_axes')) chosen = [...chosen, ...findGaps(snapshot).filter(g => g.field === 'axis' && !chosen.some(c => c.target === g.target && c.field === 'axis')).map(g => ({ ...g, fill: 'existing' as const, query: null }))];
     const parts = splitGaps(chosen, FILL_PARTS);
     steps.progress(`6/${total} Fill：${parts.length}つのAgentで抜け漏れを埋めています`);
     const before = snapshot;
@@ -506,7 +520,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     for (const [i, result] of results.entries()) {
       // The fill ends next to the deadline: its result is not enriched (that may take tens of seconds), and every part's message counts.
       // Applied operation by operation: one bad operation (a family on a missing axis) costs only itself.
-      try { const patch = await parse(`fill-${i + 1}`, result, false), own = withoutRemovals(patch); const checked = own.operations.length ? dropInvalid({ ...own, base_commit_id: `fill-${i + 1}` }, p => applyPatch(snapshot, p, `fill-${i + 1}`)) : { patch: own, dropped: 0 }; if (!checked) throw Error('補完の結果が検証に通りませんでした'); snapshot = apply(snapshot, checked.patch, `fill-${i + 1}`, patch); if (checked.dropped) notes.push(`補完（作業${i + 1}）のうち検証に通らない操作${checked.dropped}件を外しました`); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
+      try { const patch = await parse(`fill-${i + 1}`, result, false), own = withoutRemovals(patch); const checked = lenientApply(`fill-${i + 1}`, result, own, withoutRemovals); if (!checked) throw Error('補完の結果が検証に通りませんでした'); snapshot = apply(snapshot, checked.patch, `fill-${i + 1}`, patch); if (checked.dropped) notes.push(`補完（作業${i + 1}）のうち検証に通らない操作${checked.dropped}件を外しました`); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
       catch (e) { notes.push(`補完（作業${i + 1}）を使えませんでした：${reason(e)}`); }
     }
   } else if (chosen.length && !halted()) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);

@@ -304,6 +304,22 @@ test('the classification-axes gaps go to one fill part; an explore family on a m
   assert.ok(fillRun.calls.includes('fill-1'), 'the fill runs');
   assert.equal(applyPatch(emptySurvey('t'), filled.patch, 'b').title, '補完した題');
   assert.match(filled.patch.message, /補完（作業1）のうち検証に通らない操作1件を外しました/);
+  // When nothing can be dropped (a cycle names no operation), a lenient stage falls back to its saved checkpoints.
+  const cycle = [{ op: 'add_relation', relation: { id: 'f1-c1', type: 'part_of', from: 'collision', to: 'scalability' } }, { op: 'add_relation', relation: { id: 'f1-c2', type: 'part_of', from: 'scalability', to: 'collision' } }];
+  const savedRun = steps({ onRun: stage => stage === 'fill-1' ? { ...ok(patch('fill', [{ op: 'set_title', title: '保存済みの題' }, ...cycle])), saved: JSON.stringify(patch('saved', [{ op: 'set_title', title: '保存済みの題' }])) } : undefined });
+  const fallback = await executeStagedResearch(emptySurvey('t'), 'b', savedRun.s);
+  assert.ok(fallback.status === 'succeeded');
+  assert.equal(applyPatch(emptySurvey('t'), fallback.patch, 'b').title, '保存済みの題');
+  // A survey-level axes gap brings the families without an axis into its part.
+  const noAxes = steps({ onRun: stage => stage === 'outline' ? ok({ ...map, operations: map.operations.map(op => op.op === 'add_entity' && op.entity.type === 'Concept' ? { ...op, entity: { ...op.entity, axis: undefined } } : op.op === 'add_entity' && op.entity.type === 'Domain' ? { ...op, entity: { ...op.entity, classification_axes: undefined } } : op) }) : stage === 'validate' ? ok({ gaps: [], message: 'm' }) : undefined });
+  let offeredAxes: CheckedGap[] = [];
+  noAxes.s.prompt.validate = (_s, gaps) => { offeredAxes = gaps; return 'validate'; };
+  noAxes.s.prompt.fill = (_s, gaps, _m, part, parts) => { noAxes.calls.push(`fill:${part}/${parts}:${gaps.map(g => `${g.target}.${g.field}`).join(',')}`); return 'fill'; };
+  const axesNumber = () => offeredAxes.findIndex(g => g.field === 'axes') + 1;
+  noAxes.s.run = (inner => async (stage: string, prompt: string, snapshot: SurveySnapshot, o: StageOptions) => stage === 'validate' ? ok({ gaps: [{ n: axesNumber(), why: 'w', fill: 'existing', query: null }], message: 'm' }) : inner(stage as never, prompt, snapshot, o))(noAxes.s.run);
+  await executeStagedResearch(emptySurvey('t'), 'b', noAxes.s);
+  const axesFill = noAxes.calls.find(c => c.startsWith('fill:') && c.includes('survey.axes'));
+  assert.ok(axesFill && ['family-cbs.axis', 'family-prioritized.axis', 'family-learned.axis'].every(g => axesFill.includes(g)), axesFill ?? 'no axes part');
   // Listers, the explore and the fill hand their results over unvalidated (lenient), to be applied operation by operation.
   assert.ok(['diverge', 'list-1', 'fill-1'].every(stage => !fillRun.options[stage] || fillRun.options[stage][0].lenient));
   const plain = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
