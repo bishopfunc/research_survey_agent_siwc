@@ -228,7 +228,9 @@ test('a new survey lists about thirty-three papers family by family and reads th
   const list = listInstructions('family-cbs', ['cbs', 'ecbs'], 11, 3);
   assert.match(list, /list the primary papers of the family family-cbs \(its Methods: cbs, ecbs\)[\s\S]*List about 11 primary papers of this family, from its first paper to the state of the art/);
   assert.match(list, /batches of 3–5 papers as soon as you have them, most important first: each Paper with an id prefixed m3-[\s\S]*Omit every other field: the server fills the bibliography\. Never add a paper the snapshot already has/);
-  assert.match(OUTLINE_INSTRUCTIONS, /the title, the Domain with its classification axes and the method families, one submission per family \(its axis set\) with its Methods and their instance_of relations \(its papers are listed while you work\); then the draft Issues/);
+  // The families go first (their papers are listed at once); the classification axes follow as sparse replaces (2026-10-14 run 9:
+  // a map asked for the axes with the families sent nothing in 150 seconds).
+  assert.match(OUTLINE_INSTRUCTIONS, /first the title and the Domain in one small submission, then the method families, one submission per family with its Methods and their instance_of relations \(its papers are listed while you work\); do not wait for the classification axes to send the families\. Then the classification axes as a replace_entity of the Domain with only id, type and classification_axes/);
   assert.match(listInstructions(null, [], 11, 2, 'leaderboards'), /scout the papers of the field[\s\S]*found through leaderboards[\s\S]*Methods of the snapshot that fit, or empty/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /never add the same paper twice/);
   assert.equal(SURVEY_TIMING.total, 600);
@@ -241,7 +243,7 @@ test('the paper list is shared over the families, every tutorial method section 
   assert.match(SURVEY_RULES_INSTRUCTIONS, /every methods section cites at least one Paper, the naive baseline included/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
   // Families along the field's axes, ordered along the central one (design 0038).
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /fix the field's classification axes as its surveys do \(the role in the processing pipeline, what is represented, how it is estimated or learned, what it takes as input\), choose as the central axis[\s\S]*Record the axes in the Domain's classification_axes \(id, label, kind: function, representation, approach, input or other, description, and central: true on exactly one\) and set each family's axis to its axis ID; each family's description states the limitation of the earlier family it answers/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /Name the families along the field's classification axes as its surveys do \(the role in the processing pipeline, what is represented, how it is estimated or learned, what it takes as input\), choose as the central axis[\s\S]*Record the axes in the Domain's classification_axes \(id, label, kind: function, representation, approach, input or other, description, and central: true on exactly one\) and set each family's axis to its axis ID; each family's description states the limitation of the earlier family it answers/);
 });
 test('fields copied from the paper library are an explicit exception to the retrieve-in-this-run rules', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /copy its stored english_terms, abstract_ja and reading unchanged, and its other stored values \(abstract, bibliography, code, representative_figure\)/);
