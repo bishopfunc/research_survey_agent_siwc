@@ -48,12 +48,15 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
     const before = stored(op.entity.id, source) as { type?: string; sections?: Section[] } | undefined;
     if (before?.type !== 'Tutorial' || !Array.isArray(before.sections) || !before.sections.length) return undefined;
     const sent = op.entity as { label?: unknown; summary?: unknown; sections: Section[] };
-    const whole = (sent.label != null || sent.summary != null) && sent.sections.some(s => s.heading === before.sections![0].heading);
+    // Whole: it carries the label or summary, starts from the first stored heading and repeats at least half of the stored headings
+    // (a labelled part that fixes the first section and adds new ones is still a part).
+    const kept = before.sections.filter(s => sent.sections.some(a => a.heading === s.heading)).length;
+    const whole = (sent.label != null || sent.summary != null) && sent.sections[0]?.heading === before.sections[0].heading && kept * 2 >= before.sections.length;
     return whole ? undefined : { ...op, entity: over(before, { ...op.entity, sections: joined(before.sections, sent.sections) }) } as Operation;
   };
   const keepStored = (patch: SurveyPatch, source: SurveyPatch | undefined) => ({ ...patch, operations: patch.operations?.map(op => { const tutorial = part(op, source); if (tutorial) return tutorial; const before = op?.op === 'replace_entity' && op.entity ? stored(op.entity.id, source) : undefined; return before && 'entity' in op && before.type === op.entity.type ? { ...op, entity: over(before, op.entity) } : op; }) }) as SurveyPatch;
-  /** The final response is strict (every key); only its Tutorial parts are joined. */
-  const finalParts = (patch: SurveyPatch) => options.appendSections ? { ...patch, operations: patch.operations.map(op => part(op, all) ?? op) } as SurveyPatch : patch;
+  /** The final response is strict (every key); only its Tutorial parts are joined, to `source`'s sections. */
+  const finalParts = (patch: SurveyPatch, source: SurveyPatch | undefined) => options.appendSections ? { ...patch, operations: patch.operations.map(op => part(op, source) ?? op) } as SurveyPatch : patch;
   return {
     accept(line: string): 'ignored' | 'saved' | 'held' | 'rejected' {
       if (!active()) return 'ignored';
@@ -113,7 +116,7 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       const patch = normalize(JSON.parse(raw)) as SurveyPatch;
       if (!remainderShape(patch)) throw Error('最終出力がPatchの型に一致しません');
       if (patch.base_commit_id !== baseId) throw Error('base_commit_idが一致しません');
-      return JSON.stringify(merge(all, finalParts(patch)));
+      return JSON.stringify(merge(all, finalParts(patch, all)));
     },
     /** Every checkpoint with the final remainder, validated together; an empty remainder with no checkpoint changed nothing
      * and is returned as it is, with its message and follow_ups. */
@@ -123,9 +126,12 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       if (!remainderShape(patch)) throw Error('最終出力がPatchの型に一致しません');
       if (patch.base_commit_id !== baseId) throw Error('base_commit_idが一致しません');
       if (!all && !patch.operations.length) return JSON.stringify(patch);
-      const merged = merge(all, finalParts(patch));
+      const merged = merge(all, finalParts(patch, all));
       try { validate(merged); } catch (error) {
         if (!all) throw error;
+        // Tutorial parts: a held part that was never fixed does not cost the final response's valid sections (as with submissions).
+        const alone = options.appendSections && accepted && accepted !== all ? merge(accepted, finalParts(patch, accepted)) : undefined;
+        if (alone && valid(alone)) return JSON.stringify(alone);
         throw Error(`途中保存と最終出力を合わせた変更案が検証に通りません：${(error instanceof Error ? error.message : '').split('\n')[0]}`);
       }
       return JSON.stringify(merged);

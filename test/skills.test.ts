@@ -37,6 +37,14 @@ test('the words of a request pick a skill when the router fails', () => {
     ['機械翻訳の評価指標の違いとは？', 'explain'], ['ニューラル機械翻訳の仕組みをわかりやすく', 'explain'], ['LLMの推論の誤りはなぜ起きるのか', 'explain'], ['誤り訂正符号とは', 'explain'],
     ['機械翻訳の手法をもっと深く', 'deepen'], ['翻訳の研究をさらに', 'deepen'], ['安全性の観点で補完して', 'perspective'], ['違う視点から書き直して', 'perspective'], ['他分野の論文で補完して', 'perspective'],
     ['要約を和訳して', 'revise'], ['重複した手法を削除して', 'revise'],
+    // Polite questions, rewording with 別の/違う/異なる/反対, "is wrong" and もっと短く are edits (second review, 2026-10-14).
+    ['一行要約をもっと短く直してくれる？', 'revise'], ['CBSの一行要約をもっと短く直してもらえますか？', 'revise'], ['重複した手法を削除してもらえますか?', 'revise'],
+    ['要約の和訳を直してくれませんか？', 'revise'], ['要約を和訳してもらえますか？', 'revise'], ['間違いを直してくれる?', 'revise'], ['要約を短くしてくれる？', 'revise'],
+    ['要約を別の言葉で言い換えて', 'revise'], ['一行要約を違う表現に直して', 'revise'], ['別の書き方で書き直して', 'revise'], ['課題名を別の名前に修正して', 'revise'],
+    ['異なる表現に書き直して', 'revise'], ['反対の意味の語を削除して', 'revise'], ['要約を別の言い方で短くして', 'revise'], ['要約をもっと短くまとめて', 'revise'],
+    ['要約をもっと短く書いて', 'revise'], ['チュートリアルをもっと分かりやすく書き直して', 'revise'], ['発表年が違います。直してください', 'revise'],
+    ['誤字を直して。ほかのことはそのままで', 'revise'], ['CBSの論文の発表年が違うので直して', 'revise'], ['反対の意味になっている文を訂正して', 'revise'], ['発表年が違います', 'revise'],
+    ['別の手法も見てみたい', 'perspective'], ['そのことはどういう意味？', 'explain'],
   ];
   for (const [text, skill] of cases) assert.equal(guessSkill(text), skill, text);
 });

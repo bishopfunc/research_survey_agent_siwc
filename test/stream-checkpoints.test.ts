@@ -179,6 +179,14 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
   assert.deepEqual(headings(held.partial()!), ['A', 'B', 'C', 'D', 'G']);
   assert.equal(held.submit({ message: '5', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('E', 'fixed')] } }] }).status, 'saved');
   assert.deepEqual(headings(held.partial()!), ['A', 'B', 'C', 'D', 'E=fixed', 'F', 'G']);
+  // A held part never fixed does not cost the final response's valid sections.
+  const abandoned = start();
+  assert.equal(abandoned.submit({ message: '3', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('X', 'see [@nowhere]')] } }] }).status, 'held');
+  assert.deepEqual(headings(abandoned.finish(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['A', 'B', 'C', 'D', 'E', 'F']);
+  // A labelled part that fixes the first section and adds a new one is still a part.
+  const fixFirst = start();
+  assert.equal(fixFirst.submit({ message: '3', operations: [{ op: 'add_entity', entity: tutorial([sec('A', 'A2'), sec('E')]) }] }).status, 'saved');
+  assert.deepEqual(headings(fixFirst.partial()!), ['A=A2', 'B', 'C', 'D', 'E']);
 });
 test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
   const fence = '```';
