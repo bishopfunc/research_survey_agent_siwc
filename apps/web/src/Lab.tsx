@@ -238,7 +238,7 @@ export function Lab() {
             <div className="lab-domain-map" role="img" aria-label="分野が課題を含み、手法が課題に対応し、論文が手法を提案し、論文が主張を持ち、主張が根拠を参照する"><div><strong>分野</strong><span>Domain</span></div><i>課題を含む →</i><div><strong>課題</strong><span>Issue</span></div><i>← 対応する</i><div><strong>手法</strong><span>Method</span></div><i>← 提案する</i><div><strong>論文</strong><span>Paper</span></div><i>主張を持つ →</i><div><strong>主張</strong><span>Claim</span></div><i>根拠を参照 →</i><div><strong>根拠</strong><span>Evidence</span></div></div>
             <div className="lab-prose"><p>このつながりの外に、次の4つの項目を置く。</p></div>
             <dl className="lab-defs">
-              <div><dt>系統<small>Concept</small></dt><dd>考え方を共有する手法のまとまり。手法はinstance_ofで系統に属する。</dd></div>
+              <div><dt>系統<small>Concept</small></dt><dd>考え方を共有する手法のまとまり。手法はinstance_ofで系統に属する。系統はaxisで、分野（Domain）のclassification_axesに置いた分類の軸（機能・表現・方式・入力・その他）のどれかに属し、軸のうち1つが中心の軸である。軸のIDは調査の中で重複せず、存在しない軸は指せない。</dd></div>
               <div><dt>ナレッジ<small>Keyword</small></dt><dd>データセット、ベンチマーク、評価指標、SoTAなど、論文をまたいで使われる知識。</dd></div>
               <div><dt>文献<small>Resource</small></dt><dd>文献ガイドに載せるサーベイ、入門記事、ブログ、スライド、リポジトリ、サイト。</dd></div>
               <div><dt>チュートリアル<small>Tutorial</small></dt><dd>参入者が最初に読む読み物。1つの調査に1つだけ置く。</dd></div>
@@ -252,7 +252,7 @@ export function Lab() {
               <div><h4>アブストラクトの原文と和訳を分ける</h4><p>論文のabstractは要約も翻訳もしない原文で、取得元のURLが必要である。和訳はabstract_jaに分けて入れ、原文の無い和訳は拒否する。</p></div>
               <div><h4>論文の要点は生成した説明として扱う</h4><p>読んだ論文は、貢献と5つの問いでまとめる。最初の問い「どんなもの？」には概要（one_line_summary）が答え、残りの4つ（先行研究との差、手法のキモ、検証、議論）を要点（reading）に書く。要点は本文を取得した論文にだけ付け、取得した文章で書けない項目は空にする。理解に重要な図、数式、節は番号だけを持ち、画像と原文はサーバーがarXivのHTML版から取得する。生成した説明なので、確認済みの事実としては扱わない。</p></div>
               <div><h4>ナレッジは論文をまたいでまとめる</h4><p>ナレッジは、参入者が押さえるべきデータセット、ベンチマーク、ハードウェア構成、シミュレータ、評価指標、SoTA、学習済みモデル、アーキテクチャ、ベースラインを、論文をまたいで1件にまとめたものである。使っている論文をすべてつなぎ、SoTAには時点と根拠の論文が必要である。</p></div>
-              <div><h4>参入者向けの情報も既存の型で表す</h4><p>課題の達成度は課題についての主張で、手法の分類は系統へのinstance_ofで、批判的な評価は主張のdisputedや評価条件の限界で表す。専用の型を作らないので、達成度にも主張と同じ条件、時点、根拠の規則がかかる。</p></div>
+              <div><h4>参入者向けの情報も既存の型で表す</h4><p>課題の達成度は課題についての主張で、手法の分類は系統へのinstance_ofと、系統の分類の軸（分野のclassification_axesと系統のaxis。中心の軸に沿って系統を古典から最新へ並べる）で、批判的な評価は主張のdisputedや評価条件の限界で表す。専用の型を作らないので、達成度にも主張と同じ条件、時点、根拠の規則がかかる。</p></div>
               <div><h4>保存した版は変えない</h4><p>変更案は、どの版を編集したか（base_commit_id）を持つ。適用する時点の最新の版と一致しなければ、適用を拒否する。保存した版は変更せず、新しい版を親の版につないで追加する。</p></div>
             </div>
           </Sub>
@@ -274,7 +274,7 @@ export function Lab() {
           <Sub id="requirements" title="調査の要件">
             <div className="lab-prose"><p>Codexの調査結果は、決まった採点表で確かめる。実行結果は <code>npm run survey:assess -- .poc/runs/&lt;run&gt;</code> で採点できる。下は、サンプルの調査を採点した結果である（サンプルは小さいため、満たさない要件がある）。</p></div>
             <div className="lab-rubric"><h4>調査の採点表</h4><ul>{assessSurvey(fixture).map(c=><li key={c.id} className={c.pass ? 'pass' : 'fail'}><span>{c.pass ? '満たす' : '未達'}</span>{c.label}<small>{c.detail}</small></li>)}</ul></div>
-            <div className="lab-rubric"><h4>チュートリアルの採点表</h4><p>基準は、サンプルの「{REFERENCE_TUTORIAL.label}」である。構成は<a href="https://kei18.github.io/note/posts/mapf-tutorial/" target="_blank" rel="noreferrer">マルチエージェント経路計画の紹介</a>を、課題と達成度の書き方は<a href="https://huyenchip.com/2023/08/16/llm-research-open-challenges.html" target="_blank" rel="noreferrer">Open challenges in LLM research</a>を手本にした。Codexには基準の章立てと規模を渡し、出力を同じ採点表で確かめて、基準と数値で比べる。</p><ul>{assessTutorial(fixture).map(c=><li key={c.id} className={c.pass ? 'pass' : 'fail'}><span>{c.pass ? '満たす' : '未達'}</span>{c.label}<small>{c.detail}</small></li>)}</ul><dl className="lab-reference">{compareToReference(fixture).map(r=><div key={r.id}><dt>{r.label}</dt><dd>{r.reference}</dd></div>)}</dl></div>
+            <div className="lab-rubric"><h4>チュートリアルの採点表</h4><p>基準は、サンプルの「{REFERENCE_TUTORIAL.label}」である。3つの手本を統合した。はじめに・〇〇とは・典型的な〇〇・研究動向「AからBへ」・まとめの今後の方向性は<a href="https://zenn.dev/epicai_techblog/articles/bfe50e2e0ad8ec" target="_blank" rel="noreferrer">ナビゲーションにおける地図表現の研究動向</a>を、記法と数式・素朴な方法から最新へ・まとめと選び方・派生問題は<a href="https://kei18.github.io/note/posts/mapf-tutorial/" target="_blank" rel="noreferrer">マルチエージェント経路計画の紹介</a>を、課題と達成度の書き方は<a href="https://huyenchip.com/2023/08/16/llm-research-open-challenges.html" target="_blank" rel="noreferrer">Open challenges in LLM research</a>を手本にした。Codexには基準の章立てと規模を渡し、出力を同じ採点表で確かめて、基準と数値で比べる。</p><ul>{assessTutorial(fixture).map(c=><li key={c.id} className={c.pass ? 'pass' : 'fail'}><span>{c.pass ? '満たす' : '未達'}</span>{c.label}<small>{c.detail}</small></li>)}</ul><dl className="lab-reference">{compareToReference(fixture).map(r=><div key={r.id}><dt>{r.label}</dt><dd>{r.reference}</dd></div>)}</dl></div>
           </Sub>
         </section>
         <footer className="lab-footer"><span>Speedrun Survey Lab</span><a href="/">アプリに戻る ↗</a></footer>

@@ -288,6 +288,23 @@ test('when the readings end late and the integration and the validate run out th
   }
 });
 
+test('the classification-axes gaps go to one fill part; an explore family on a missing axis is dropped, not the explore result (ADR 0026)', async () => {
+  const gaps = [{ target: 'survey', field: 'axes', problem: 'p' }, { target: 'mapf', field: 'classification_axes', problem: 'p' }, { target: 'family-cbs', field: 'axis', problem: 'p' },
+    { target: 'family-learned', field: 'axis', problem: 'p' }, { target: 'a', field: 'overview', problem: 'p' }, { target: 'b', field: 'overview', problem: 'p' }].map(g => ({ ...g, fill: 'search' as const, query: null }));
+  const parts = splitGaps(gaps, 3);
+  const axesPart = parts.filter(p => p.some(g => g.field === 'axis' || g.field === 'axes' || g.field === 'classification_axes'));
+  assert.equal(axesPart.length, 1); assert.equal(axesPart[0].filter(g => g.field !== 'overview').length, 4);
+  const plain = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
+  const paper = { ...plain, id: 'd-paper', label: 'A new paper', title: 'A new paper from another field', doi: null, arxiv_id: null, url: null, proposes: [], addresses: [], reading: null, claims: [], evidence: [], abstract_ja: null };
+  const family = { id: 'd-family', type: 'Concept', label: '他分野の考え方', provenance: 'codex', description: 'd', axis: 'axis-nowhere' };
+  const run = steps({ results: { diverge: ok(patch('explore', [{ op: 'add_entity', entity: paper }, { op: 'add_entity', entity: family }])) } });
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
+  assert.ok(final.entities.some(e => e.id === 'd-paper') && !final.entities.some(e => e.id === 'd-family'));
+  assert.match(outcome.patch.message, /発散の結果のうち検証に通らない操作1件を外しました/);
+});
+
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);

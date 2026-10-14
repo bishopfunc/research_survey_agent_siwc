@@ -210,11 +210,11 @@ test('a new survey ends with a newcomer tutorial modeled on a good field tutoria
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When this run writes the Tutorial \(the tutorial agent, or a request about it\), write one Tutorial entity per survey/);
   // Three models integrated (design 0038): the map-representation article, the MAPF introduction and the LLM open challenges.
   assert.match(SURVEY_RULES_INSTRUCTIONS, /integrates three models: the article on map representations in navigation \(https:\/\/zenn\.dev\/epicai_techblog\/articles\/bfe50e2e0ad8ec[\s\S]*the app's MAPF introduction[\s\S]*llm-research-open-challenges/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /motivation \(headed はじめに: what it covers and does not cover, the prerequisites and the intended readers as "- " lines/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /motivation \(headed はじめに: what it covers and does not cover, the prerequisites and the intended readers as the lines "- 扱うこと：…", "- 扱わないこと：…", "- 前提：…" and "- 対象読者：…"/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /definition \(headed 〇〇とは: the task in words with its components as "- " lines, and, where the field has a formal statement, notation and at least one display equation/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /first the typical setting \(headed 典型的な〇〇: fix one typical setting, list each component with its typical method as "- 要素：手法（年）\[@ID\]" lines, explain each method by its role and its input → output/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /research trends \(headed 研究動向：AからBへ（手法）: one change per section along the central axis of \[methods\], each opening with the limitation of the previous approach/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /summary \(which method when, the roles the central concept has played, and three directions or more as "- " lines/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /summary \(which method when, the roles the central concept has played, and, after a line ending in "今後の方向性：", three directions or more as "- " lines/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /The body cannot draw tables: write a correspondence as "- 要素：手法" lines/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Cite entities in the body as \[@ID\]/);
   assert.match(RESEARCH_STEPS[3].instruction, /a separate agent writes the Tutorial \(\[tutorial\]\)/);

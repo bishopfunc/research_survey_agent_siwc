@@ -95,6 +95,9 @@ const fieldLabels: Record<string, string> = {classification_axes:'分類の軸',
 function describeValue(value: unknown, lookup: (id: string) => string = id => id): string {
   if (value === null || value === undefined) return 'なし';
   if (Array.isArray(value)) return value.length ? value.map(v => describeValue(v, lookup)).join('、') : '未登録';
+  // A classification axis of the Domain (ADR 0026): its name, kind and whether it is central, then what it separates.
+  const axis = value as { label?: unknown; kind?: unknown; description?: unknown; central?: unknown };
+  if (typeof value === 'object' && typeof axis.label === 'string' && typeof axis.description === 'string' && String(axis.kind) in axisKinds) return `${axis.label}（${axisKinds[axis.kind as keyof typeof axisKinds]}${axis.central ? '・中心の軸' : ''}）：${axis.description}`;
   if (typeof value === 'object') return Object.entries(value).filter(([key]) => !['id','type','provenance','content_hash','schema_version','asset_id','source_pdf_sha256'].includes(key)).map(([key,v]) => `${fieldLabels[key] ?? key}：${key === 'code_availability' ? codeAvailabilityLabels[v as keyof typeof codeAvailabilityLabels] : describeValue(v,lookup)}`).join('\n');
   const labels: Record<string,string> = {...kindLabels,...statusLabels,...keywordCategories,...venueTypes,unverified:'未確認',abstract_only:'要旨のみ確認',verified:'原文を確認済み'};
   return (labels[String(value)] ?? lookup(String(value))) || '未記入';
@@ -197,7 +200,9 @@ function describeChange(op: Operation, base: SurveySnapshot, lookup: (id: string
 function Proposal({ patch, base, lookup, stale, disabled, onDiscard, onSave }: { patch: SurveyPatch; base: SurveySnapshot; lookup: (id: string) => string; stale: boolean; disabled: boolean; onDiscard: () => void; onSave: () => void }) {
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState(false);
-  const changes = patch.operations.map(op => describeChange(op, base, lookup));
+  // A family's axis is an axis ID of the Domain (ADR 0026), shown by its name from the base or the proposed Domain.
+  const axisNames = new Map([...base.entities, ...patch.operations.flatMap(op => 'entity' in op ? [op.entity] : [])].flatMap(e => e.type === 'Domain' ? (e.classification_axes ?? []).map(a => [a.id, a.label] as const) : []));
+  const changes = patch.operations.map(op => describeChange(op, base, id => axisNames.get(id) ?? lookup(id)));
   const groups = CHANGE_GROUPS.map(group => ({ group, items: changes.filter(c => c.group === group) })).filter(g => g.items.length);
   return <section className="proposal" aria-label="変更案">
     <button className={full ? 'proposal-message full' : 'proposal-message'} aria-expanded={full} onClick={() => setFull(!full)}>{patch.message}</button>
@@ -559,7 +564,7 @@ function App() {
   const gaps = historical ? [] : [
     snapshot.entities.some(e => e.type === 'Method' && !families(e.id).length) && '手法を系統（考え方を共有する分類）に分け、各系統を古典から最新まで年順にそろえて',
     issues.length > 0 && !issues.some(e => claimsAbout(e.id).length) && '重要な課題の達成度を、論文の数値（ベンチマーク・指標・条件）で示して',
-    snapshot.entities.length > 0 && !tutorialEntity && 'この調査から参入者向けのチュートリアルを作って（問題設定→解き方の流れ→まとめ→派生問題→実装→さらに学ぶ）',
+    snapshot.entities.length > 0 && !tutorialEntity && 'この調査から参入者向けのチュートリアルを作って',
     papers.some(p => (p.abstract && !p.abstract_ja) || !p.reading) && '要旨の和訳と、論文の要点（貢献と5つの問い）を加えて',
     papers.some(p => p.reading && !p.reading.cites) && '論文の概要と要点の各項目に、原文の出典を付けて。arXivにある論文はHTML版の本文を読んで補って',
     (issues.some(e => !e.english_terms?.length) || methods.some(e => e.type === 'Method' && !e.english_terms?.length)) && '課題と手法に、論文で使われる英語表現を加えて',

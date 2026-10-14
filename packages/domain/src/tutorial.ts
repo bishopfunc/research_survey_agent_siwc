@@ -72,12 +72,13 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
   const order = sections.map(s => TUTORIAL_ROLES.indexOf(s.role));
   const motivationText = of('motivation').map(s => s.body).join('\n');
   const trends = methods.slice(1).filter(s => /から.+へ/.test(s.heading));
-  const directions = of('summary').reduce((n, s) => n + count(s.body, LIST_LINE), 0);
+  // The directions are the list after the line that introduces them ("今後の方向性："), not a which-method-when list before it.
+  const directions = of('summary').reduce((n, s) => { const at = s.body.indexOf('今後の方向性'); return n + (at < 0 ? 0 : count(s.body.slice(at), LIST_LINE)); }, 0);
   const chars = sections.reduce((n, s) => n + s.body.length, 0);
   const check = (id: string, label: string, pass: boolean, detail: string): TutorialCheck => ({ id, label, pass, detail });
   return [
     check('exists', 'チュートリアルがある', !!tutorial, tutorial ? `${sections.length}節` : 'なし'),
-    check('scope', 'はじめに：扱うこと・扱わないこと・前提・対象読者を書く', /扱うこと/.test(motivationText) && /扱わないこと/.test(motivationText) && /対象読者/.test(motivationText), of('motivation').length ? `${['扱うこと', '扱わないこと', '前提', '対象読者'].filter(w => motivationText.includes(w)).join('・') || 'なし'}` : 'なし'),
+    check('scope', 'はじめに：扱うこと・扱わないこと・前提・対象読者を書く', ['扱うこと', '扱わないこと', '前提', '対象読者'].every(w => motivationText.includes(w)), of('motivation').length ? `${['扱うこと', '扱わないこと', '前提', '対象読者'].filter(w => motivationText.includes(w)).join('・') || 'なし'}` : 'なし'),
     check('motivation', 'はじめに：なぜ面白い問題か・応用を2つ以上の出典つきで', cites(of('motivation')) >= 2, `出典${cites(of('motivation'))}`),
     check('definition', '〇〇とは：言葉で定義し、構成要素の一覧か記法と数式で示し、出典がある', of('definition').some(s => (/\$\$[\s\S]+?\$\$/.test(s.body) || count(s.body, LIST_LINE) >= 2) && sectionCitations(s).length > 0), `${of('definition').length}節`),
     check('methods', '解き方：4つ以上の手法の節', methods.length >= 4, `${methods.length}節`),
@@ -91,7 +92,7 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
     check('captions', '図：チュートリアルの図・アルゴリズム・数式に日本語のキャプション（caption_ja）', sections.every(s => s.media.every(m => !!m.caption_ja?.trim())) && sections.some(s => s.media.length > 0), `${sections.flatMap(s => s.media).filter(m => m.caption_ja?.trim()).length}/${sections.flatMap(s => s.media).length}件`),
     check('figures', '図：arXivにある論文の図（画像）を、問題設定か解き方の2節以上で示す', sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length >= 2, `${sections.filter(s => (s.role === 'definition' || s.role === 'methods') && showsFigure(s, papers)).length}節`),
     check('summary', 'まとめと選び方：場面ごとの推奨を出典つきで', cites(of('summary')) >= 2, `出典${cites(of('summary'))}`),
-    check('directions', 'まとめと選び方：今後の方向性を3つ以上「- 」の箇条書きで', directions >= 3, `${directions}行`),
+    check('directions', 'まとめと選び方：「今後の方向性：」の後に方向性を3つ以上「- 」の箇条書きで', directions >= 3, `${directions}行`),
     check('challenges', '課題と達成度：分野の重要な課題を1節に1つ、3節以上', challenges.length >= 3, `${challenges.length}節`),
     check('challenge_issue', '課題と達成度：各節が調査の課題を引用する', challenges.length > 0 && challenges.every(s => issuesIn(s).length > 0), `${challenges.filter(s => issuesIn(s).length > 0).length}/${challenges.length}節`),
     check('challenge_progress', '課題と達成度：各節が、その課題の達成度の主張（数値・条件・時点）を引用する', challenges.length > 0 && challenges.every(progressCited), `${challenges.filter(progressCited).length}/${challenges.length}節`),

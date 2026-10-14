@@ -125,16 +125,18 @@ export function validateSnapshot(value: unknown): string[] {
     }
   }
   if (value.entities.filter(e => e.type === 'Tutorial').length > 1) errors.push('チュートリアルは1つの調査に1つだけです');
-  // Classification axes (design 0038, ADR 0026): unique within a Domain, at most one central, and a family's axis exists.
-  const axes = new Set<string>();
-  for (const d of value.entities) if (d.type === 'Domain' && d.classification_axes) {
-    const ids = d.classification_axes.map(a => a.id);
-    if (new Set(ids).size !== ids.length) errors.push(`${d.id}: 分類の軸のIDが重複しています`);
-    if (d.classification_axes.filter(a => a.central).length > 1) errors.push(`${d.id}: 中心の軸は1つだけです`);
+  // Classification axes (design 0038, ADR 0026): a family's axis is resolved survey-wide, so axis IDs are unique and at most one
+  // axis is central across the survey. An error about a family's missing axis names the Domains too, so dropInvalid can drop a
+  // Domain replace that removed the axis.
+  const axes = new Set<string>(), domains = value.entities.filter(e => e.type === 'Domain');
+  let centrals = 0;
+  for (const d of domains) if (d.type === 'Domain' && d.classification_axes) {
+    for (const a of d.classification_axes) { if (axes.has(a.id)) errors.push(`${d.id}: 分類の軸のID ${a.id} が重複しています`); axes.add(a.id); }
+    centrals += d.classification_axes.filter(a => a.central).length;
     if (d.classification_axes.length > 6) errors.push(`${d.id}: 分類の軸は6つまでです`);
-    ids.forEach(id => axes.add(id));
   }
-  for (const c of value.entities) if (c.type === 'Concept' && c.axis && !axes.has(c.axis)) errors.push(`${c.id}: 分類の軸 ${c.axis} がありません`);
+  if (centrals > 1) errors.push(`${domains.map(d => d.id).join('・')}: 中心の軸は調査に1つだけです`);
+  for (const c of value.entities) if (c.type === 'Concept' && c.axis && !axes.has(c.axis)) errors.push(`${c.id}: 分類の軸 ${c.axis} がありません（分野 ${domains.map(d => d.id).join('・') || 'なし'}）`);
   const typed = RELATION_ENDPOINTS;
   const triples = new Set<string>();
   for (const r of value.relations) {

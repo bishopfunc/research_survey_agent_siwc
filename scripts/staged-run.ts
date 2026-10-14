@@ -174,7 +174,8 @@ export function surveyOutline(snapshot: SurveySnapshot): string {
 export function splitGaps(gaps: CheckedGap[], parts: number): CheckedGap[][] {
   const byTarget = new Map<string, CheckedGap[]>();
   // A survey-level check (the tutorial, methods without family…) may need any entity; it goes with the Tutorial's gaps into one part.
-  const groupOf = (gap: CheckedGap) => gap.target === 'survey' || /^tutorial/i.test(gap.target) ? 'survey' : gap.target;
+  // The classification axes (the Domain's axes and each family's axis, ADR 0026) depend on each other: one part fills them all.
+  const groupOf = (gap: CheckedGap) => ['axes', 'classification_axes', 'axis'].includes(gap.field) ? 'axes' : gap.target === 'survey' || /^tutorial/i.test(gap.target) ? 'survey' : gap.target;
   for (const gap of gaps) byTarget.set(groupOf(gap), [...(byTarget.get(groupOf(gap)) ?? []), gap]);
   const out: CheckedGap[][] = Array.from({ length: Math.max(1, Math.min(parts, byTarget.size)) }, () => []);
   for (const group of byTarget.values()) out.reduce((min, g) => g.length < min.length ? g : min).push(...group);
@@ -404,8 +405,14 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     await serial(async () => {
       try {
         const own = await parse('diverge', result);
-        const scoped = restrictToWorker(own, snapshot, []), patch = newPapersOnly(scoped, snapshot, (dropped, kept) => aliases.set(dropped, kept));
+        const scoped = restrictToWorker(own, snapshot, []), found = newPapersOnly(scoped, snapshot, (dropped, kept) => aliases.set(dropped, kept));
+        // As with the listers, an addition that does not validate (a family on an axis the Domain does not have) is dropped, not
+        // the whole result.
+        const checked = found.operations.length ? dropInvalid({ ...found, base_commit_id: 'diverge' }, p => applyPatch(snapshot, p, 'diverge')) : { patch: found, dropped: 0 };
+        if (!checked) throw Error('発散の結果が検証に通りませんでした');
+        const patch = checked.patch;
         snapshot = apply(snapshot, patch, 'diverge', patch.operations.length || !scoped.operations.length ? own : patch);
+        if (checked.dropped) notes.push(`発散の結果のうち検証に通らない操作${checked.dropped}件を外しました`);
         explorePatch = patch;
         if (patch.message) notes.push(`発散：${patch.message}`);
       } catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); }

@@ -17,7 +17,7 @@ export const MISSING_PERSPECTIVES = 'evaluation conditions, real-world deploymen
 export const RESEARCH_STEPS = [
   {
     id:'sources',stage:1,level:'抽象',short:'Map',runner:'全体像の1つと、系統ごとに論文を挙げるAgent。提出した論文から順に2が始まる',title:'信頼できる情報源から、分野の全体像と論文を挙げる',
-    explanation:'全体像のAgentは論文を挙げず、題・分野・課題の草案・手法の系統と手法・文献を素早く提出する。系統が提出されるたびに、その系統の論文を挙げるAgentが別に始まり、3〜5本ずつ提出する。系統ごとのAgentは、その系統の手法を主な貢献とする論文だけを挙げ、データセット・ベンチマークの論文は最初の系統のAgentだけが挙げる。同じ論文を別のAgentが先に挙げていれば、サーバーが提出の返答で伝え、別の論文を挙げさせる。まず分野名と汎用的な語（文献ガイドのルール）で一般のWebを検索し、最初の検索ではsite指定・URLやドメインの限定・既知の論文名を使わない。見つけた情報源を開いて、課題・手法の系統・評価の慣習をURL付きでまとめてから、arXivや論文集、個別の論文に絞る。代表的なサーベイ（古典と最近）、awesomeレポジトリ、主要な学会の論文集、リーダーボード、ブログ・チュートリアル・講演を使い、標準とされるデータセット・ベンチマーク・指標・シミュレータ・ハードウェア・ベースライン・学習済みモデル・アーキテクチャ・SoTAを控えて公式ページを開く。一次論文を広く（古典・引用の多いもの・系統ごとの最初から最新まで・最近の転換点・強いベースライン）、記憶ではなくサーベイの文献表・一覧・論文集から挙げる。',
+    explanation:'全体像のAgentは論文を挙げず、題・分野と分類の軸（中心の軸を1つ）・課題の草案・手法の系統（軸つき）と手法・文献を素早く提出する。系統が提出されるたびに、その系統の論文を挙げるAgentが別に始まり、3〜5本ずつ提出する。系統ごとのAgentは、その系統の手法を主な貢献とする論文だけを挙げ、データセット・ベンチマークの論文は最初の系統のAgentだけが挙げる。同じ論文を別のAgentが先に挙げていれば、サーバーが提出の返答で伝え、別の論文を挙げさせる。まず分野名と汎用的な語（文献ガイドのルール）で一般のWebを検索し、最初の検索ではsite指定・URLやドメインの限定・既知の論文名を使わない。見つけた情報源を開いて、課題・手法の系統・評価の慣習をURL付きでまとめてから、arXivや論文集、個別の論文に絞る。代表的なサーベイ（古典と最近）、awesomeレポジトリ、主要な学会の論文集、リーダーボード、ブログ・チュートリアル・講演を使い、標準とされるデータセット・ベンチマーク・指標・シミュレータ・ハードウェア・ベースライン・学習済みモデル・アーキテクチャ・SoTAを控えて公式ページを開く。一次論文を広く（古典・引用の多いもの・系統ごとの最初から最新まで・最近の転換点・強いベースライン）、記憶ではなくサーベイの文献表・一覧・論文集から挙げる。',
     instruction:'Abstract: map the field before collecting papers. Start with broad web searches of the field name with the generic terms of [guide]; in the first batch use no site: filters, URL or domain restrictions, or names of papers you already know. Open what they find and first summarize for yourself the main issues, method families and evaluation practices with their URLs (record the sources as Resources, never as URLs in the Domain description); only then narrow to arXiv, proceedings or individual papers. Draw on foundational and recent surveys, awesome-<field> repositories, main-venue proceedings, leaderboards, and blogs, tutorials and talks. Note the datasets, benchmarks, metrics, simulators, hardware, baselines, widely used pretrained models, architectures and the state of the art that the surveys treat as standard, and open their official pages or leaderboards. List the primary papers of the field broadly (seminal, most cited, each family from its first paper to the state of the art, recent turning points, strong baselines), taking them from survey bibliographies, curated lists and proceedings rather than from memory.',
   },
   {
@@ -54,7 +54,7 @@ export const EXHAUSTIVE_SCOPE = 'Treat the user request as the name of the resea
 
 /** The revise skill (requests that neither deepen, change perspective nor ask for an explanation). The tutorial step
  * carries the sample tutorial's outline, so a change to the sample changes this prompt too. */
-export const ADDITIONAL_PROMPT_VERSION = 'survey-additional@2026-10-12T20:53+09:00';
+export const ADDITIONAL_PROMPT_VERSION = 'survey-additional@2026-10-14T19:18+09:00';
 export const ADDITIONAL_RESEARCH_STEPS = [
   { id:'scope', title:'依頼の範囲を決める', explanation:'今の調査と依頼を照らして必要な範囲だけを決め、名前の変更など単純な修正は検索せずに行う。', instruction:'Decide the smallest scope that satisfies the request; make a pure edit, such as renaming or correcting a field, without searching.' },
   { id:'sources', title:'新しい小分野は分野の既存ソースから', explanation:'調査に無い小分野なら、そのサーベイ・awesomeレポジトリ・ブログや記事を文献ガイドの語で並行して探し、突き合わせてから一次論文へ進む。', instruction:'For a subtopic the survey does not cover yet, search its surveys, awesome repositories and blogs or articles in parallel with the generic terms of [guide], reconcile them, then follow the primary papers.' },
@@ -66,7 +66,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T19:21+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T19:41+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -164,7 +164,7 @@ export function divergeInstructions(memory: SearchMemory) {
     'Mode: new survey, step 3 of 6 (explore). You are a separate agent: the snapshot is the map from step 1 while other agents read its papers; your only job is the divergent search. Each paper you submit is read in depth by another agent at once, so submit each paper (with what it addresses) as soon as you find it.',
     `3. ${RESEARCH_STEPS[2].instruction}`,
     searchMemoryText(memory),
-    `Output additions only: at most ${DIVERGE_MAX_PAPERS} Papers (title, identifier, year when shown, one_line_summary, proposes, addresses, reading null); Methods, with a family if needed, for ideas from other fields, addressing the issues they could solve; Issues for missing perspectives and open problems, with Evidence and a broader Issue (part_of); the Resources you opened ([guide]). Replace or remove nothing, prefix every new ID with d-, list in the message the perspectives and fields you found, and leave follow_ups empty.`,
+    `Output additions only: at most ${DIVERGE_MAX_PAPERS} Papers (title, identifier, year when shown, one_line_summary, proposes, addresses, reading null); Methods, with a family if needed (its axis one of the axis IDs the snapshot\'s Domain already has, or none: do not change the Domain), for ideas from other fields, addressing the issues they could solve; Issues for missing perspectives and open problems, with Evidence and a broader Issue (part_of); the Resources you opened ([guide]). Replace or remove nothing, prefix every new ID with d-, list in the message the perspectives and fields you found, and leave follow_ups empty.`,
   ].join('\n\n');
 }
 /** Step 5: the validate agent reads the server's gap list and chooses what to fill and how (no web search). */
@@ -192,6 +192,8 @@ export function fillInstructions(gaps: unknown[], memory: SearchMemory, part = 1
     `Gaps to fill (data): ${JSON.stringify(gaps)}`,
     searchMemoryText(memory),
     `Output: replace_entity for the entities you complete ([keepstored]) and add_entity for the Evidence, Claims and Keywords and add_relation for the relations the gaps need, with every new ID prefixed f${part}-. Remove nothing, list in the message the gaps you could not fill, and end with the three follow_ups built from them.`,
+    // The classification axes depend on each other (ADR 0026); the part with their gaps may change the Domain and every family.
+    ...((gaps as { field?: unknown }[]).some(g => ['axes', 'classification_axes', 'axis'].includes(String(g?.field))) ? ['Classification axes ([methods]): for these gaps you may change the Domain and every method family: set the Domain\'s classification_axes (one central) and each family\'s axis to one of those axis IDs, in one submission so they validate together.'] : []),
     // A missing or failing tutorial is rewritten after the sample, like the tutorial agent does.
     ...(/tutorial/i.test(JSON.stringify(gaps)) ? [`When the survey has no Tutorial or it misses requirements, write it as [tutorial] describes. ${referenceOutline()}`] : []),
   ].join('\n\n');

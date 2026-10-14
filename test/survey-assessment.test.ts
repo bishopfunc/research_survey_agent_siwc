@@ -74,10 +74,19 @@ test('classification axes: the families sit on the Domain\'s axes with one centr
   assert.ok(findGaps(none).some(g => g.target === 'mapf' && g.problem === '分類の軸が無い'));
   // The validator: a missing axis, a repeated axis ID, two central axes.
   const wrong = structuredClone(fixture); conceptOf(wrong, 'family-cbs').axis = 'axis-nowhere';
-  assert.match(validateSnapshot(wrong).join(), /分類の軸 axis-nowhere がありません/);
+  // The error names the Domain too, so dropInvalid can drop a Domain replace that removed an axis.
+  assert.match(validateSnapshot(wrong).join(), /family-cbs: 分類の軸 axis-nowhere がありません（分野 mapf）/);
   const twice = structuredClone(fixture); const axes = domainOf(twice).classification_axes!; axes.push({ ...axes[0] });
-  assert.match(validateSnapshot(twice).join(), /分類の軸のIDが重複/);
-  assert.match(validateSnapshot(twice).join(), /中心の軸は1つだけ/);
+  assert.match(validateSnapshot(twice).join(), /分類の軸のID axis-planning が重複/);
+  assert.match(validateSnapshot(twice).join(), /中心の軸は調査に1つだけ/);
+  // A family's axis is resolved survey-wide: an axis ID repeated in a second Domain is refused as well.
+  const second = structuredClone(fixture); second.entities.push({ ...domainOf(fixture), id: 'mapf-2', classification_axes: [{ id: 'axis-planning', label: '入力の種類', kind: 'input', description: 'd' }] });
+  assert.match(validateSnapshot(second).join(), /mapf-2: 分類の軸のID axis-planning が重複/);
+  // A survey without method families has nothing to classify.
+  const noFamilies = structuredClone(fixture); noFamilies.relations = noFamilies.relations.filter(r => r.type !== 'instance_of'); delete domainOf(noFamilies).classification_axes;
+  for (const id of ['family-cbs', 'family-prioritized', 'family-learned']) delete conceptOf(noFamilies, id).axis;
+  assert.ok(assessSurvey(noFamilies).find(c => c.id === 'axes')!.pass);
+  assert.ok(!findGaps(noFamilies).some(g => g.field === 'classification_axes' || g.field === 'axis'));
   // Codex's strict output sends central: null for a non-central axis; it is dropped, not kept as null.
   const strict = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: { ...domainOf(fixture), classification_axes: [{ id: 'a', label: 'A', kind: 'approach', description: 'd', central: null }] } }] }, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as { operations: { entity: { classification_axes: Record<string, unknown>[] } }[] };
   assert.deepEqual(Object.keys(strict.operations[0].entity.classification_axes[0]).sort(), ['description', 'id', 'kind', 'label']);

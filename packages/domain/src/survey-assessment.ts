@@ -62,7 +62,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
     check('unique', '同じ論文が重複していない', duplicates === 0, `重複${duplicates}`),
     check('span', `古典から最新まで（論文の年の幅が${t.yearSpan}年以上）`, span >= t.yearSpan, years.length ? `${Math.min(...years)}〜${Math.max(...years)}` : '年なし'),
     check('methods', `手法が${t.methods}つ以上、系統が${t.families}つ以上、すべての手法が系統に属する`, methods.length >= t.methods && families.size >= t.families && methods.every(m => inFamily.has(m.id)), `手法${methods.length}・系統${families.size}・未分類${methods.filter(m => !inFamily.has(m.id)).length}`),
-    check('axes', '手法の分類の軸：軸を決め、中心の軸が1つあり、すべての系統が軸を持つ', axes.length > 0 && central === 1 && withoutAxis === 0, `軸${axes.length}・中心${central}・軸の無い系統${withoutAxis}`),
+    check('axes', '手法の分類の軸：系統がある調査では、軸を決め、中心の軸が1つあり、すべての系統が軸を持つ', families.size === 0 || (axes.length > 0 && central === 1 && withoutAxis === 0), `軸${axes.length}・中心${central}・軸の無い系統${withoutAxis}`),
     check('issues', `課題が${t.issuesMin}〜${t.issuesMax}、すべてに達成度`, issues.length >= t.issuesMin && issues.length <= t.issuesMax && achieved.length === issues.length, `課題${issues.length}・達成度${achieved.length}`),
     check('knowledge', `ナレッジの層が${t.knowledgeLayers}つ以上`, layers.size >= t.knowledgeLayers, `${layers.size}/8`),
     check('guide', '文献ガイド：3件以上、うちサーベイ1件以上', resources.length >= 3 && resources.some(r => r.kind === 'survey'), `${resources.length}件（サーベイ${resources.filter(r => r.kind === 'survey').length}）`),
@@ -87,10 +87,6 @@ export function findGaps(snapshot: SurveySnapshot): SurveyGap[] {
       if (!achieved.has(e.id)) gap(e.id, 'about', '達成度の主張が無い');
     }
     if (e.type === 'Concept' && families.has(e.id) && !e.axis) gap(e.id, 'axis', '分類の軸が無い');
-    if (e.type === 'Domain' && families.size) {
-      if (!e.classification_axes?.length) gap(e.id, 'classification_axes', '分類の軸が無い');
-      else if (!e.classification_axes.some(a => a.central)) gap(e.id, 'classification_axes', '中心の軸が無い');
-    }
     if (e.type === 'Method') {
       if (!inFamily.has(e.id)) gap(e.id, 'instance_of', '系統が無い');
       if (!e.evidence?.length) gap(e.id, 'evidence', '出典が無い');
@@ -105,6 +101,12 @@ export function findGaps(snapshot: SurveySnapshot): SurveyGap[] {
       if (!e.evidence?.length) gap(e.id, 'evidence', '出典が無い');
       if (!e.official_url) gap(e.id, 'official_url', '公式ページが無い');
     }
+  }
+  // The axes are survey-wide (ADR 0026): one gap on the first Domain when the survey has families but no axes or no central axis.
+  const axes = snapshot.entities.flatMap(e => e.type === 'Domain' ? e.classification_axes ?? [] : []), domain = snapshot.entities.find(e => e.type === 'Domain');
+  if (families.size && domain) {
+    if (!axes.length) gap(domain.id, 'classification_axes', '分類の軸が無い');
+    else if (!axes.some(a => a.central)) gap(domain.id, 'classification_axes', '中心の軸が無い');
   }
   const tutorial = snapshot.entities.find(e => e.type === 'Tutorial');
   if (!tutorial) gap('survey', 'Tutorial', 'チュートリアルが無い');
