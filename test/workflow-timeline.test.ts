@@ -15,7 +15,10 @@ test('the /lab timeline places the ten-minute survey as the staged run does, fro
   assert.ok(readings.every((s, i) => s.seconds <= T.extract && s.seconds >= T.extractMin && (i === 0 || s.start === readings[i - 1].start + readings[i - 1].seconds)));
   assert.ok(readings.at(-1)!.start + readings.at(-1)!.seconds <= T.extractEnd);
   assert.deepEqual([at('diverge').start, at('diverge').seconds], [T.map, T.explore]);
-  assert.equal(at('integrate').start, T.extractEnd); assert.equal(at('tutorial').start, T.extractEnd);
+  assert.equal(at('integrate').start, T.extractEnd);
+  // The tutorial starts beside the readings and is over before the validate.
+  assert.equal(at('tutorial').start, T.tutorialStart); assert.ok(at('tutorial').start + at('tutorial').seconds <= T.extractEnd + T.synthesize);
+  assert.ok(row('extract').checkpoints && row('tutorial').checkpoints);
   assert.equal(at('validate').start, T.extractEnd + T.synthesize);
   assert.equal(at('fill').start, at('validate').start + T.validate); assert.equal(row('fill').count, FILL_PARTS);
   assert.ok(t.end + T.tail <= T.total && t.total === T.total);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
-import { applyReading, executeStagedResearch, familiesOf, mergeMemory, newPapersOnly, paperKey, paperContext, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
+import { applyReading, executeStagedResearch, familiesOf, mergeMemory, newPapersOnly, paperIds as idsOf, paperKey, paperContext, samePaper, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the map's output: everything except readings, claims, evidence, keywords and the tutorial. */
 function outlinePatch(): SurveyPatch {
@@ -115,6 +115,65 @@ test('a paper listed twice under different IDs is kept once', () => {
   assert.equal(paperKey({ arxiv_id: '2211.13432v2' }), paperKey({ url: 'https://arxiv.org/abs/2211.13432' }));
 });
 
+test('one paper under two IDs: the same arXiv ID (also from a URL or an arXiv DOI), else DOI, else title; a journal version stays apart', () => {
+  assert.ok(samePaper(idsOf({ arxiv_id: '2304.03047v2', title: 'ETPNav' }), idsOf({ title: 'etpnav' })));
+  assert.ok(samePaper(idsOf({ doi: 'https://doi.org/10.48550/arXiv.2304.03047' }), idsOf({ url: 'https://arxiv.org/abs/2304.03047' })));
+  assert.ok(samePaper(idsOf({ arxiv_id: '1711.07280', title: 'Vision-and-Language Navigation' }), idsOf({ doi: '10.1109/cvpr.2018.00387', title: 'Vision and language navigation' })));
+  assert.ok(!samePaper(idsOf({ arxiv_id: '1', title: 'x' }), idsOf({ arxiv_id: '2', title: 'x' })));
+  const conference = fixture.entities.find(e => e.id === 'paper-pibt-2019') as Paper, journal = fixture.entities.find(e => e.id === 'paper-pibt') as Paper;
+  assert.equal(conference.title, journal.title);
+  assert.ok(!samePaper(idsOf(conference), idsOf(journal)), 'the same title with different DOIs is two papers');
+});
+
+test('a paper two listers name alike is read once and the later lister is told; a reading of a copy dropped later goes to the kept paper', async () => {
+  const method = [...families.values()][0][0];
+  const plain = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
+  const paper = (id: string, title: string) => ({ ...plain, id, label: title, title, doi: null, arxiv_id: null, url: null, proposes: [method], addresses: [], reading: null, claims: [], evidence: [], abstract_ja: null });
+  const first = paper('m1-alpha', 'Alpha'), retitled = paper('m2-alpha', 'Alpha: the long title'), twin = paper('m2-alpha-copy', 'ALPHA');
+  const answers: (string | void)[] = [];
+  const run = steps({ onRun: (stage, o) => {
+    if (stage === 'list-1') { o.onSaved?.(patch('a', [{ op: 'add_entity', entity: first }]) as unknown as SurveyPatch); return ok(patch('l1', [{ op: 'add_entity', entity: first }])); }
+    if (stage === 'list-2') {
+      const ops = [{ op: 'add_entity', entity: retitled }, { op: 'add_entity', entity: twin }];
+      answers.push(o.onSaved?.(patch('b', ops) as unknown as SurveyPatch));
+      return ok(patch('l2', ops));
+    }
+    if (stage.startsWith('list')) return ok(patch('none', []));
+    // The reader of m1-alpha fails too late to be tried again.
+    if (stage === 'extract-1') return { ok: false, error: 'timeout', searches: 0, elapsedMs: 200_000 };
+    return undefined;
+  } });
+  // The bibliography found after the lists shows the retitled paper is the same arXiv paper.
+  run.s.prepare = async p => { const patched = p as SurveyPatch; return { ...patched, operations: patched.operations.map(op => op.op === 'add_entity' && op.entity.type === 'Paper' && /alpha/i.test(op.entity.title) ? { ...op, entity: { ...op.entity, arxiv_id: '2001.00001' } } : op) }; };
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  assert.ok(!/系統[0-9]）を使えませんでした/.test(outcome.patch.message), 'a lister with nothing new is not an error');
+  assert.deepEqual(run.calls.filter(c => c.startsWith('paper:')), ['paper:1:m1-alpha', 'paper:2:m2-alpha'], 'the twin is not read');
+  assert.match(String(answers[0]), /Already listed by another agent[\s\S]*m2-alpha-copy \(ALPHA\)[\s\S]*list other papers instead/);
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
+  const kept = final.entities.find(e => e.id === 'm1-alpha') as Paper;
+  assert.ok(kept?.reading, 'the reading of m2-alpha went to m1-alpha');
+  assert.ok(!final.entities.some(e => e.id === 'm2-alpha' || e.id === 'm2-alpha-copy'));
+});
+
+test('readers submit with submit_patch; a reading of only the paper is kept; the tutorial starts beside the readings', async () => {
+  const only = readingOf(papers[0], 1) as unknown as SurveyPatch;
+  const applied = applyReading(outlineSnapshot, { ...only, operations: only.operations.slice(0, 1) as SurveyPatch['operations'] }, papers[0], 'r');
+  assert.ok(applied.read);
+  let now = 0;
+  const run = steps({ now: () => now, concurrency: 1, onRun: stage => { if (stage === 'outline') now = (SURVEY_TIMING.tutorialStart + 1) * 1000; return undefined; } });
+  await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.equal(run.options['extract-1'][0].checkpoints, true);
+  const tutorialAt = run.calls.indexOf('tutorial'), lastRead = run.calls.reduce((at, c, i) => c.startsWith('extract-') ? i : at, -1);
+  assert.ok(tutorialAt >= 0 && tutorialAt < lastRead, 'the tutorial starts while papers are still read');
+  assert.equal(run.calls.filter(c => c === 'tutorial').length, 1);
+  assert.ok(run.options.tutorial[0].checkpoints && run.options.tutorial[0].seconds <= SURVEY_TIMING.tutorial);
+  // Without reaching its start time, the tutorial starts when the readings are over, beside the integration.
+  const early = steps();
+  await executeStagedResearch(emptySurvey('t'), 'b', early.s);
+  assert.ok(early.calls.indexOf('tutorial') > early.calls.reduce((at, c, i) => c.startsWith('extract-') ? i : at, -1));
+});
+
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);
@@ -162,19 +221,24 @@ test('papers the explore submits are read too, after its result is in the survey
   assert.ok(run.options.diverge[0].checkpoints && run.options.outline[0].checkpoints);
 });
 
-test('validate chooses the gaps (no web search); the fill splits them over agents with different targets; failures fall back', async () => {
-  const chosen: CheckedGap[] = [
-    { target: 'paper-cbs', field: 'year', problem: 'p', fill: 'existing', query: null },
-    { target: 'collision', field: 'english_terms', problem: 'p', fill: 'search', query: 'q' },
-    { target: 'paper-cbs', field: 'venue', problem: 'p', fill: 'search', query: 'q' },
-  ];
-  const run = steps({ results: { validate: ok({ gaps: chosen, message: 'm' }) } });
+test('validate chooses the gaps of the check by number (no web search); the fill splits them over agents with different targets; failures fall back', async () => {
+  let offered: CheckedGap[] = [];
+  const run = steps({ onRun: stage => {
+    if (stage !== 'validate') return undefined;
+    // Two gaps of different entities, a second gap of the first entity, a repeated number and one out of range.
+    const entities = offered.map((g, i) => ({ g, n: i + 1 })).filter(({ g }) => g.target !== 'survey' && g.target !== 'tutorial');
+    const first = entities[0], other = entities.find(({ g }) => g.target !== first.g.target)!, again = entities.find(({ g, n }) => g.target === first.g.target && n !== first.n);
+    const gaps = [first, other, ...(again ? [again] : []), first, { n: 999 }].map(({ n }) => ({ n, why: 'w', fill: n === first.n ? 'existing' : 'search', query: n === first.n ? null : 'q' }));
+    return ok({ gaps, message: 'm' });
+  } });
+  run.s.prompt.validate = (_s, gaps) => { offered = gaps; return 'validate'; };
   await executeStagedResearch(emptySurvey('t'), 'b', run.s);
   assert.equal(run.options.validate[0].webSearch, 'disabled'); assert.equal(run.options.validate[0].schema, 'validate-schema.json');
   const fills = run.calls.filter(c => c.startsWith('fill:'));
   assert.deepEqual(fills.map(f => f.split(':').slice(0, 2).join(':')), ['fill:1/2', 'fill:2/2']);
   const targets = fills.map(f => new Set(f.split(':')[2].split(',')));
   assert.ok([...targets[0]].every(t => !targets[1].has(t)), 'no target in two parts');
+  assert.equal(fills.flatMap(f => f.split(':')[2].split(',')).length <= 3, true, 'a repeated or unknown number adds nothing');
   // An unusable validate falls back to the server's own list.
   const broken = steps({ results: { validate: { ok: false, error: 'boom', searches: 0 } } });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', broken.s);

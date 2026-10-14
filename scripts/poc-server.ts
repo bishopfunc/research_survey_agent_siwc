@@ -161,7 +161,8 @@ function closeHost(runId: string) {
 function codexSettings(webSearch: string) {
   return ['-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature])];
 }
-type StepCheckpoints = { chunks: Checkpoints; step?: number };
+/** `note` is added to submit_patch's answer once, for example which papers another lister listed first. */
+type StepCheckpoints = { chunks: Checkpoints; step?: number; note?(): string | undefined };
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process.
  * With `checkpoints`, results saved as they go (design 0034) arrive through submit_patch (app-server) or commentary (exec). */
 function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; effort?: string; nudge?: { seconds: number; text: string; unless(): boolean }; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
@@ -177,7 +178,8 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     const text = `${budgetInstructions(timeoutSeconds, startedAt, undefined, CODEX_TRANSPORT)}\n\n${prompt}`;
     const key = `${run.id}:${step}`;
     const log = join(directory, 'events.jsonl');
-    const record = (line: string) => { if (logged.get(run.id)! < MAX_LOG_BYTES) { appendFileSync(log, redact(line) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + line.length + 1); } };
+    // Each line carries the seconds since the run started ("t"), so the steps' timing can be read afterwards.
+    const record = (line: string) => { if (logged.get(run.id)! < MAX_LOG_BYTES) { const stamped = line.replace(/^\{/, `{"t":${((Date.now() - Date.parse(run.started_at)) / 1000).toFixed(1)},`); appendFileSync(log, redact(stamped) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + stamped.length + 1); } };
     record(JSON.stringify({ type: 'app.step', step, transport: CODEX_TRANSPORT }));
     let state = initialCodexState(); let stderr = ''; const before = run.searches;
     const cp = options.checkpoints;
@@ -209,9 +211,10 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
         async onToolCall(tool, args) {
           if (tool !== SUBMIT_PATCH_TOOL.name || !cp) return { text: `unknown tool ${tool}`, success: false };
           const result = run.status === 'running' && !supervisor.timedOut ? cp.chunks.submit(args) : { status: 'stopped' as const, operations: 0 };
-          record(JSON.stringify({ type: 'app.tool', tool, status: result.status, operations: result.operations, error: result.error?.split('\n')[0] }));
+          const note = cp.note?.();
+          record(JSON.stringify({ type: 'app.tool', tool, status: result.status, operations: result.operations, error: result.error?.split('\n')[0], note }));
           noted(result.status);
-          return { text: submitReply(result), success: result.status === 'saved' || result.status === 'held' };
+          return { text: note ? `${submitReply(result)}\n${note}` : submitReply(result), success: result.status === 'saved' || result.status === 'held' };
         },
       });
       proc = appServer;
@@ -301,14 +304,15 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       const started = Date.now();
       const attemptId = randomUUID();
       // The map and the explore save results as they go (submit_patch); each saved submission is handed on at once.
+      let note: string | undefined;
       const chunks = options.checkpoints ? streamCheckpoints(snapshot, input.base_commit_id, normalize, (patch, sequence) => {
         writeFileSync(join(directory, `checkpoint-${stage}-${attemptId}-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
         addTrace(run, { kind: 'step', step: stageStep(stage), text: `${stage}：途中保存 ${sequence}` }); save(run);
-        options.onSaved?.(patch);
+        note = options.onSaved?.(patch) || undefined;
       }, () => run.status === 'running') : undefined;
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
-      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage) } : undefined });
+      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage), note: () => { const text = note; note = undefined; return text; } } : undefined });
       const ok = attemptSucceeded(attempt);
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
@@ -322,8 +326,12 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     },
     prompt: {
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library, true),
-      list: (snapshot, family, n, angle) => { const families = familiesOf(snapshot); return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle), snapshot, input.library, true, LISTER_RULE_IDS); },
-      extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot, [], false, READER_RULE_IDS),
+      list: (snapshot, family, n, angle) => {
+        const families = familiesOf(snapshot), label = (id: string) => snapshot.entities.find(e => e.id === id)?.label ?? id;
+        return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle, family ? [...families.keys()].filter(f => f !== family).map(label) : []), snapshot, input.library, true, LISTER_RULE_IDS);
+      },
+      // A reader submits its result with submit_patch, sending only the fields of its paper it changes.
+      extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot, [], true, READER_RULE_IDS),
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
       tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot, [], true),

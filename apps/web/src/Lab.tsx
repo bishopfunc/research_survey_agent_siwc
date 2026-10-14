@@ -166,7 +166,7 @@ export function Lab() {
 
           <Sub id="timeline" title="実行の時間軸" stamp={BUDGET_PROMPT_VERSION}>
             <div className="lab-prose">
-              <p>新規調査は全体で最大{SURVEY_TIMING.total / 60}分。Mapは論文を挙げず、分野と手法の系統を素早く提出する。系統が提出されるたびに、その系統の論文を挙げるAgentが始まり、2〜4本ずつ提出する。保存された論文から1本に1つのAgentが読み始め、同時に最大{DEFAULT_EXTRACT_CONCURRENCY}本を読む（サーバーの設定 EXTRACT_CONCURRENCY で下げられる）。精読は開始から{SURVEY_TIMING.extractEnd}秒までに終わらせ、そのあと統合とチュートリアル、点検、補完が続く。各Agentの上限は、その手順の上限と、手順の締め切りまでの残りの短い方。行は1つの手順（×は同時に動くAgentの数）、棒は上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。系統ごとのAgentは最初の系統の提出（{FIRST_FAMILY}秒と仮定）から、精読の棒は最初の論文の提出（{FIRST_SUBMISSION}秒と仮定）から順に1本ずつ続く読みを表す。全員が上限まで使ったときの配置で、同時に動くAgentは最大{MAX_CONCURRENT}つになる。すべてのAgentは1つのapp-serverプロセスのthreadとして動く。</p>
+              <p>新規調査は全体で最大{SURVEY_TIMING.total / 60}分。Mapは論文を挙げず、分野と手法の系統を素早く提出する。系統が提出されるたびに、その系統の論文を挙げるAgentが始まり、2〜4本ずつ提出する。同じ論文は1回だけ読み、後から挙げたAgentには提出の返答で伝える。保存された論文から1本に1つのAgentが読み始め、同時に最大{DEFAULT_EXTRACT_CONCURRENCY}本を読む（サーバーの設定 EXTRACT_CONCURRENCY で下げられる）。チュートリアルは開始から{SURVEY_TIMING.tutorialStart}秒に、その時点までに読んだ論文で書き始める。精読は{SURVEY_TIMING.extractEnd}秒までに終わらせ、そのあと統合、点検、補完が続く。各Agentの上限は、その手順の上限と、手順の締め切りまでの残りの短い方。行は1つの手順（×は同時に動くAgentの数）、棒は上限時間で、濃い部分が調べる時間、斜線が書き出しに予約した時間である。系統ごとのAgentは最初の系統の提出（{FIRST_FAMILY}秒と仮定）から、精読の棒は最初の論文の提出（{FIRST_SUBMISSION}秒と仮定）から順に1本ずつ続く読みを表す。全員が上限まで使ったときの配置で、同時に動くAgentは最大{MAX_CONCURRENT}つになる。すべてのAgentは1つのapp-serverプロセスのthreadとして動く。</p>
               <p>行を選ぶと、その実行が受け取るもの、書き出すもの、渡す指示を表示する。</p>
             </div>
             <Gantt timeline={NEW_SURVEY} label="新規調査の実行の時間軸" selected={stage} onSelect={setStage} strip={NEW_CONCURRENCY}/>

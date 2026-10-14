@@ -32,7 +32,8 @@ export interface StageOptions {
   effort?: string;
   /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
   checkpoints?: boolean;
-  onSaved?(patch: SurveyPatch): void;
+  /** A text it returns is added to the tool's answer (a lister learns which of its papers another agent listed). */
+  onSaved?(patch: SurveyPatch): string | void;
   /** A message sent into the running turn after `seconds`, unless `unless()` holds by then. */
   nudge?: { seconds: number; text: string; unless(): boolean };
 }
@@ -87,7 +88,7 @@ export function applyReading(snapshot: SurveySnapshot, patch: SurveyPatch, paper
   const others = restrictToWorker(patch, snapshot, []).operations.filter(op => op.op !== 'add_entity' || READING_TYPES.has(op.entity.type));
   // Its own additions are dropped where the validator names them; the paper itself is never dropped for them.
   const kept = others.length ? dropInvalid({ ...patch, base_commit_id: id, operations: others as SurveyPatch['operations'] }, p => applyPatch(snapshot, p, id)) : { patch: { ...patch, operations: [] as unknown as SurveyPatch['operations'] }, dropped: 0 };
-  const added = kept ? applyPatch(snapshot, { ...kept.patch, base_commit_id: id }, id) : snapshot;
+  const added = kept?.patch.operations.length ? applyPatch(snapshot, { ...kept.patch, base_commit_id: id }, id) : snapshot;
   const has = (ids: string[] | undefined, type?: string) => (ids ?? []).filter(x => added.entities.some(e => e.id === x && (!type || e.type === type)));
   // A paper listed without a place (a scout's) takes the methods and issues its reader names, when they exist.
   const proposes = current.proposes.length ? current.proposes : has(sent?.proposes, 'Method');
@@ -113,22 +114,33 @@ export function familiesOf(snapshot: SurveySnapshot): Map<string, string[]> {
   for (const r of snapshot.relations) if (r.type === 'instance_of' && snapshot.entities.some(e => e.id === r.to && e.type === 'Concept')) families.set(r.to, [...(families.get(r.to) ?? []), r.from]);
   return families;
 }
-/** One key per paper whatever its ID: arXiv ID, then DOI, then the normalized title. */
-export function paperKey(p: { arxiv_id?: unknown; doi?: unknown; url?: unknown; title?: unknown }): string {
-  const arxiv = (typeof p.arxiv_id === 'string' && p.arxiv_id.trim()) || (typeof p.url === 'string' && p.url.match(/arxiv\.org\/(?:abs|pdf|html)\/([^?#/]+?)(?:v\d+)?(?:\.pdf)?$/i)?.[1]) || '';
-  if (arxiv) return `arxiv:${arxiv.replace(/^arxiv:/i, '').replace(/v\d+$/, '').toLowerCase()}`;
-  if (typeof p.doi === 'string' && p.doi.trim()) return `doi:${p.doi.trim().toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}`;
-  return `title:${String(p.title ?? '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}`;
+/** What identifies a paper whatever its ID: its arXiv ID (also from its URL or an arXiv DOI), another DOI and its normalized title. */
+export interface PaperIds { arxiv?: string; doi?: string; title?: string }
+export function paperIds(p: { arxiv_id?: unknown; doi?: unknown; url?: unknown; title?: unknown }): PaperIds {
+  const doi = typeof p.doi === 'string' ? p.doi.trim().toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//, '') : '';
+  const arxiv = (typeof p.arxiv_id === 'string' && p.arxiv_id.trim()) || (typeof p.url === 'string' && p.url.match(/arxiv\.org\/(?:abs|pdf|html)\/([^?#/]+?)(?:v\d+)?(?:\.pdf)?$/i)?.[1]) || doi.match(/^10\.48550\/arxiv\.(.+)$/)?.[1] || '';
+  const title = String(p.title ?? '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return { ...(arxiv ? { arxiv: arxiv.replace(/^arxiv:/i, '').replace(/v\d+$/, '').toLowerCase() } : {}), ...(doi && !doi.startsWith('10.48550/') ? { doi } : {}), ...(title ? { title } : {}) };
 }
-/** A lister's additions without the papers the survey already has under another ID, and without what pointed at them. */
-export function newPapersOnly(patch: SurveyPatch, snapshot: SurveySnapshot): SurveyPatch {
-  const known = new Set(snapshot.entities.flatMap(e => e.type === 'Paper' ? [paperKey(e)] : []));
+/** One paper under two IDs: the same arXiv ID, else the same DOI, else (with no differing arXiv ID or DOI) the same title. A
+ * conference paper and its journal version share a title but not a DOI, and stay two papers. */
+export function samePaper(a: PaperIds, b: PaperIds): boolean {
+  if (a.arxiv && b.arxiv) return a.arxiv === b.arxiv;
+  if (a.doi && b.doi) return a.doi === b.doi;
+  return !!a.title && a.title === b.title;
+}
+/** The first key of a paper: arXiv ID, then DOI, then the normalized title. */
+export function paperKey(p: { arxiv_id?: unknown; doi?: unknown; url?: unknown; title?: unknown }): string { const ids = paperIds(p); return ids.arxiv ? `arxiv:${ids.arxiv}` : ids.doi ? `doi:${ids.doi}` : `title:${ids.title ?? ''}`; }
+/** A lister's additions without the papers the survey already has under another ID, and without what pointed at them.
+ * `same` learns each dropped paper's ID and the ID it has in the survey. */
+export function newPapersOnly(patch: SurveyPatch, snapshot: SurveySnapshot, same?: (dropped: string, kept: string) => void): SurveyPatch {
+  const known = snapshot.entities.flatMap(e => e.type === 'Paper' ? [{ id: e.id, ids: paperIds(e) }] : []);
   const dropped = new Set<string>();
   const operations = patch.operations.filter(op => {
     if (op.op !== 'add_entity' || op.entity.type !== 'Paper') return true;
-    const key = paperKey(op.entity);
-    if (known.has(key)) { dropped.add(op.entity.id); return false; }
-    known.add(key); return true;
+    const ids = paperIds(op.entity), kept = known.find(other => samePaper(ids, other.ids));
+    if (kept) { dropped.add(op.entity.id); same?.(op.entity.id, kept.id); return false; }
+    known.push({ id: op.entity.id, ids }); return true;
   }).filter(op => !(op.op === 'add_relation' && (dropped.has(op.relation.from) || dropped.has(op.relation.to))));
   return { ...patch, operations: operations as SurveyPatch['operations'] };
 }
@@ -233,10 +245,19 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
   const discoveryApplied = new Promise<void>(resolve => { resolveDiscovery = resolve; });
   // A paper is queued once, whatever ID another lister gave it (the later one is dropped when its lister's result is applied).
-  const queuedKeys = new Set<string>();
+  const queuedPapers: PaperIds[] = [];
+  /** A paper dropped from a lister's result as another ID of a paper in the survey, and that ID. */
+  const aliases = new Map<string, string>();
+  const queuedAlready = (paper: Paper) => { const ids = paperIds(paper); return queuedPapers.some(other => samePaper(ids, other)); };
   const enqueue = (view: SurveySnapshot) => {
-    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id) && !queuedKeys.has(paperKey(e))) { queued.add(e.id); queuedKeys.add(paperKey(e)); queue.push({ paper: e.id, view }); }
+    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id) && !queuedAlready(e)) { queued.add(e.id); queuedPapers.push(paperIds(e)); queue.push({ paper: e.id, view }); }
     pump();
+  };
+  /** What a lister's answer says about the papers of its submissions another agent listed first (each named once). */
+  const listedElsewhere = (patch: SurveyPatch, told: Set<string>) => {
+    const twins = patch.operations.flatMap(op => op.op === 'add_entity' && op.entity.type === 'Paper' && !queued.has(op.entity.id) && !told.has(op.entity.id) && queuedAlready(op.entity) ? [op.entity] : []);
+    twins.forEach(p => told.add(p.id));
+    return twins.length ? `Already listed by another agent, so it is read only once: ${twins.map(p => `${p.id} (${p.label})`).join('; ')}. Do not submit these again; list other papers instead.` : undefined;
   };
   const pump = () => {
     while (running < steps.concurrency && queue.length && steps.active()) {
@@ -246,27 +267,37 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       running++;
       const n = ++extractIndex;
       // The slot is free as soon as the agent is done; applying its result may wait for the map or a lister.
-      reads.push(readPaper(paper, view, n, Math.min(T.extract, remaining)).finally(() => { running--; pump(); }).then(result => applyPaper(paper, n, result)));
+      reads.push(readPaper(paper, view, n, Math.min(T.extract, remaining)).finally(() => { running--; pump(); }).then(result => applyPaper(paper, n, result, view)));
     }
   };
   const readPaper = async (paper: string, view: SurveySnapshot, n: number, seconds: number): Promise<StageResult> => {
     const stage: StageId = `extract-${n}`, context = paperContext(view, paper);
     const prompt = steps.prompt.extract(context, paper, n);
-    const result = await steps.run(stage, prompt, context, { seconds, effort: 'low' });
+    // A reader submits its paper's fields it changes (submit_patch), so a timed-out reader keeps what it submitted.
+    const result = await steps.run(stage, prompt, context, { seconds, effort: 'low', checkpoints: true });
     const again = left(T.extractEnd);
-    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low' }); }
+    if (!result.ok && steps.active() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true }); }
     return result;
   };
-  const applyPaper = async (paper: string, n: number, result: StageResult) => {
+  const applyPaper = async (paper: string, n: number, result: StageResult, view: SurveySnapshot) => {
     const stage: StageId = `extract-${n}`;
     // A paper of a lister or the explore exists in the survey only once that agent's result is applied.
     await outlineApplied;
     if (!snapshot.entities.some(e => e.id === paper)) await discoveryApplied;
     await serial(async () => {
       try {
-        const own = await parse(stage, result, false);
+        let own = await parse(stage, result, false), target = paper;
         if (!own.operations?.length) throw Error(own.message ? `読んだ結果がありません（${own.message.slice(0, 120)}）` : '読んだ結果がありません');
-        const applied = applyReading(snapshot, own, paper, stage);
+        // A paper another lister listed under another ID first was dropped when its lister's result was applied: the reading
+        // goes to that paper instead, unless it was read already.
+        const listed = view.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
+        if (listed && !snapshot.entities.some(e => e.id === paper)) {
+          const ids = paperIds(listed), alias = aliases.get(paper);
+          const same = snapshot.entities.find((e): e is Paper => e.type === 'Paper' && (e.id === alias || samePaper(ids, paperIds(e))));
+          if (same?.reading) throw Error(`同じ論文（${same.id}）を読み済みです`);
+          if (same) { own = JSON.parse(JSON.stringify(own).split(JSON.stringify(paper)).join(JSON.stringify(same.id))) as SurveyPatch; target = same.id; }
+        }
+        const applied = applyReading(snapshot, own, target, stage);
         snapshot = applied.snapshot;
         if (applied.read) count.read++; else count.failed++;
         count.dropped += applied.dropped;
@@ -284,15 +315,18 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const seconds = Math.min(T.list, left(T.listEnd));
     if (seconds < 40) return;
     const n = ++listIndex, stage: StageId = `list-${n}`;
+    const told = new Set<string>();
     listers.set(family, (async () => {
       const result = await steps.run(stage, steps.prompt.list(view, angle ? null : family, n, angle), view, { seconds, checkpoints: true, effort: 'low',
-        onSaved: patch => { try { enqueue(applyPatch(view, { ...newPapersOnly(restrictToWorker(patch, view, []), view), base_commit_id: stage }, stage)); } catch { /* applied below */ } } });
+        onSaved: patch => { try { enqueue(applyPatch(view, { ...newPapersOnly(restrictToWorker(patch, view, []), view), base_commit_id: stage }, stage)); } catch { /* applied below */ } return listedElsewhere(patch, told); } });
       await outlineApplied;
       await serial(async () => {
         try {
           const own = await parse(stage, result);
-          const patch = newPapersOnly(restrictToWorker(own, snapshot, []), snapshot);
-          const checked = dropInvalid({ ...patch, base_commit_id: stage }, p => applyPatch(snapshot, p, stage));
+          const scoped = restrictToWorker(own, snapshot, []), patch = newPapersOnly(scoped, snapshot, (dropped, kept) => aliases.set(dropped, kept));
+          // Every paper it listed was listed by another agent first: nothing to add.
+          if (!patch.operations.length && scoped.operations.length) return;
+          const checked = patch.operations.length ? dropInvalid({ ...patch, base_commit_id: stage }, p => applyPatch(snapshot, p, stage)) : { patch, dropped: 0 };
           if (!checked) throw Error('論文の一覧が検証に通りませんでした');
           snapshot = apply(snapshot, checked.patch, stage, own);
         } catch (e) { if (steps.active()) notes.push(`${stageTraceText(stage)}を使えませんでした：${reason(e)}`); }
@@ -324,6 +358,15 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   startScouts();
   enqueue(outline);
   resolveOutline();
+  // Step 4's tutorial starts beside the readings, from the papers read by then, so it has time to write.
+  let tutorialRun: Promise<StageResult> | null = null;
+  const startTutorial = () => {
+    const seconds = Math.min(T.tutorial, left(T.total - T.tail - T.validate - T.fillMin));
+    if (tutorialRun || !steps.prompt.tutorial || !steps.active() || seconds < 30) return;
+    tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true });
+  };
+  const tutorialTimer = setTimeout(startTutorial, Math.max(0, (T.tutorialStart - elapsed()) * 1000));
+  tutorialTimer.unref?.();
 
   // Step 3 beside the readings: the explore; each paper it submits is queued for reading at once.
   steps.progress(`2/${total} Extract：論文を1本ずつ並行して読み、Explore：別のAgentが抜けている観点を探しています`);
@@ -335,8 +378,8 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     await serial(async () => {
       try {
         const own = await parse('diverge', result);
-        const patch = newPapersOnly(restrictToWorker(own, snapshot, []), snapshot);
-        snapshot = apply(snapshot, patch, 'diverge', own);
+        const scoped = restrictToWorker(own, snapshot, []), patch = newPapersOnly(scoped, snapshot, (dropped, kept) => aliases.set(dropped, kept));
+        snapshot = apply(snapshot, patch, 'diverge', patch.operations.length || !scoped.operations.length ? own : patch);
         explorePatch = patch;
         if (patch.message) notes.push(`発散：${patch.message}`);
       } catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); }
@@ -346,6 +389,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   if (steps.active()) enqueue(snapshot);
   resolveDiscovery();
   await allReads();
+  clearTimeout(tutorialTimer);
   if (!steps.active()) return { status: 'stopped' };
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
   notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
@@ -354,12 +398,13 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin));
   const explored = new Set((explorePatch as SurveyPatch | null)?.operations.flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []) ?? []);
   const candidates = snapshot.entities.filter(e => e.type === 'Issue' && !outline.entities.some(o => o.id === e.id) && !explored.has(e.id)).map(e => e.id);
+  startTutorial();
   if (synthSeconds >= 30) {
     steps.progress(`4/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
     const before = snapshot;
     const [integration, tutorial] = await Promise.all([
       steps.run('integrate', steps.prompt.integrate(before, candidates), before, { seconds: synthSeconds, checkpoints: true }),
-      steps.prompt.tutorial ? steps.run('tutorial', steps.prompt.tutorial(before), before, { seconds: synthSeconds, checkpoints: true }) : Promise.resolve(null),
+      tutorialRun ?? Promise.resolve(null),
     ]);
     if (!steps.active()) return { status: 'stopped' };
     try { const patch = await parse('integrate', integration); snapshot = apply(snapshot, patch, 'integrate'); keep(patch); }
@@ -394,8 +439,15 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     record(result);
     try {
       if (!result.ok || !result.output) throw Error(result.error ?? '出力がありません');
-      const read = JSON.parse(result.output) as { gaps?: CheckedGap[] };
-      const picked = (read.gaps ?? []).filter(g => g && typeof g.target === 'string' && typeof g.field === 'string').slice(0, MAX_CHOSEN_GAPS);
+      // The agent names gaps of the check by number, with why they matter and how to fill them.
+      const read = JSON.parse(result.output) as { gaps?: { n?: unknown; why?: unknown; fill?: unknown; query?: unknown }[] };
+      const numbers = new Set<number>();
+      const picked = (read.gaps ?? []).flatMap(g => {
+        const gap = typeof g?.n === 'number' && !numbers.has(g.n) ? found[g.n - 1] : undefined;
+        if (!gap) return [];
+        numbers.add(g.n as number);
+        return [{ ...gap, why: typeof g.why === 'string' ? g.why : undefined, fill: g.fill === 'existing' ? 'existing' as const : 'search' as const, query: typeof g.query === 'string' && g.query ? g.query : null }];
+      }).slice(0, MAX_CHOSEN_GAPS);
       if (picked.length) chosen = picked;
     } catch (e) { if (steps.active()) notes.push(`点検の解釈を使えず、サーバーの点検の上位を使いました：${reason(e)}`); }
   }
