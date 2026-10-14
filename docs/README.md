@@ -35,6 +35,7 @@
 | [チャット・コンテキスト・キューと図解](design/0035-chat-context-queue-and-figures.md) | 独立パネル、論文選択、待機依頼、図解が欠ける原因と取得改善 |
 | [Codexのapp-serverとツールでの途中保存](design/0036-codex-app-server.md) | execからapp-serverへ、途中成果はツールで受け取り、期限はsteerで強制 |
 | [10分の新規調査で論文30本を精読](design/0037-ten-minute-survey.md) | 論文1本に1つのAgent、Mapの提出から順に並行して精読、依頼ごとの時間の上限 |
+| [チュートリアルと手法の分類を3つの記事に倣って統合](design/0038-integrated-tutorial-style.md) | はじめに・典型的な〇〇・研究動向「AからBへ」・方向性3つ、分類の軸 |
 | [DSL調整ガイド](dsl-schema.md) | 型、関係、JSONとschemaの変更手順 |
 | [受け入れ条件](acceptance.md) | MVP完了の判定 |
 | [バックログ](backlog.md) | 次のタスクと依存関係 |

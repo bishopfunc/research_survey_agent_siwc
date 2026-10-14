@@ -16,7 +16,12 @@ test('the sample tutorial meets every tutorial requirement', () => {
 });
 test('each requirement fails on its own when the tutorial misses it', () => {
   const cases: [string, (t: ReturnType<typeof tutorialOf>) => void][] = [
-    ['definition', t => { t.sections[0].body = t.sections[0].body.replace(/\$\$[\s\S]*?\$\$/g, ''); }],
+    ['definition', t => { const d = t.sections.find(s => s.role === 'definition')!; d.body = d.body.replace(/\$\$[\s\S]*?\$\$/g, ''); }],
+    // The three models of design 0038: the scope of the introduction, the typical setting, trends "from A to B", three directions.
+    ['scope', t => { const m = t.sections.find(s => s.role === 'motivation')!; m.body = m.body.replace(/^- 扱わないこと.*$/m, ''); }],
+    ['typical', t => { const m = t.sections.find(s => s.role === 'methods')!; m.body = m.body.replace(/^- .*：.*$/gm, ''); }],
+    ['trends', t => { for (const s of t.sections) if (s.role === 'methods') s.heading = s.heading.replace(/から.*へ/, ''); }],
+    ['directions', t => { for (const s of t.sections) if (s.role === 'summary') s.body = s.body.replace(/^- .*$/gm, ''); }],
     ['methods', t => { t.sections = t.sections.filter((s, i) => s.role !== 'methods' || i < 4); }],
     ['progression', t => { const m = t.sections.filter(s => s.role === 'methods'), z = m.length - 1; [m[0].body, m[z].body] = [m[z].body, m[0].body]; [m[0].refs, m[z].refs] = [m[z].refs, m[0].refs]; [m[0].media, m[z].media] = [m[z].media, m[0].media]; }],
     ['limitations', t => { const m = t.sections.filter(s => s.role === 'methods'); m[1].body = '有界準最適の探索を紹介する [@paper-ecbs]。'; }],
@@ -60,9 +65,12 @@ test('tutorial citations, media and links must resolve, and a survey has at most
 
 test('the tutorial reads as a numbered outline: runs of one role become a chapter of numbered sections', () => {
   const outline = tutorialOutline(tutorialOf(fixture).sections);
-  assert.deepEqual(outline.map(c => [c.number, c.title]).slice(0, 5), [['1', '問題設定'], ['2', 'なぜ面白い問題か'], ['3', '解き方'], ['4', 'まとめと選び方'], ['5', '課題と達成度']]);
-  assert.deepEqual(outline[2].sections.map(s => s.number), ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7']);
-  assert.equal(outline[2].sections[0].heading, '2段階の探索：CBS');
+  assert.deepEqual(outline.map(c => [c.number, c.title]).slice(0, 6), [['1', 'はじめに'], ['2', 'MAPFとは'], ['3', '典型的なMAPF：2段階の探索（CBS）'], ['4', '研究動向'], ['5', 'まとめと選び方'], ['6', '課題と達成度']]);
+  // Sections sharing a heading prefix form a chapter titled by it; a lone "主題：補足" heading stays whole (design 0038).
+  assert.deepEqual(outline[3].sections.map(s => s.number), ['4.1', '4.2', '4.3', '4.4', '4.5', '4.6']);
+  assert.equal(outline[3].sections[0].heading, '最適から有界準最適へ（ECBS）');
+  assert.equal(outline.find(c => c.role === 'variants')!.title, '派生問題とタスクの変遷');
+  assert.ok(outline.find(c => c.role === 'variants')!.sections.some(s => s.heading === '次々に目標が与えられる問題：lifelong MAPFとMAPD'));
   assert.equal(outline.find(c => c.role === 'variants')!.sections.length, 6);
   assert.equal(outline.flatMap(c => c.sections).length, tutorialOf(fixture).sections.length);
 });
@@ -70,8 +78,9 @@ test('the tutorial reads as a numbered outline: runs of one role become a chapte
 test('the sample is the reference: its outline and scale go into the prompt, and a tutorial is compared against it', () => {
   const outline = referenceOutline();
   assert.match(outline, /^Reference tutorial \(the app's MAPF sample/);
-  assert.match(outline, /3 解き方 \(methods, 7 sections/);
-  assert.match(outline, /6 派生問題 \(variants, 6 sections/);
+  assert.match(outline, /1 はじめに \(motivation\); 2 MAPFとは \(definition\); 3 典型的なMAPF：2段階の探索（CBS） \(methods\); 4 研究動向 \(methods, 6 sections/);
+  assert.match(outline, /7 派生問題とタスクの変遷 \(variants, 6 sections/);
+  assert.match(outline, /Its scale: 7 methods sections/);
   assert.ok(!/\[@paper-/.test(outline), 'the example keeps the form, not the sample\'s IDs');
   // Only the prompts that write a whole tutorial carry the reference; the common rules do not.
   assert.ok(tutorialInstructions().includes(outline) && skillInstructions(skillById('revise')).includes(outline) && !SURVEY_RULES_INSTRUCTIONS.includes(outline));

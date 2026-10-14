@@ -208,8 +208,14 @@ test('readings name the algorithms and equations needed to understand the paper,
 });
 test('a new survey ends with a newcomer tutorial modeled on a good field tutorial', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When this run writes the Tutorial \(the tutorial agent, or a request about it\), write one Tutorial entity per survey/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /definition \(a formal problem statement with notation and at least one display equation/);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /every section after the first opens with the limitation of the previous approach/);
+  // Three models integrated (design 0038): the map-representation article, the MAPF introduction and the LLM open challenges.
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /integrates three models: the article on map representations in navigation \(https:\/\/zenn\.dev\/epicai_techblog\/articles\/bfe50e2e0ad8ec[\s\S]*the app's MAPF introduction[\s\S]*llm-research-open-challenges/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /motivation \(headed はじめに: what it covers and does not cover, the prerequisites and the intended readers as "- " lines/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /definition \(headed 〇〇とは: the task in words with its components as "- " lines, and, where the field has a formal statement, notation and at least one display equation/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /first the typical setting \(headed 典型的な〇〇: fix one typical setting, list each component with its typical method as "- 要素：手法（年）\[@ID\]" lines, explain each method by its role and its input → output/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /research trends \(headed 研究動向：AからBへ（手法）: one change per section along the central axis of \[methods\], each opening with the limitation of the previous approach/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /summary \(which method when, the roles the central concept has played, and three directions or more as "- " lines/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /The body cannot draw tables: write a correspondence as "- 要素：手法" lines/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /Cite entities in the body as \[@ID\]/);
   assert.match(RESEARCH_STEPS[3].instruction, /a separate agent writes the Tutorial \(\[tutorial\]\)/);
   assert.match(tutorialInstructions(), /add_entity one Tutorial \(id tutorial\) as \[tutorial\] describes/);
@@ -232,8 +238,10 @@ test('a new survey lists about thirty-three papers family by family and reads th
 });
 test('the paper list is shared over the families, every tutorial method section cites a paper and no method is unclassified', () => {
   for (const families of [3, 4, 5, 6, 8]) assert.ok(papersPerFamily(families) * families >= 30, `${families} families list thirty papers`);
-  assert.match(SURVEY_RULES_INSTRUCTIONS, /every section cites at least one Paper, the naive baseline included/);
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /every methods section cites at least one Paper, the naive baseline included/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /no Method is left without a family/);
+  // Families along the field's axes, ordered along the central one (design 0038).
+  assert.match(SURVEY_RULES_INSTRUCTIONS, /fix the field's classification axes as its surveys do \(the role in the processing pipeline, what is represented, how it is estimated or learned, what it takes as input\), choose as the central axis[\s\S]*names its axis \("軸：…"\) and the limitation of the earlier family it answers/);
 });
 test('fields copied from the paper library are an explicit exception to the retrieve-in-this-run rules', () => {
   assert.match(SURVEY_RULES_INSTRUCTIONS, /copy its stored english_terms, abstract_ja and reading unchanged, and its other stored values \(abstract, bibliography, code, representative_figure\)/);
