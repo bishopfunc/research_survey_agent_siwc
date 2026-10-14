@@ -12,9 +12,11 @@ services:
       GATE_STATE: /app/.gate/gate.json
       # Encrypts the kept ChatGPT tokens; generated once on the VPS by scripts/deploy-vps.sh.
       GATE_TOKEN_KEY: ${GATE_TOKEN_KEY}
-      # app-server by default; exec is the fallback (design 0036). Concurrent paper readers of a new survey (design 0037).
+      # app-server by default; exec is the fallback (design 0036). Concurrent paper readers of a new survey and their model;
+      # empty keeps the app's default (design 0037).
       CODEX_TRANSPORT: ${CODEX_TRANSPORT:-app-server}
       EXTRACT_CONCURRENCY: ${EXTRACT_CONCURRENCY:-12}
+      EXTRACT_MODEL: ${EXTRACT_MODEL:-}
     volumes:
       - poc:/app/.poc
       - gate:/app/.gate

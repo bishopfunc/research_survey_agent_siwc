@@ -14,8 +14,8 @@ switch_to() { # $1 image to run; keeps the one it replaces as PREVIOUS_IMAGE
   remote "set -e; cd ~/apps/survey
     current=\$(sed -n 's/^APP_IMAGE=//p' .env 2>/dev/null || true)
     key=\$(sed -n 's/^GATE_TOKEN_KEY=//p' .env 2>/dev/null || true); [ -n \"\$key\" ] || key=\$(head -c 32 /dev/urandom | base64)
-    # Operator settings (CODEX_TRANSPORT, EXTRACT_CONCURRENCY; designs 0036 and 0037) survive a deploy.
-    keep=\$(grep -E '^(CODEX_TRANSPORT|EXTRACT_CONCURRENCY)=' .env 2>/dev/null || true)
+    # Operator settings (CODEX_TRANSPORT, EXTRACT_CONCURRENCY, EXTRACT_MODEL; designs 0036 and 0037) survive a deploy.
+    keep=\$(grep -E '^(CODEX_TRANSPORT|EXTRACT_CONCURRENCY|EXTRACT_MODEL)=' .env 2>/dev/null || true)
     umask 077; { printf 'APP_IMAGE=%s\nPREVIOUS_IMAGE=%s\nPUBLIC_HOST=%s\nGATE_TOKEN_KEY=%s\n' '$1' \"\$current\" '$PUBLIC_HOST' \"\$key\"; [ -n \"\$keep\" ] && echo \"\$keep\"; true; } > .env.next && mv .env.next .env
     docker compose up -d --remove-orphans"
   # One SSH session for the whole wait: repeated connections trip the VPS's SSH rate limit.

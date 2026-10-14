@@ -5,6 +5,8 @@ import { referenceOutline } from '../../domain/src/tutorial-reference';
 export const RESEARCH_PROMPT_VERSION = 'survey-discovery@2026-10-14T02:45+09:00';
 /** Agents reading one paper each at the same time in a new survey (design 0037); the server may lower it (EXTRACT_CONCURRENCY). */
 export const DEFAULT_EXTRACT_CONCURRENCY = 16;
+/** The model of the reading agents (design 0037): a fraction of the plan's usage per paper; every other step keeps the default model. */
+export const DEFAULT_EXTRACT_MODEL = 'gpt-6-luna';
 /** The Fill runs as at most this many agents at once, each on gaps of different entities. */
 export const FILL_PARTS = 3;
 /** What a survey usually misses; the divergent search (step 4) and the perspective skill look for these. */

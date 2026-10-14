@@ -162,8 +162,11 @@ test('readers submit with submit_patch; a reading of only the paper is kept; the
   assert.ok(applied.read);
   let now = 0;
   const run = steps({ now: () => now, concurrency: 1, onRun: stage => { if (stage === 'outline') now = (SURVEY_TIMING.tutorialStart + 1) * 1000; return undefined; } });
+  run.s.readerModel = 'reader-model';
   await executeStagedResearch(emptySurvey('t'), 'b', run.s);
   assert.equal(run.options['extract-1'][0].checkpoints, true);
+  // Only the readers take the readers' model.
+  assert.ok(Object.entries(run.options).every(([stage, list]) => list.every(o => o.model === (stage.startsWith('extract') ? 'reader-model' : undefined))));
   const tutorialAt = run.calls.indexOf('tutorial'), lastRead = run.calls.reduce((at, c, i) => c.startsWith('extract-') ? i : at, -1);
   assert.ok(tutorialAt >= 0 && tutorialAt < lastRead, 'the tutorial starts while papers are still read');
   assert.equal(run.calls.filter(c => c === 'tutorial').length, 1);

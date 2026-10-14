@@ -1,7 +1,7 @@
 // The /lab timeline (designs 0004, 0037): when each Codex agent of a new survey or a follow-up runs, how many run side by side,
 // how its limit splits into research and writing, and what it writes. Built from the runtime constants and prompt builders;
 // the wave order mirrors scripts/staged-run.ts by hand.
-import { DEFAULT_EXTRACT_CONCURRENCY, TARGET_PAPERS, listInstructions, papersPerFamily, DIVERGE_MAX_PAPERS, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, OUTLINE_INSTRUCTIONS, SURVEY_TIMING, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, tutorialInstructions, validateInstructions } from '../../../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, DEFAULT_EXTRACT_MODEL, TARGET_PAPERS, listInstructions, papersPerFamily, DIVERGE_MAX_PAPERS, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, OUTLINE_INSTRUCTIONS, SURVEY_TIMING, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, tutorialInstructions, validateInstructions } from '../../../packages/agent/src/research-prompt';
 import { TOOL_CHECKPOINT_INSTRUCTIONS, timeBudget } from '../../../packages/agent/src/time-budget';
 import { ROUTED_SKILLS, ROUTER_TIMEOUT_SECONDS, skillInstructions } from '../../../packages/agent/src/skills/index';
 import { REPAIR_INSTRUCTIONS } from '../../../packages/agent/src/prompt';
@@ -42,7 +42,7 @@ export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY
       reads: 'Mapが提出した分野・課題・系統と手法', writes: `その系統の論文（全体で約${TARGET_PAPERS}本を系統で分ける、書誌は識別子と題だけ）。3〜5本ずつ提出し、提出した論文から読み始める`,
       prompt: withCheckpoints(listInstructions('family-example', ['method-a', 'method-b'], papersPerFamily(EXAMPLE_FAMILIES), 1, undefined, ['family-b', 'family-c'])) },
     { id: 'extract', step: '2', name: 'Extract', count: concurrencyLimit, segments: readings, checkpoints: true,
-      reads: '分野・課題・手法と、担当の論文1本', writes: '担当論文の要点と要旨の和訳（論文は変える項目だけを1回で提出）、課題の候補、主な結果の主張と根拠（サーバーは論文の要点と和訳だけを写す）',
+      reads: `分野・課題・手法と、担当の論文1本（モデル ${DEFAULT_EXTRACT_MODEL}）`, writes: '担当論文の要点と要旨の和訳（論文は変える項目だけを1回で提出）、課題の候補、主な結果の主張と根拠（サーバーは論文の要点と和訳だけを写す）',
       prompt: withCheckpoints(extractInstructions(examplePapers[0], 1)) },
     { id: 'diverge', step: '3', name: 'Explore', count: 1, segments: [codex(T.map, T.explore, '発散')], checkpoints: true,
       reads: 'Mapの結果と、ここまでの検索の記録', writes: `追加だけ：論文（${DIVERGE_MAX_PAPERS}本まで、提出したらすぐ読まれる）、他分野の手法、抜けていた観点の課題と根拠、開いた文献`,

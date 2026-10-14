@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, LISTER_RULE_IDS, READER_RULE_IDS, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { DEFAULT_EXTRACT_CONCURRENCY, SURVEY_TIMING, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, DEFAULT_EXTRACT_MODEL, SURVEY_TIMING, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -125,6 +125,8 @@ const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ?
 /** Papers read at once in a new survey (design 0037); lower it where memory is short (each reader is a thread of the run's process). */
 // With exec (the fallback) every reader is a process of its own (about 105 MB), so it reads few at once unless told otherwise.
 const EXTRACT_CONCURRENCY = Math.max(1, Number(process.env.EXTRACT_CONCURRENCY) || (CODEX_TRANSPORT === 'exec' ? 3 : DEFAULT_EXTRACT_CONCURRENCY));
+/** The readers' model (design 0037); an operator may set another with EXTRACT_MODEL. */
+const EXTRACT_MODEL = /^[\w.-]+$/.test(process.env.EXTRACT_MODEL ?? '') ? process.env.EXTRACT_MODEL! : DEFAULT_EXTRACT_MODEL;
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
  * of its own transport (a plugin's server is not in config.toml, and a bare enabled=false would leave it without a transport),
  * and the host then verifies the effective config before any thread starts, failing closed. Listed again for each run. */
@@ -165,7 +167,7 @@ function codexSettings(webSearch: string) {
 type StepCheckpoints = { chunks: Checkpoints; step?: number; note?(): string | undefined };
 /** One Codex process. Several may run for one run (staged workers); a stage's timeout kills only its own process.
  * With `checkpoints`, results saved as they go (design 0034) arrive through submit_patch (app-server) or commentary (exec). */
-function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; effort?: string; nudge?: { seconds: number; text: string; unless(): boolean }; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
+function runCodexStep(run: Run, directory: string, step: string, prompt: string, timeoutSeconds: number, options: { output?: string; failRunOnTimeout?: boolean; schema?: string; webSearch?: 'live' | 'disabled'; effort?: string; model?: string; nudge?: { seconds: number; text: string; unless(): boolean }; checkpoints?: StepCheckpoints } = {}): Promise<CodexAttempt> {
   return startWhileActive(run.status === 'running', () => new Promise(done => {
     const startedAt = Date.now();
     const budget = timeBudget(timeoutSeconds);
@@ -180,7 +182,8 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     const log = join(directory, 'events.jsonl');
     // Each line carries the seconds since the run started ("t"), so the steps' timing can be read afterwards.
     const record = (line: string) => { if (logged.get(run.id)! < MAX_LOG_BYTES) { const stamped = line.replace(/^\{/, `{"t":${((Date.now() - Date.parse(run.started_at)) / 1000).toFixed(1)},`); appendFileSync(log, redact(stamped) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + stamped.length + 1); } };
-    record(JSON.stringify({ type: 'app.step', step, transport: CODEX_TRANSPORT }));
+    const model = options.model ?? CODEX_EXECUTION.model;
+    record(JSON.stringify({ type: 'app.step', step, transport: CODEX_TRANSPORT, model }));
     let state = initialCodexState(); let stderr = ''; const before = run.searches;
     const cp = options.checkpoints;
     const noted = (outcome: string) => {
@@ -204,7 +207,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     let ended: Promise<{ code: number | null; signal?: NodeJS.Signals | null; spawnError?: boolean }>;
     if (CODEX_TRANSPORT === 'app-server') {
       const appServer = hostFor(run, env).turn({
-        model: CODEX_EXECUTION.model, effort: options.effort ?? CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
+        model, effort: options.effort ?? CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
         // The process searches the web live; a step that must not (the repair) turns it off for its own thread.
         config: webSearch === CODEX_EXECUTION.webSearch ? undefined : { web_search: webSearch },
         outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine,
@@ -220,7 +223,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
       proc = appServer;
       ended = appServer.done.then(result => { if (result.finalMessage !== undefined) writeFileSync(output, result.finalMessage, { mode: 0o600 }); return result; });
     } else {
-      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', CODEX_EXECUTION.model, ...codexSettings(webSearch), ...(options.effort ? ['-c', `model_reasoning_effort="${options.effort}"`] : []), '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = spawn('codex', ['exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check', '--sandbox', CODEX_EXECUTION.sandbox, '-m', model, ...codexSettings(webSearch), ...(options.effort ? ['-c', `model_reasoning_effort="${options.effort}"`] : []), '--json', '--cd', workdir, '--output-schema', schemaFile, '--output-last-message', output, '-'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
       if (child.stdout) createInterface({ input: child.stdout }).on('line', onLine);
       child.stderr?.on('data', (chunk: Buffer) => onStderr(chunk.toString('utf8')));
       child.stdin?.on('error', () => {});
@@ -313,7 +316,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       }, () => run.status === 'running') : undefined;
       // Each retry gets a fresh file: an earlier attempt's output cannot pass as this one's output.
       const outputFile = `stage-${stage}-${attemptId}.json`;
-      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage), note: () => { const text = note; note = undefined; return text; } } : undefined });
+      const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, model: options.model, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage), note: () => { const text = note; note = undefined; return text; } } : undefined });
       const ok = attemptSucceeded(attempt);
       // The plan's usage limit fails every later agent at once: none is started after it (design 0037).
       const limit = attemptError(attempt)?.match(/usage limit[\s\S]*?try again at ([^.\n]+)/i) ?? (/usage limit/i.test(attemptError(attempt) ?? '') ? [''] : null);
@@ -344,7 +347,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot, [], true),
     },
     now: () => Date.now(),
-    concurrency: EXTRACT_CONCURRENCY,
+    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL,
     mark: stage => { addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run); },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),

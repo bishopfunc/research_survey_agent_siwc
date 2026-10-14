@@ -30,6 +30,8 @@ export interface StageOptions {
   webSearch?: 'live' | 'disabled';
   /** Reasoning effort other than the default: low for the many short agents (a reader, a lister, the validate). */
   effort?: string;
+  /** A model other than the default (the readers', design 0037). */
+  model?: string;
   /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
   checkpoints?: boolean;
   /** A text it returns is added to the tool's answer (a lister learns which of its papers another agent listed). */
@@ -57,6 +59,8 @@ export interface StagedSteps {
   now(): number;
   /** Papers read at the same time. */
   concurrency: number;
+  /** The readers' model; the other steps use the default. */
+  readerModel?: string;
   /** Records a step the server runs itself (the schema check) in the trace. */
   mark?(stage: StageId): void;
   normalize(patch: unknown): unknown;
@@ -291,9 +295,9 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const stage: StageId = `extract-${n}`, context = paperContext(view, paper);
     const prompt = steps.prompt.extract(context, paper, n);
     // A reader submits its paper's fields it changes (submit_patch), so a timed-out reader keeps what it submitted.
-    const result = await steps.run(stage, prompt, context, { seconds, effort: 'low', checkpoints: true });
+    const result = await steps.run(stage, prompt, context, { seconds, effort: 'low', checkpoints: true, model: steps.readerModel });
     const again = left(T.extractEnd);
-    if (!result.ok && steps.active() && !halted() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true }); }
+    if (!result.ok && steps.active() && !halted() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true, model: steps.readerModel }); }
     return result;
   };
   const applyPaper = async (paper: string, n: number, result: StageResult, view: SurveySnapshot) => {
