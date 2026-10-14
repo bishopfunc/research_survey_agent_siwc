@@ -1,6 +1,6 @@
 # 0036: Codexをapp-serverで動かし、途中成果をツールで受け取る
 
-状態: Draft
+状態: Implemented
 日付: 2026-10-14 JST
 対象タスク: 新規調査・追記の時間切れ（[0034](0034-research-budget-and-checkpoints.md)の続き）
 関連ADR・受け入れ条件: [ADR 0025](../adr/0025-codex-app-server.md)（[ADR 0023](../adr/0023-validated-stream-checkpoints.md)を置き換える）、[0032](0032-self-hosted-vps.md)
