@@ -17,6 +17,7 @@ services:
       CODEX_TRANSPORT: ${CODEX_TRANSPORT:-app-server}
       EXTRACT_CONCURRENCY: ${EXTRACT_CONCURRENCY:-12}
       EXTRACT_MODEL: ${EXTRACT_MODEL:-}
+      SURVEY_MODEL: ${SURVEY_MODEL:-}
     volumes:
       - poc:/app/.poc
       - gate:/app/.gate

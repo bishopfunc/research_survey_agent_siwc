@@ -75,6 +75,7 @@
 - `submit_patch` は、Map（全体像・系統ごと・偵察）、Extract、Explore、Synthesize、Tutorial、Fill、追記の調査が使う。Validateは最終応答だけを使う。系統ごと・偵察のAgentへの返答には、他のAgentが先に挙げた論文を添える。
 - Validateの出力：`{gaps:[{n, why, fill:'existing'|'search', query}], message}`。nは点検の一覧の番号で、サーバーが対象・欄・問題を補ってFillへ渡す（試行5では対象・欄・問題も書かせて30秒で書き終わらなかった）。
 - `EXTRACT_MODEL` でExtractのモデルを変えられる（既定 `gpt-6-luna`）。
+- `SURVEY_MODEL` でExtract以外のすべての手順（依頼の判定、解説、修正・補完、違う視点、深掘りも含む）のモデルを変えられる（既定 `gpt-6.1-sol`）。全部をLunaにした試行（2026-10-14、ユーザー指示「全部Lunaにしてみて」）に使う。
 - `EXTRACT_CONCURRENCY` でExtractの同時数を変えられる（既定16。VPSはメモリを見て12。execに戻したときは既定3）。
 
 ## 失敗と競合

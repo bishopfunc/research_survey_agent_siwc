@@ -127,6 +127,8 @@ const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ?
 const EXTRACT_CONCURRENCY = Math.max(1, Number(process.env.EXTRACT_CONCURRENCY) || (CODEX_TRANSPORT === 'exec' ? 3 : DEFAULT_EXTRACT_CONCURRENCY));
 /** The readers' model (design 0037); an operator may set another with EXTRACT_MODEL. */
 const EXTRACT_MODEL = /^[\w.-]+$/.test(process.env.EXTRACT_MODEL ?? '') ? process.env.EXTRACT_MODEL! : DEFAULT_EXTRACT_MODEL;
+/** The model of every other step (design 0037); an operator may set another with SURVEY_MODEL, e.g. to try a survey all on gpt-6-luna. */
+const SURVEY_MODEL = /^[\w.-]+$/.test(process.env.SURVEY_MODEL ?? '') ? process.env.SURVEY_MODEL! : CODEX_EXECUTION.model;
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
  * of its own transport (a plugin's server is not in config.toml, and a bare enabled=false would leave it without a transport),
  * and the host then verifies the effective config before any thread starts, failing closed. Listed again for each run. */
@@ -186,7 +188,7 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
     const log = join(directory, 'events.jsonl');
     // Each line carries the seconds since the run started ("t"), so the steps' timing can be read afterwards.
     const record = (line: string) => { if (logged.get(run.id)! < MAX_LOG_BYTES) { const stamped = line.replace(/^\{/, `{"t":${((Date.now() - Date.parse(run.started_at)) / 1000).toFixed(1)},`); appendFileSync(log, redact(stamped) + '\n', { mode: 0o600 }); logged.set(run.id, logged.get(run.id)! + stamped.length + 1); } };
-    const model = options.model ?? CODEX_EXECUTION.model;
+    const model = options.model ?? SURVEY_MODEL;
     record(JSON.stringify({ type: 'app.step', step, transport: CODEX_TRANSPORT, model }));
     let state = initialCodexState(); let stderr = ''; const before = run.searches;
     const cp = options.checkpoints;
