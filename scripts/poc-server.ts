@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, LISTER_RULE_IDS, READER_RULE_IDS, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { DEFAULT_EXTRACT_CONCURRENCY, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, SURVEY_TIMING, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -276,11 +276,18 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
   const normalize = (patch: unknown) => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
+  // A request's limit counts from now, the routing included (design 0037); the enrichment stops at it too.
+  const requestStarted = Date.now();
+  const secondsLeft = (limit: number, keep = 0) => Math.floor(limit - keep - (Date.now() - requestStarted) / 1000);
+  let requestLimit = input.mode === 'new' ? SURVEY_TIMING.total : Infinity;
   const prepare = async (patch: unknown) => {
     if (!(patch as SurveyPatch)?.operations) return patch;
+    const left = (requestStarted + requestLimit * 1000) - Date.now();
+    if (left < 2000) { addTrace(run, { kind: 'step', text: '時間の上限のため書誌とアブストラクトの補完を省きました' }); save(run); return patch; }
     if (run.status === 'running') { run.message = 'Codexの結果に書誌とアブストラクトを補完しています'; save(run); }
-    const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.timeout(30_000) }), asOf, arxivApi, process.env.OPENALEX_API_KEY);
-    if (result.error) addTrace(run, { kind: 'error', text: result.error });
+    const deadline = AbortSignal.timeout(Math.min(left, 2 ** 31 - 1));
+    const result = await enrichPatch(patch as SurveyPatch, url => fetch(url, { signal: AbortSignal.any([AbortSignal.timeout(30_000), deadline]) }), asOf, arxivApi, process.env.OPENALEX_API_KEY);
+    if (result.error) addTrace(run, { kind: 'error', text: deadline.aborted ? '時間の上限のため書誌とアブストラクトの補完を途中で止めました' : result.error });
     const now = new Date().toISOString();
     for (const op of result.patch.operations) if ('entity' in op && op.entity.type === 'Paper') await papersDb.upsertFixed(op.entity as unknown as Record<string, unknown> & { title: string }, now).catch(() => null);
     return result.patch;
@@ -288,9 +295,6 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   // The map, the listers, the explore, the integration, the tutorial and the fill submit as they go; a reader and the validate write
   // a short final response.
   const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false, rules?: readonly string[]) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, rules, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
-  // A request's limit counts from now, the routing included (design 0037).
-  const requestStarted = Date.now();
-  const secondsLeft = (limit: number, keep = 0) => Math.floor(limit - keep - (Date.now() - requestStarted) / 1000);
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
     run: async (stage, prompt, snapshot, options) => {
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
@@ -341,7 +345,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot) + contextInstructions(input.context_papers, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false, effort: 'low' }), directory, 'route.json');
     },
     explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), Math.max(15, secondsLeft(skillById('explain').timeoutSeconds)), { effort: skillById('explain').effort, output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
-    research: skillId => { const skill = skillById(skillId); return executeResearch({
+    research: skillId => { const skill = skillById(skillId); requestLimit = skill.timeoutSeconds; return executeResearch({
       snapshot: input.snapshot,
       // Like a new-survey stage, the research sends checkpoints; a run that timed out keeps what they saved (design 0034).
       // Without any checkpoint the final output goes to validation and repair as before.

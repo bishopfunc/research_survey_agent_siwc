@@ -29,7 +29,7 @@
 
 - **起動：** `codex app-server --listen stdio://` に、execと同じ設定（モデル、推論の強さと要約、Web検索、承認なし、read-onlyのsandbox、無効化する機能、`project_doc_max_bytes=0`、`skills.include_instructions=false`）を `-c` と `--disable` で渡す。app-serverには `--ignore-user-config` が無いので、ユーザー設定から入りうるものを明示的に止める：`notify=[]`、runごとに `codex mcp list --json` で得たMCPサーバーを、同じtransportの無効の項目（stdioは `{command="true",enabled=false}`、URLは `{url="http://127.0.0.1:9/",enabled=false}`）で置き換える。プラグインが足すMCPサーバーはconfig.tomlに無く、`enabled=false` だけを足すとtransportの無い項目になり、Codexが起動を拒むため。そのうえで最初のthreadの前に `config/read` で実際の設定を確かめ、有効なMCPサーバーかユーザーの指示（instructions、developer_instructions、model_instructions_file）が残っていれば、そのrunのCodexを始めずに失敗にする（隔離できないまま動かさない）。API keyの環境変数は渡さない。作業ディレクトリはリポジトリ外の一時ディレクトリ。
 - **初期化：** `initialize`（`experimentalApi: true`）→ `initialized` → `thread/start`（model、cwd、sandbox `read-only`、approvalPolicy `never`、`ephemeral: true`、途中保存がある段階だけ `dynamicTools`）→ `turn/start`（入力は今と同じbudgetとプロンプト、`outputSchema`、effort、summary）。
-- **ツール `submit_patch`：** 引数は `{message, operations}`。入力スキーマは小さく保つ（Codexは5,000バイトを超えるツールのスキーマを省略して送り、`strict:false` で渡す）。操作の形は最終応答のスキーマと同じ。サーバーは `schema_version` と `base_commit_id` を補い、正規化（[0012](0012-codex-research-modes.md)）、省略形の差し替えの補完、型・参照検証、累積保存を行う。返答は次の3つ：
+- **ツール `submit_patch`：** 引数は `{message, operations}`。入力スキーマは小さく保つ（Codexは5,000バイトを超えるツールのスキーマを省略して送り、`strict:false` で渡す）。操作の形は最終応答のスキーマと同じ。サーバーは `schema_version` と `base_commit_id` を補い、正規化（[0012](0012-codex-research-modes.md)）、省略形の差し替えの補完（調査に既にある項目か提出済みの項目は、IDと型と変える項目だけを送らせ、残りを保存済みの値で補う。最終応答はすべての項目を送る）、型・参照検証、累積保存を行う。返答は次の3つ：
   - saved：保存した。それまでの操作数を返す。
   - held：型とbaseは正しいが参照などがまだ通らない。保留し、後の提出と最終応答と合わせて検証する。足りない項目を送るか差し替えるよう返す。
   - rejected：読めない・型が違う。何も保存しない。エラーを返し、直して出し直させる（`success:false`）。execのときと違い、rejectedは最終応答を無効にしない。

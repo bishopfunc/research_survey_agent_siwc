@@ -32,9 +32,10 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
   const valid = (patch: SurveyPatch) => { try { validate(patch); return true; } catch { return false; } };
   const merge = (earlier: SurveyPatch | undefined, later: SurveyPatch) => earlier ? mergeRepair(earlier, later, snapshot) : later;
   /** A free-text replace that names only the keys it changes keeps the other stored values (from an earlier checkpoint or the
-   * stage's snapshot), as [keepstored] asks; the strict final output always sends every key. */
+   * stage's snapshot), as [keepstored] asks; the strict final output always sends every key. A null never erases a stored value. */
   const stored = (id: string) => [...(all?.operations ?? [])].reverse().flatMap(op => 'entity' in op && op.entity.id === id ? [op.entity] : [])[0] ?? snapshot.entities.find(e => e.id === id);
-  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => op?.op === 'replace_entity' && op.entity && stored(op.entity.id)?.type === op.entity.type ? { ...op, entity: { ...stored(op.entity.id), ...op.entity } } : op) }) as SurveyPatch;
+  const over = (before: object, after: object) => ({ ...before, ...Object.fromEntries(Object.entries(after).filter(([key, value]) => value !== null || (before as Record<string, unknown>)[key] == null)) });
+  const keepStored = (patch: SurveyPatch) => ({ ...patch, operations: patch.operations?.map(op => { const before = op?.op === 'replace_entity' && op.entity ? stored(op.entity.id) : undefined; return before && 'entity' in op && before.type === op.entity.type ? { ...op, entity: over(before, op.entity) } : op; }) }) as SurveyPatch;
   return {
     accept(line: string): 'ignored' | 'saved' | 'held' | 'rejected' {
       if (!active()) return 'ignored';

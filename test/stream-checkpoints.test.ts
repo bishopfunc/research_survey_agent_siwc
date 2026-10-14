@@ -130,6 +130,17 @@ test('a free-text replace that names only the keys it changes keeps the other st
   const domainOut = applyPatch(emptySurvey('t'), JSON.parse(added.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === 'd');
   assert.deepEqual([domainOut?.label, domainOut?.type === 'Domain' && domainOut.description], ['D2', 'D']);
 });
+test('submit_patch: a replace of a survey entity with only its id, type and the changed keys keeps the rest; a null keeps the stored value', () => {
+  const stored = fixture.entities.find(e => e.id === 'paper-cbs')!;
+  if (stored.type !== 'Paper') throw Error('fixture changed');
+  const chunks = streamCheckpoints(fixture, 'b', p => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>), () => {});
+  assert.equal(chunks.submit({ message: 'summary', operations: [{ op: 'replace_entity', entity: { id: 'paper-cbs', type: 'Paper', one_line_summary: '要約を直した', citation_count: null, reading: null } }] }).status, 'saved');
+  const out = applyPatch(fixture, JSON.parse(chunks.finish(JSON.stringify(patch([])))), 'b').entities.find(e => e.id === 'paper-cbs');
+  if (out?.type !== 'Paper') throw Error('paper lost');
+  assert.equal(out.one_line_summary, '要約を直した');
+  assert.ok(stored.citation_count !== null && stored.reading);
+  assert.deepEqual([out.label, out.title, out.citation_count, out.reading, out.proposes], [stored.label, stored.title, stored.citation_count, stored.reading, stored.proposes]);
+});
 test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
   const fence = '```';
   const forms = ['**SURVEY_CHECKPOINT**\n', '`SURVEY_CHECKPOINT`\n', 'SURVEY_CHECKPOINT 2/4:\n', 'SURVEY_CHECKPOINT — 論文1本\n', `SURVEY_CHECKPOINT\n${fence}JSON\n`];
