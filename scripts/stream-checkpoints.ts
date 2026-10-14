@@ -130,7 +130,8 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
       try { validate(merged); } catch (error) {
         if (!all) throw error;
         // Tutorial parts: a held part that was never fixed does not cost the final response's valid sections (as with submissions).
-        const alone = options.appendSections && accepted && accepted !== all ? merge(accepted, finalParts(patch, accepted)) : undefined;
+        // Nothing saved yet (the first part was held) leaves the final response on its own.
+        const alone = options.appendSections && accepted !== all ? merge(accepted, finalParts(patch, accepted)) : undefined;
         if (alone && valid(alone)) { options.dropped?.((error instanceof Error ? error.message : '').split('\n')[0]); return JSON.stringify(alone); }
         throw Error(`途中保存と最終出力を合わせた変更案が検証に通りません：${(error instanceof Error ? error.message : '').split('\n')[0]}`);
       }

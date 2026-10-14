@@ -187,6 +187,11 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
   assert.equal(abandoned.submit({ message: '3', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('X', 'see [@nowhere]')] } }] }).status, 'held');
   assert.deepEqual(headings(abandoned.finish(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['A', 'B', 'C', 'D', 'E', 'F']);
   assert.equal(dropped.length, 1); assert.match(dropped[0], /nowhere/);
+  // Even when the first part was held and never fixed, a valid final response is kept.
+  const firstHeld = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true, dropped: reason => dropped.push(reason) });
+  assert.equal(firstHeld.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A', 'see [@nowhere]'), sec('B')]) }] }).status, 'held');
+  assert.deepEqual(headings(firstHeld.finish(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['E', 'F']);
+  assert.equal(dropped.length, 2);
   // A labelled part that fixes the first section and adds a new one is still a part.
   const fixFirst = start();
   assert.equal(fixFirst.submit({ message: '3', operations: [{ op: 'add_entity', entity: tutorial([sec('A', 'A2'), sec('E')]) }] }).status, 'saved');
