@@ -271,6 +271,23 @@ test('the submissions of a reader are validated against the whole survey: its co
   assert.ok(read.length && read.every(stage => seen[stage].entities.some(e => e.type === 'Resource')), 'a reader validates against the whole survey');
 });
 
+test('when the readings end late and the integration and the validate run out their time, the fill still starts', async () => {
+  for (const readingsEnd of [350.3, 400.3]) {
+    let now = 0;
+    // Each agent that runs out its time takes half a second to settle after its limit.
+    const run = steps({ now: () => now, onRun: (stage, o) => {
+      if (stage.startsWith('extract')) now = Math.max(now, readingsEnd * 1000);
+      if (stage === 'integrate' || stage === 'validate') { now += (o.seconds + 0.5) * 1000; return { ok: false, error: '時間切れ', searches: 0 }; }
+      return undefined;
+    } });
+    const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+    assert.ok(outcome.status === 'succeeded');
+    const fills = run.calls.filter(c => /^fill-\d+$/.test(c));
+    assert.ok(fills.length > 0, `the fill starts after readings ending at ${readingsEnd} s`);
+    assert.ok(run.options['fill-1'][0].seconds >= SURVEY_TIMING.fillMin && now / 1000 + run.options['fill-1'][0].seconds <= SURVEY_TIMING.total - SURVEY_TIMING.tail + 1);
+  }
+});
+
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);

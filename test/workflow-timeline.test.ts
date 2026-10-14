@@ -18,9 +18,12 @@ test('the /lab timeline places the ten-minute survey as the staged run does, fro
   assert.equal(at('integrate').start, T.extractEnd);
   // The tutorial starts beside the readings and is over before the validate.
   assert.equal(at('tutorial').start, T.tutorialStart); assert.ok(at('tutorial').start + at('tutorial').seconds <= T.extractEnd + T.synthesize);
-  assert.ok(row('extract').checkpoints && row('tutorial').checkpoints);
+  // As in the run: these steps save as they go; the validate writes one final response.
+  assert.ok(['outline', 'list', 'extract', 'diverge', 'integrate', 'tutorial', 'fill'].every(id => row(id).checkpoints) && !row('validate').checkpoints);
   // The integration is cut to leave the validate and the least fill before the tail.
-  assert.equal(at('validate').start, Math.min(T.extractEnd + T.synthesize, T.total - T.tail - T.validate - T.fillMin));
+  assert.equal(at('validate').start, Math.min(T.extractEnd + T.synthesize, T.total - T.tail - T.validate - T.fillMin - 2 * T.stopSlack));
+  // A stopped validate may take stopSlack to settle; the fill still gets fillMin.
+  assert.ok(at('fill').seconds >= T.fillMin);
   assert.equal(at('integrate').seconds, at('validate').start - T.extractEnd);
   assert.equal(at('fill').start, at('validate').start + T.validate); assert.equal(row('fill').count, FILL_PARTS);
   assert.ok(t.end + T.tail <= T.total && t.total === T.total);

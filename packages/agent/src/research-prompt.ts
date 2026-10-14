@@ -86,6 +86,9 @@ export const SURVEY_TIMING = {
   tutorialStart: 200, tutorial: 290,
   /** The integration's limit; it ends by then or before the validate, whichever is first (the readings often end near 300 s). */
   synthesize: 190, validate: 40, fill: 50, fillMin: 30,
+  /** Seconds a stopped agent may take to settle (interrupt wait, TERM grace): each step that can run out its time ends this much
+   * earlier, so the fill still starts with fillMin. */
+  stopSlack: 5,
 } as const;
 /** Step 3 adds at most this many papers; step 2 reads them. */
 export const DIVERGE_MAX_PAPERS = 10;

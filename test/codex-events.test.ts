@@ -59,7 +59,9 @@ test('the minimal trace shows searches, short reasoning headings and errors only
   assert.deepEqual(traceItem('{"type":"item.completed","item":{"type":"reasoning","text":"**Comparing survey taxonomies**"}}'), { kind: 'thinking', text: 'Comparing survey taxonomies' });
   assert.deepEqual(traceItem('{"type":"item.completed","item":{"type":"reasoning","text":"**Confirming abstract**\\n\\n**Finalizing evidence**"}}'), { kind: 'thinking', text: 'Finalizing evidence' });
   assert.deepEqual(traceItem('{"type":"item.completed","item":{"type":"web_search","query":"https://arxiv.org/abs/1809.03531","action":{"type":"other"}}}'), { kind: 'open', text: 'https://arxiv.org/abs/1809.03531' });
-  assert.deepEqual(traceItem('{"type":"error","message":"{\\"error\\":{\\"message\\":\\"usage limit\\"}}"}'), { kind: 'error', text: 'usage limit' });
+  // The plan's usage limit shows as one Japanese sentence, without Codex's reset time in the machine's clock (design 0037).
+  assert.deepEqual(traceItem('{"type":"error","message":"{\\"error\\":{\\"message\\":\\"usage limit\\"}}"}'), { kind: 'error', text: 'ChatGPTの利用上限に達しました。利用枠が回復してから再実行してください' });
+  assert.equal(traceItem(JSON.stringify({ type: 'error', message: "You've hit your usage limit. Upgrade to Pro or try again at 7:03 AM." }))?.text, 'ChatGPTの利用上限に達しました。利用枠が回復してから再実行してください');
   for (const quiet of ['{"type":"item.started","item":{"type":"web_search","query":"","action":{"type":"other"}}}', '{"type":"item.completed","item":{"type":"agent_message","text":"{}"}}', '{"type":"turn.completed"}', 'not json'])
     assert.equal(traceItem(quiet), null);
 });

@@ -70,6 +70,10 @@ export function execUsage(last: unknown): Record<string, number> | null {
 }
 
 /** Short, single-line reason for the UI. API errors arrive as JSON inside the message string. */
+/** The plan's usage limit, however Codex words it ("You've hit your usage limit", "reached their Subscription Sharing usage
+ * limit"). Its reset time is left out: Codex prints it in the clock of the machine it runs on (UTC on the VPS). */
+export const USAGE_LIMIT_MESSAGE = 'ChatGPTの利用上限に達しました。利用枠が回復してから再実行してください';
+export function isUsageLimit(error: string | null | undefined) { return !!error && /usage limit/i.test(error); }
 export function errorText(message: string): string {
   let text = message;
   try {
@@ -107,6 +111,6 @@ export function traceItem(line: string): TraceItem | null {
     const text = (headings.at(-1) ?? item.text).replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
     return text ? { kind: 'thinking', text: redact(text).slice(0, 200) } : null;
   }
-  if (event?.type === 'error' && typeof event.message === 'string') return { kind: 'error', text: errorText(event.message) };
+  if (event?.type === 'error' && typeof event.message === 'string') return { kind: 'error', text: isUsageLimit(event.message) ? USAGE_LIMIT_MESSAGE : errorText(event.message) };
   return null;
 }

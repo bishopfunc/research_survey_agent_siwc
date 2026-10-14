@@ -387,7 +387,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // Step 4's tutorial starts beside the readings, from the papers read by then, so it has time to write.
   let tutorialRun: Promise<StageResult> | null = null;
   const startTutorial = () => {
-    const seconds = Math.min(T.tutorial, left(T.total - T.tail - T.validate - T.fillMin));
+    const seconds = Math.min(T.tutorial, left(T.total - T.tail - T.validate - T.fillMin - 2 * T.stopSlack));
     if (tutorialRun || !steps.prompt.tutorial || !steps.active() || halted() || seconds < 30) return;
     tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true, tutorialParts: true });
   };
@@ -421,7 +421,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
 
   // Step 4: one integration, and a separate agent writing the Tutorial from the same snapshot.
-  const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin));
+  const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin - 2 * T.stopSlack));
   const explored = new Set((explorePatch as SurveyPatch | null)?.operations.flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []) ?? []);
   const candidates = snapshot.entities.filter(e => e.type === 'Issue' && !outline.entities.some(o => o.id === e.id) && !explored.has(e.id)).map(e => e.id);
   startTutorial();
@@ -461,7 +461,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const found: CheckedGap[] = [...unmet.map(c => ({ target: 'survey', field: c.id, problem: `${c.label}（${c.detail}）` })), ...findGaps(snapshot)].slice(0, MAX_GAPS).map(g => ({ ...g, fill: 'search' as const, query: null }));
   steps.checkpoint('check', { gaps: found });
   let chosen = found.slice(0, MAX_CHOSEN_GAPS);
-  const validateSeconds = Math.min(T.validate, left(T.total - T.tail - T.fillMin));
+  const validateSeconds = Math.min(T.validate, left(T.total - T.tail - T.fillMin - T.stopSlack));
   if (!found.length || validateSeconds < 10) steps.mark?.('check');
   if (found.length && validateSeconds >= 10 && !halted()) {
     const result = await steps.run('validate', steps.prompt.validate(snapshot, found), snapshot, { seconds: validateSeconds, schema: 'validate-schema.json', webSearch: 'disabled', effort: 'low' });

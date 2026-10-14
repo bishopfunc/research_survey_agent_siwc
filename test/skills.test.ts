@@ -33,6 +33,10 @@ test('the words of a request pick a skill when the router fails', () => {
     ['課題に英語表現を加えて', 'revise'], ['手法を系統に分類して', 'revise'],
     // An edit with "もっと" stays a revise (a real VPS run, 2026-10-14, went to deepen); asking for research does not.
     ['CBSの論文の一行要約を、保存済みの情報からもっと短く直して', 'revise'], ['間違いを直して', 'revise'], ['要約をもっと詳しく調べて', 'deepen'], ['修正の仕方を説明して', 'explain'],
+    // The field's own topic words are not edit requests; a viewpoint wins over an edit word.
+    ['機械翻訳の評価指標の違いとは？', 'explain'], ['ニューラル機械翻訳の仕組みをわかりやすく', 'explain'], ['LLMの推論の誤りはなぜ起きるのか', 'explain'], ['誤り訂正符号とは', 'explain'],
+    ['機械翻訳の手法をもっと深く', 'deepen'], ['翻訳の研究をさらに', 'deepen'], ['安全性の観点で補完して', 'perspective'], ['違う視点から書き直して', 'perspective'], ['他分野の論文で補完して', 'perspective'],
+    ['要約を和訳して', 'revise'], ['重複した手法を削除して', 'revise'],
   ];
   for (const [text, skill] of cases) assert.equal(guessSkill(text), skill, text);
 });

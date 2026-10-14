@@ -1,16 +1,13 @@
 import { STOP_GRACE_MS } from '../packages/agent/src/time-budget';
 import type { CodexAttempt } from './research-run';
-import { initialCodexState } from './codex-events';
+import { initialCodexState, isUsageLimit, USAGE_LIMIT_MESSAGE } from './codex-events';
+export { isUsageLimit, USAGE_LIMIT_MESSAGE };
 
 /** A completed turn and exit 0 succeed even after an `error` event: Codex reports transient retries ("Reconnecting... 2/5") that way.
  * A fatal error ends the turn with turn.failed instead; the last error only explains a failure. */
 export function attemptSucceeded(attempt: CodexAttempt) {
   return !attempt.timedOut && !attempt.spawnError && attempt.code === 0 && attempt.state.completed;
 }
-/** The plan's usage limit, however Codex words it ("You've hit your usage limit", "reached their Subscription Sharing usage
- * limit"). Its reset time is left out: Codex prints it in the clock of the machine it runs on (UTC on the VPS). */
-export const USAGE_LIMIT_MESSAGE = 'ChatGPTの利用上限に達しました。利用枠が回復してから再実行してください';
-export function isUsageLimit(error: string | null | undefined) { return !!error && /usage limit/i.test(error); }
 export function attemptError(attempt: CodexAttempt): string | undefined {
   if (attempt.timedOut) return '時間切れ：書き出し猶予を含む実行上限に達しました';
   if (attempt.spawnError) return 'Codex CLIを起動できません。インストールを確認してください';
