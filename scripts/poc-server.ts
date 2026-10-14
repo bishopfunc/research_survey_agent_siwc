@@ -279,6 +279,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   // One research date for the run, so a repair can fill a missing as_of with the same day.
   const asOf = today();
   const normalize = (patch: unknown) => stripCodexNulls(patch, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
+  let usageLimit: string | undefined;
   // A request's limit counts from now, the routing included (design 0037); the enrichment stops at it too.
   const requestStarted = Date.now();
   const secondsLeft = (limit: number, keep = 0) => Math.floor(limit - keep - (Date.now() - requestStarted) / 1000);
@@ -314,6 +315,9 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       const outputFile = `stage-${stage}-${attemptId}.json`;
       const attempt = await runCodexStep(run, directory, stage, prompt, Math.max(10, options.seconds), { output: outputFile, failRunOnTimeout: false, schema: options.schema, webSearch: options.webSearch, effort: options.effort, nudge: options.nudge, checkpoints: chunks ? { chunks, step: stageStep(stage), note: () => { const text = note; note = undefined; return text; } } : undefined });
       const ok = attemptSucceeded(attempt);
+      // The plan's usage limit fails every later agent at once: none is started after it (design 0037).
+      const limit = attemptError(attempt)?.match(/usage limit[\s\S]*?try again at ([^.\n]+)/i) ?? (/usage limit/i.test(attemptError(attempt) ?? '') ? [''] : null);
+      if (limit && !usageLimit) usageLimit = `ChatGPTの利用上限に達しました${limit[1] ? `（解除 ${limit[1].trim()}）` : ''}`;
       let output: string | undefined; let outputError: string | undefined;
       if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
       const error = ok ? outputError : attemptError(attempt);
@@ -346,6 +350,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),
     remember: memory => writeFileSync(join(directory, 'search-memory.json'), JSON.stringify(memory), { mode: 0o600 }),
     active: () => run.status === 'running',
+    halted: () => usageLimit,
     progress: message => { if (run.status === 'running') { run.message = message; save(run); } },
   }) : executeSkillRun(input.instruction, {
     route: async () => {

@@ -66,6 +66,8 @@ export interface StagedSteps {
   /** Saves the search memory after each stage. */
   remember?(memory: SearchMemory): void;
   active(): boolean;
+  /** Why no further agent may start (the plan's usage limit); what is saved so far still becomes the proposal. */
+  halted?(): string | undefined;
   progress(message: string): void;
 }
 
@@ -259,10 +261,11 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     twins.forEach(p => told.add(p.id));
     return twins.length ? `Already listed by another agent, so it is read only once: ${twins.map(p => `${p.id} (${p.label})`).join('; ')}. Do not submit these again; list other papers instead.` : undefined;
   };
+  const halted = () => steps.halted?.();
   const pump = () => {
     while (running < steps.concurrency && queue.length && steps.active()) {
       const remaining = left(T.extractEnd);
-      if (remaining < T.extractMin) { count.late += queue.length; queue.length = 0; return; }
+      if (remaining < T.extractMin || halted()) { count.late += queue.length; queue.length = 0; return; }
       const { paper, view } = queue.shift()!;
       running++;
       const n = ++extractIndex;
@@ -311,7 +314,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const listers = new Map<string, Promise<void>>();
   let listIndex = 0;
   const startLister = (family: string, view: SurveySnapshot, angle?: string) => {
-    if (listers.has(family) || !steps.active()) return;
+    if (listers.has(family) || !steps.active() || halted()) return;
     const seconds = Math.min(T.list, left(T.listEnd));
     if (seconds < 40) return;
     const n = ++listIndex, stage: StageId = `list-${n}`;
@@ -362,7 +365,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   let tutorialRun: Promise<StageResult> | null = null;
   const startTutorial = () => {
     const seconds = Math.min(T.tutorial, left(T.total - T.tail - T.validate - T.fillMin));
-    if (tutorialRun || !steps.prompt.tutorial || !steps.active() || seconds < 30) return;
+    if (tutorialRun || !steps.prompt.tutorial || !steps.active() || halted() || seconds < 30) return;
     tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true });
   };
   const tutorialTimer = setTimeout(startTutorial, Math.max(0, (T.tutorialStart - elapsed()) * 1000));
@@ -372,7 +375,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   steps.progress(`2/${total} Extract：論文を1本ずつ並行して読み、Explore：別のAgentが抜けている観点を探しています`);
   let explorePatch: SurveyPatch | null = null;
   const exploreSeconds = Math.min(T.explore, left(T.extractEnd - T.extractMin));
-  if (exploreSeconds >= 40) {
+  if (exploreSeconds >= 40 && !halted()) {
     const result = await steps.run('diverge', steps.prompt.diverge(outline, memory), outline, { seconds: exploreSeconds, checkpoints: true,
       onSaved: patch => { try { enqueue(applyPatch(outline, { ...newPapersOnly(restrictToWorker(patch, outline, []), outline), base_commit_id: 'diverge' }, 'diverge')); } catch { /* applied below */ } } });
     await serial(async () => {
@@ -384,7 +387,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         if (patch.message) notes.push(`発散：${patch.message}`);
       } catch (e) { if (steps.active()) notes.push(`発散の段階を使えませんでした：${reason(e)}`); }
     });
-  } else notes.push('時間の上限のため発散を省きました');
+  } else if (!halted()) notes.push('時間の上限のため発散を省きました');
   await Promise.all(listers.values());
   if (steps.active()) enqueue(snapshot);
   resolveDiscovery();
@@ -399,7 +402,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const explored = new Set((explorePatch as SurveyPatch | null)?.operations.flatMap(op => op.op === 'add_entity' && op.entity.type === 'Issue' ? [op.entity.id] : []) ?? []);
   const candidates = snapshot.entities.filter(e => e.type === 'Issue' && !outline.entities.some(o => o.id === e.id) && !explored.has(e.id)).map(e => e.id);
   startTutorial();
-  if (synthSeconds >= 30) {
+  if (synthSeconds >= 30 && !halted()) {
     steps.progress(`4/${total} Synthesize：統合し、別のAgentがチュートリアルを書いています`);
     const before = snapshot;
     const [integration, tutorial] = await Promise.all([
@@ -418,7 +421,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         snapshot = apply(snapshot, { ...patch, operations: ops.map(op => ({ ...op, op: exists ? 'replace_entity' : 'add_entity' })) as SurveyPatch['operations'] }, 'tutorial');
       } catch (e) { notes.push(`チュートリアルの段階を使えませんでした：${reason(e)}`); }
     }
-  } else notes.push('時間の上限のため統合を省きました');
+  } else if (!halted()) notes.push('時間の上限のため統合を省きました');
   if (candidates.length) {
     const settled = settleIssueCandidates(snapshot, candidates);
     const errors = validateSnapshot(settled);
@@ -434,7 +437,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   let chosen = found.slice(0, MAX_CHOSEN_GAPS);
   const validateSeconds = Math.min(T.validate, left(T.total - T.tail - T.fillMin));
   if (!found.length || validateSeconds < 10) steps.mark?.('check');
-  if (found.length && validateSeconds >= 10) {
+  if (found.length && validateSeconds >= 10 && !halted()) {
     const result = await steps.run('validate', steps.prompt.validate(snapshot, found), snapshot, { seconds: validateSeconds, schema: 'validate-schema.json', webSearch: 'disabled', effort: 'low' });
     record(result);
     try {
@@ -455,7 +458,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
 
   // Step 6: the fill, split over agents that change different entities.
   const fillSeconds = Math.min(T.fill, left(T.total - T.tail));
-  if (chosen.length && fillSeconds >= T.fillMin) {
+  if (chosen.length && fillSeconds >= T.fillMin && !halted()) {
     const parts = splitGaps(chosen, FILL_PARTS);
     steps.progress(`6/${total} Fill：${parts.length}つのAgentで抜け漏れを埋めています`);
     const before = snapshot;
@@ -466,8 +469,10 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       try { const patch = await parse(`fill-${i + 1}`, result, false); snapshot = apply(snapshot, withoutRemovals(patch), `fill-${i + 1}`, patch); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
       catch (e) { notes.push(`補完（作業${i + 1}）を使えませんでした：${reason(e)}`); }
     }
-  } else if (chosen.length) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);
+  } else if (chosen.length && !halted()) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);
   if (!steps.active()) return { status: 'stopped' };
+  const stop = halted();
+  if (stop) notes.unshift(`${stop}。新しいAgentを始めず、ここまでの結果で変更案を作りました`);
   const final = snapshotAsPatch(snapshot, baseId, [message, ...notes].filter(Boolean).join('\n'), followUps);
   return { status: 'succeeded', patch: final, repaired: false, searches };
 }

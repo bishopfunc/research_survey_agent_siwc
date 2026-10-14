@@ -174,6 +174,19 @@ test('readers submit with submit_patch; a reading of only the paper is kept; the
   assert.ok(early.calls.indexOf('tutorial') > early.calls.reduce((at, c, i) => c.startsWith('extract-') ? i : at, -1));
 });
 
+test('after the usage limit no agent starts; what was saved becomes the proposal with the reason', async () => {
+  let limit: string | undefined;
+  // The limit is hit while the map runs: its saved result stays, and no lister, reader or later step starts.
+  const run = steps({ onRun: stage => { if (stage === 'outline') limit = 'ChatGPTの利用上限に達しました（解除 4:03 PM）'; return undefined; } });
+  run.s.halted = () => limit;
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  assert.match(outcome.patch.message, /^ChatGPTの利用上限に達しました（解除 4:03 PM）。新しいAgentを始めず、ここまでの結果で変更案を作りました/m);
+  assert.deepEqual(run.calls.filter(c => /^(list-|extract-|diverge|integrate|tutorial|validate|fill-)/.test(c)), [], 'nothing starts after the limit');
+  assert.ok(applyPatch(emptySurvey('t'), outcome.patch, 'b').entities.some(e => e.type === 'Domain'), 'the map is kept');
+  assert.ok(!/時間の上限のため/.test(outcome.patch.message));
+});
+
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);
