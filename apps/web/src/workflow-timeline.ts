@@ -39,7 +39,7 @@ export function newSurveyTimeline(concurrencyLimit = DEFAULT_EXTRACT_CONCURRENCY
       reads: '依頼と、論文キャッシュがオンならライブラリの論文', writes: '題、分野、課題の草案、手法の系統と手法、文献（論文は挙げない）。系統を決めるたびに提出し、その系統の論文を別のAgentが挙げ始める',
       prompt: withCheckpoints(OUTLINE_INSTRUCTIONS) },
     { id: 'list', step: '1', name: 'Map（系統ごと）', count: EXAMPLE_FAMILIES, segments: [codex(FIRST_FAMILY, Math.min(T.list, T.listEnd - FIRST_FAMILY), '論文を挙げる')], checkpoints: true,
-      reads: 'Mapが提出した分野・課題・系統と手法', writes: `その系統の論文（全体で約${TARGET_PAPERS}本を系統で分ける、書誌は識別子と題だけ）。2〜4本ずつ提出し、提出した論文から読み始める`,
+      reads: 'Mapが提出した分野・課題・系統と手法', writes: `その系統の論文（全体で約${TARGET_PAPERS}本を系統で分ける、書誌は識別子と題だけ）。3〜5本ずつ提出し、提出した論文から読み始める`,
       prompt: withCheckpoints(listInstructions('family-example', ['method-a', 'method-b'], papersPerFamily(EXAMPLE_FAMILIES), 1, undefined, ['family-b', 'family-c'])) },
     { id: 'extract', step: '2', name: 'Extract', count: concurrencyLimit, segments: readings, checkpoints: true,
       reads: '分野・課題・手法と、担当の論文1本', writes: '担当論文の要点と要旨の和訳（論文は変える項目だけを1回で提出）、課題の候補、主な結果の主張と根拠（サーバーは論文の要点と和訳だけを写す）',

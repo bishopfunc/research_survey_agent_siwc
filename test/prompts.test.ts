@@ -176,6 +176,7 @@ test('issues are built bottom-up: per-paper candidates with sources, then a hier
 test('one agent per paper; separate agents for the explore, the tutorial, the validate and each fill part; search memory as data', () => {
   const memory = { queries: ['MAPF survey'], opened: ['https://example.org/a'] };
   const extract = extractInstructions('paper-lacam', 7);
+  assert.match(extractInstructions('p', 1, 'https://arxiv.org/html/1'), /Your paper: p \(full text: https:\/\/arxiv\.org\/html\/1\)\. The snapshot holds your paper and, by ID and label only/);
   assert.match(extract, /step 2 of 6[\s\S]*Your paper: paper-lacam[\s\S]*2\. Concrete: read your paper in full[\s\S]*one submit_patch call: a replace_entity of your paper with only id, type, reading and abstract_ja[\s\S]*it takes only these, the Claims and Evidence it lists[\s\S]*operations empty[\s\S]*No other Paper[\s\S]*Prefix every new ID with p7-/);
   assert.match(integrateInstructions(['p1-c']), /step 4 of 6[\s\S]*write no Tutorial[\s\S]*the Issues p1-c are per-paper issue candidates[\s\S]*the three follow_ups/);
   assert.match(tutorialInstructions(), /started beside the readings[\s\S]*the papers read so far[\s\S]*add_entity one Tutorial \(id tutorial\)[\s\S]*no other operation and no follow_ups[\s\S]*Reference tutorial \(the app's MAPF sample/);
@@ -220,7 +221,7 @@ test('a new survey lists fifty to sixty papers family by family and reads them i
   assert.deepEqual([papersPerFamily(1), papersPerFamily(5), papersPerFamily(10)], [15, 11, 6]);
   const list = listInstructions('family-cbs', ['cbs', 'ecbs'], 11, 3);
   assert.match(list, /list the primary papers of the family family-cbs \(its Methods: cbs, ecbs\)[\s\S]*List about 11 primary papers of this family, from its first paper to the state of the art/);
-  assert.match(list, /batches of 2–4 papers as soon as you have them, most important first: each Paper with an id prefixed m3-[\s\S]*Omit every other field: the server fills the bibliography\. Never add a paper the snapshot already has/);
+  assert.match(list, /batches of 3–5 papers as soon as you have them, most important first: each Paper with an id prefixed m3-[\s\S]*Omit every other field: the server fills the bibliography\. Never add a paper the snapshot already has/);
   assert.match(OUTLINE_INSTRUCTIONS, /the title, the Domain and the method families, one submission per family with its Methods and their instance_of relations \(its papers are listed while you work\); then the draft Issues/);
   assert.match(listInstructions(null, [], 11, 2, 'leaderboards'), /scout the papers of the field[\s\S]*found through leaderboards[\s\S]*Methods of the snapshot that fit, or empty/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /never add the same paper twice/);

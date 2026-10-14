@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
-import { applyReading, executeStagedResearch, familiesOf, mergeMemory, newPapersOnly, paperIds as idsOf, paperKey, paperContext, samePaper, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
+import { applyReading, executeStagedResearch, familiesOf, fullTextUrl, readerView, mergeMemory, newPapersOnly, paperIds as idsOf, paperKey, paperContext, samePaper, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the map's output: everything except readings, claims, evidence, keywords and the tutorial. */
 function outlinePatch(): SurveyPatch {
@@ -185,6 +185,20 @@ test('after the usage limit no agent starts; what was saved becomes the proposal
   assert.deepEqual(run.calls.filter(c => /^(list-|extract-|diverge|integrate|tutorial|validate|fill-)/.test(c)), [], 'nothing starts after the limit');
   assert.ok(applyPatch(emptySurvey('t'), outcome.patch, 'b').entities.some(e => e.type === 'Domain'), 'the map is kept');
   assert.ok(!/時間の上限のため/.test(outcome.patch.message));
+});
+
+test('a reader sees its paper in full and the rest by ID and label; it is pointed at the full text', () => {
+  const context = paperContext(outlineSnapshot, papers[0]);
+  const view = readerView(context, papers[0]);
+  assert.deepEqual(view.entities.find(e => e.id === papers[0]), context.entities.find(e => e.id === papers[0]));
+  const issue = view.entities.find(e => e.type === 'Issue') as unknown as Record<string, unknown>;
+  assert.deepEqual(Object.keys(issue).sort(), ['id', 'kind', 'label', 'type']);
+  assert.ok(view.entities.filter(e => e.id !== papers[0]).every(e => Object.keys(e).length <= 4));
+  assert.equal(view.relations.length, context.relations.length);
+  assert.equal(fullTextUrl({ arxiv_id: '2304.03047v2' }), 'https://arxiv.org/html/2304.03047');
+  assert.equal(fullTextUrl({ doi: '10.1109/cvpr.2018.00387' }), 'https://doi.org/10.1109/cvpr.2018.00387');
+  assert.equal(fullTextUrl({ url: 'https://openreview.net/forum?id=x', doi: '10.1/x' }), 'https://openreview.net/forum?id=x');
+  assert.equal(fullTextUrl({}), undefined);
 });
 
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {

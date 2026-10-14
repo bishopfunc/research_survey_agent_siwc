@@ -79,6 +79,19 @@ export function paperContext(snapshot: SurveySnapshot, paper: string): SurveySna
   const keep = new Set(snapshot.entities.filter(e => CONTEXT_TYPES.has(e.type) || e.id === paper).map(e => e.id));
   return { ...snapshot, entities: snapshot.entities.filter(e => keep.has(e.id)), relations: snapshot.relations.filter(r => keep.has(r.from) && keep.has(r.to)) };
 }
+/** What a reading agent's prompt shows (design 0037): its paper in full, and the field, issues, methods and families by ID and
+ * label only (with an issue's kind), so the prompt stays small; the agent's result is still validated against `paperContext`. */
+export function readerView(context: SurveySnapshot, paper: string): SurveySnapshot {
+  const brief = (e: Entity) => ({ id: e.id, type: e.type, label: e.label, ...(e.type === 'Issue' ? { kind: e.kind } : {}) });
+  return { ...context, entities: context.entities.map(e => e.id === paper ? e : brief(e)) as Entity[] };
+}
+/** Where a reader finds its paper's full text: the arXiv HTML, else the paper's URL or DOI. */
+export function fullTextUrl(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }): string | undefined {
+  const ids = paperIds(paper);
+  if (ids.arxiv) return `https://arxiv.org/html/${ids.arxiv}`;
+  if (typeof paper.url === 'string' && /^https?:\/\//.test(paper.url)) return paper.url;
+  return ids.doi ? `https://doi.org/${ids.doi}` : undefined;
+}
 /** A reading agent's result in the survey (design 0037): its paper takes only the reading, the translation of the abstract (when the
  * survey has the abstract) and the Claims and Evidence it cites; the rest is new entities and relations. Operations the validator
  * names are dropped so one bad operation does not cost the whole reading. */

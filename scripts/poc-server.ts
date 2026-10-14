@@ -23,7 +23,7 @@ import { AppServerHost, isolationProblems } from './codex-app-server';
 import { attemptSucceeded, attemptError, startWhileActive, superviseProcess } from './codex-supervisor';
 import { settleCheckpoints, streamCheckpoints, type Checkpoints } from './stream-checkpoints';
 import { executeResearch, type CodexAttempt } from './research-run';
-import { executeStagedResearch, familiesOf, stageStep, stageTraceText, surveyOutline } from './staged-run';
+import { executeStagedResearch, familiesOf, fullTextUrl, readerView, stageStep, stageTraceText, surveyOutline } from './staged-run';
 import { CITATION_SOURCE, lookupCitations, parseCitationRequest } from './citations';
 import { cacheName, fetchArxivFigures, hasVisuals, usableVisualCache, FIGURE_PARSER_VERSION, parseArxivId } from './arxiv-figures';
 import { sanitizeLibrary } from '../packages/agent/src/library';
@@ -335,7 +335,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
         return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle, family ? [...families.keys()].filter(f => f !== family).map(label) : []), snapshot, input.library, true, LISTER_RULE_IDS);
       },
       // A reader submits its result with submit_patch, sending only the fields of its paper it changes.
-      extract: (snapshot, paper, n) => stagePrompt(extractInstructions(paper, n), snapshot, [], true, READER_RULE_IDS),
+      extract: (snapshot, paper, n) => { const p = snapshot.entities.find(e => e.id === paper); return stagePrompt(extractInstructions(paper, n, p?.type === 'Paper' ? fullTextUrl(p) : undefined), readerView(snapshot, paper), [], true, READER_RULE_IDS); },
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
       tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot, [], true),
