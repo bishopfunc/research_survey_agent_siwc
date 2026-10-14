@@ -5,7 +5,7 @@ import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
 import { streamCheckpoints } from '../scripts/stream-checkpoints';
 import { stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { snapshotSchema } from '../packages/domain/src/index';
-import { applyReading, executeStagedResearch, familiesOf, fullTextUrl, readerView, mergeMemory, newPapersOnly, paperIds as idsOf, paperKey, paperContext, samePaper, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
+import { applyReading, executeStagedResearch, familiesOf, fullTextUrl, readerView, withBibliography, mergeMemory, newPapersOnly, paperIds as idsOf, paperKey, paperContext, samePaper, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the map's output: everything except readings, claims, evidence, keywords and the tutorial. */
 function outlinePatch(): SurveyPatch {
@@ -310,6 +310,16 @@ test('the classification-axes gaps go to one fill part; an explore family on a m
   const fallback = await executeStagedResearch(emptySurvey('t'), 'b', savedRun.s);
   assert.ok(fallback.status === 'succeeded');
   assert.equal(applyPatch(emptySurvey('t'), fallback.patch, 'b').title, '保存済みの題');
+  // The fallback is said, and the discarded final output's message is not shown as done.
+  assert.match(fallback.patch.message, /6\/6 Fill（作業1）の最終出力が検証に通らず、途中保存までの結果を使いました/);
+  assert.ok(!/補完（作業1）：fill/.test(fallback.patch.message));
+  // A saved Paper takes the bibliography the server added to the whole output, and loses a translation without an abstract.
+  const plainPaper = { ...outlineSnapshot.entities.find(e => e.id === papers[0])!, abstract: null, abstract_source_url: null, authors: [], abstract_ja: '和訳' };
+  const enrichedPaper = { ...plainPaper, abstract: 'An abstract.', abstract_source_url: 'https://arxiv.org/abs/1', authors: ['A'] };
+  const restored = withBibliography({ op: 'add_entity', entity: plainPaper } as SurveyPatch['operations'][number], { op: 'add_entity', entity: enrichedPaper } as SurveyPatch['operations'][number]) as unknown as { entity: Record<string, unknown> };
+  assert.deepEqual([restored.entity.abstract, restored.entity.authors, restored.entity.abstract_ja], ['An abstract.', ['A'], '和訳']);
+  const bare = withBibliography({ op: 'add_entity', entity: plainPaper } as SurveyPatch['operations'][number], undefined) as unknown as { entity: Record<string, unknown> };
+  assert.equal(bare.entity.abstract_ja, null);
   // A survey-level axes gap brings the families without an axis into its part.
   const noAxes = steps({ onRun: stage => stage === 'outline' ? ok({ ...map, operations: map.operations.map(op => op.op === 'add_entity' && op.entity.type === 'Concept' ? { ...op, entity: { ...op.entity, axis: undefined } } : op.op === 'add_entity' && op.entity.type === 'Domain' ? { ...op, entity: { ...op.entity, classification_axes: undefined } } : op) }) : stage === 'validate' ? ok({ gaps: [], message: 'm' }) : undefined });
   let offeredAxes: CheckedGap[] = [];

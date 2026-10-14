@@ -228,6 +228,18 @@ export function mergeMemory(memory: SearchMemory, add: SearchMemory | undefined)
   const queries = new Set(memory.queries), opened = new Set(memory.opened);
   return { queries: [...memory.queries, ...add.queries.filter(q => !queries.has(q) && queries.add(q))], opened: [...memory.opened, ...add.opened.filter(u => !opened.has(u) && opened.add(u))] };
 }
+/** The bibliography fields the server fills (enrichment): a saved Paper takes those it lacks from the enriched output, and drops
+ * its abstract_ja when there is still no abstract, as the checkpoint's validation allowed. */
+const BIBLIOGRAPHY = ['authors', 'abstract', 'abstract_source_url', 'year', 'venue', 'venue_type', 'citation_count', 'citation_source', 'citation_as_of', 'doi', 'url', 'arxiv_id', 'code_availability', 'code_url', 'code_checked_at'] as const;
+export function withBibliography(saved: SurveyPatch['operations'][number], enriched: SurveyPatch['operations'][number] | undefined): SurveyPatch['operations'][number] {
+  if (!('entity' in saved) || saved.entity.type !== 'Paper') return saved;
+  const paper: Record<string, unknown> = { ...saved.entity };
+  const source = enriched && 'entity' in enriched && enriched.entity.type === 'Paper' ? enriched.entity as unknown as Record<string, unknown> : undefined;
+  const empty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length) || v === 'unknown';
+  if (source) for (const key of BIBLIOGRAPHY) if (empty(paper[key]) && !empty(source[key])) paper[key] = source[key];
+  if (paper.abstract_ja && !paper.abstract) paper.abstract_ja = null;
+  return { ...saved, entity: paper } as unknown as SurveyPatch['operations'][number];
+}
 /** The fill step completes and adds; it never removes. */
 export function withoutRemovals(patch: SurveyPatch): SurveyPatch {
   return { ...patch, operations: patch.operations.filter(op => op.op !== 'remove_entity' && op.op !== 'remove_relation') as SurveyPatch['operations'] };
@@ -262,15 +274,20 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   };
   /** A lenient stage's result (listers, the explore, the fill): its whole output applied operation by operation; an operation
    * that fails goes back to its saved version; when nothing more can be dropped, the saved checkpoints alone. */
-  const lenientApply = (stage: StageId, result: StageResult, prepared: SurveyPatch, prepare: (patch: SurveyPatch) => SurveyPatch) => {
-    if (!prepared.operations.length) return { patch: prepared, dropped: 0 };
+  const lenientApply = (stage: StageId, result: StageResult, prepared: SurveyPatch, prepare: (patch: SurveyPatch) => SurveyPatch): { patch: SurveyPatch; dropped: number; fallback: boolean } | null => {
+    if (!prepared.operations.length) return { patch: prepared, dropped: 0, fallback: false };
     const validate = (p: SurveyPatch) => applyPatch(snapshot, p, stage);
     let saved: SurveyPatch | undefined;
     try { saved = result.saved ? prepare(steps.normalize(JSON.parse(result.saved)) as SurveyPatch) : undefined; } catch { saved = undefined; }
-    const savedOps = new Map((saved?.operations ?? []).map(op => [targetOf(op), op] as const));
-    return dropInvalid({ ...prepared, base_commit_id: stage }, validate, 3, id => savedOps.get(id))
-      ?? (saved?.operations.length ? dropInvalid({ ...saved, base_commit_id: stage }, validate) : null);
+    // A saved Paper takes the bibliography the server added to the whole output (it was enriched; the checkpoint was not).
+    const enriched = new Map(prepared.operations.map(op => [targetOf(op), op] as const));
+    const savedOps = new Map((saved?.operations ?? []).map(op => { const own = withBibliography(op, enriched.get(targetOf(op))); return [targetOf(op), own] as const; }));
+    const first = dropInvalid({ ...prepared, base_commit_id: stage }, validate, 3, id => savedOps.get(id));
+    if (first) return { ...first, fallback: false };
+    const second = saved?.operations.length ? dropInvalid({ ...saved, operations: [...savedOps.values()] as SurveyPatch['operations'], base_commit_id: stage }, validate) : null;
+    return second && { ...second, fallback: true };
   };
+  const fellBack = (stage: StageId) => notes.push(`${stageTraceText(stage)}の最終出力が検証に通らず、途中保存までの結果を使いました`);
   let followUps: string[] | undefined, message = '';
   const keep = (patch: SurveyPatch) => { if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) message = patch.message; };
   // Agents finish in any order; their results change the survey one at a time.
@@ -373,6 +390,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
           if (!patch.operations.length && scoped.operations.length) return;
           const checked = lenientApply(stage, result, patch, p => newPapersOnly(restrictToWorker(p, snapshot, []), snapshot));
           if (!checked) throw Error('論文の一覧が検証に通りませんでした');
+          if (checked.fallback) fellBack(stage);
           snapshot = apply(snapshot, checked.patch, stage, own);
         } catch (e) { if (steps.active()) notes.push(`${stageTraceText(stage)}を使えませんでした：${reason(e)}`); }
       });
@@ -428,6 +446,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
         // the whole result.
         const checked = lenientApply('diverge', result, found, p => newPapersOnly(restrictToWorker(p, snapshot, []), snapshot));
         if (!checked) throw Error('発散の結果が検証に通りませんでした');
+        if (checked.fallback) fellBack('diverge');
         const patch = checked.patch;
         snapshot = apply(snapshot, patch, 'diverge', patch.operations.length || !scoped.operations.length ? own : patch);
         if (checked.dropped) notes.push(`発散の結果のうち検証に通らない操作${checked.dropped}件を外しました`);
@@ -520,7 +539,9 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     for (const [i, result] of results.entries()) {
       // The fill ends next to the deadline: its result is not enriched (that may take tens of seconds), and every part's message counts.
       // Applied operation by operation: one bad operation (a family on a missing axis) costs only itself.
-      try { const patch = await parse(`fill-${i + 1}`, result, false), own = withoutRemovals(patch); const checked = lenientApply(`fill-${i + 1}`, result, own, withoutRemovals); if (!checked) throw Error('補完の結果が検証に通りませんでした'); snapshot = apply(snapshot, checked.patch, `fill-${i + 1}`, patch); if (checked.dropped) notes.push(`補完（作業${i + 1}）のうち検証に通らない操作${checked.dropped}件を外しました`); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
+      try { const patch = await parse(`fill-${i + 1}`, result, false), own = withoutRemovals(patch); const checked = lenientApply(`fill-${i + 1}`, result, own, withoutRemovals); if (!checked) throw Error('補完の結果が検証に通りませんでした'); snapshot = apply(snapshot, checked.patch, `fill-${i + 1}`, patch); if (checked.dropped) notes.push(`補完（作業${i + 1}）のうち検証に通らない操作${checked.dropped}件を外しました`);
+        // A discarded final output's message and follow_ups describe work that was not applied.
+        if (checked.fallback) fellBack(`fill-${i + 1}`); else { if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); } }
       catch (e) { notes.push(`補完（作業${i + 1}）を使えませんでした：${reason(e)}`); }
     }
   } else if (chosen.length && !halted()) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);
