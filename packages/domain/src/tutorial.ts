@@ -72,8 +72,16 @@ export function assessTutorial(snapshot: SurveySnapshot): TutorialCheck[] {
   const order = sections.map(s => TUTORIAL_ROLES.indexOf(s.role));
   const motivationText = of('motivation').map(s => s.body).join('\n');
   const trends = methods.slice(1).filter(s => /から.+へ/.test(s.heading));
-  // The directions are the list after the line that introduces them ("今後の方向性："), not a which-method-when list before it.
-  const directions = of('summary').reduce((n, s) => { const at = s.body.indexOf('今後の方向性'); return n + (at < 0 ? 0 : count(s.body.slice(at), LIST_LINE)); }, 0);
+  // The directions are the list right after the line ending in "今後の方向性：" (blank lines between items allowed), not a
+  // which-method-when list elsewhere in the summary.
+  const directionsOf = (body: string) => {
+    const lines = body.split('\n'), at = lines.findIndex(l => /今後の方向性[：:]\s*$/.test(l));
+    if (at < 0) return 0;
+    let n = 0;
+    for (const line of lines.slice(at + 1)) { if (/^\s*[-・]\s+\S/.test(line)) n++; else if (line.trim()) break; }
+    return n;
+  };
+  const directions = of('summary').reduce((n, s) => n + directionsOf(s.body), 0);
   const chars = sections.reduce((n, s) => n + s.body.length, 0);
   const check = (id: string, label: string, pass: boolean, detail: string): TutorialCheck => ({ id, label, pass, detail });
   return [

@@ -202,13 +202,14 @@ function Proposal({ patch, base, lookup, stale, disabled, onDiscard, onSave }: {
   const [full, setFull] = useState(false);
   // A family's axis is an axis ID of the Domain (ADR 0026), shown by its name from the base or the proposed Domain.
   const axisNames = new Map([...base.entities, ...patch.operations.flatMap(op => 'entity' in op ? [op.entity] : [])].flatMap(e => e.type === 'Domain' ? (e.classification_axes ?? []).map(a => [a.id, a.label] as const) : []));
-  const changes = patch.operations.map(op => describeChange(op, base, id => axisNames.get(id) ?? lookup(id)));
+  const label = (id: string) => axisNames.get(id) ?? lookup(id);
+  const changes = patch.operations.map(op => describeChange(op, base, label));
   const groups = CHANGE_GROUPS.map(group => ({ group, items: changes.filter(c => c.group === group) })).filter(g => g.items.length);
   return <section className="proposal" aria-label="変更案">
     <button className={full ? 'proposal-message full' : 'proposal-message'} aria-expanded={full} onClick={() => setFull(!full)}>{patch.message}</button>
     <div className="proposal-bar"><button className="proposal-toggle" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="chevron"/>{patch.operations.length}件の変更</button><button onClick={onDiscard}>破棄</button><button className="primary" disabled={disabled} onClick={onSave}>保存</button></div>
     {stale && <p className="validation-errors">最新の版が変わったため保存できません</p>}
-    {open && <div className="change-groups">{groups.map(({ group, items }) => <details key={group} className="change-group"><summary><Icon name="chevron"/><span className={`connection-dot t-${group}`}/>{changeGroupLabels[group]}<small>{items.length}</small></summary><ul>{items.map((c, i) => <li key={i}><details className="change-row"><summary><span className="change-name" title={c.name}>{c.name}</span>{c.tag && <span className={`change-tag ${c.tag}`}>{c.tag === 'replace' ? '変更' : '削除'}</span>}{c.note && <span className="change-note">{c.note}</span>}</summary><div className="change-body">{c.before !== undefined && c.after !== undefined ? <><small>変更前</small><p>{describeValue(c.before, lookup)}</p><small>変更後</small><p>{describeValue(c.after, lookup)}</p></> : <p>{describeValue(c.after ?? c.before, lookup)}</p>}</div></details></li>)}</ul></details>)}</div>}
+    {open && <div className="change-groups">{groups.map(({ group, items }) => <details key={group} className="change-group"><summary><Icon name="chevron"/><span className={`connection-dot t-${group}`}/>{changeGroupLabels[group]}<small>{items.length}</small></summary><ul>{items.map((c, i) => <li key={i}><details className="change-row"><summary><span className="change-name" title={c.name}>{c.name}</span>{c.tag && <span className={`change-tag ${c.tag}`}>{c.tag === 'replace' ? '変更' : '削除'}</span>}{c.note && <span className="change-note">{c.note}</span>}</summary><div className="change-body">{c.before !== undefined && c.after !== undefined ? <><small>変更前</small><p>{describeValue(c.before, label)}</p><small>変更後</small><p>{describeValue(c.after, label)}</p></> : <p>{describeValue(c.after ?? c.before, label)}</p>}</div></details></li>)}</ul></details>)}</div>}
   </section>;
 }
 function App() {

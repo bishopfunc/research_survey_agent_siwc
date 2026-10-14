@@ -294,6 +294,18 @@ test('the classification-axes gaps go to one fill part; an explore family on a m
   const parts = splitGaps(gaps, 3);
   const axesPart = parts.filter(p => p.some(g => g.field === 'axis' || g.field === 'axes' || g.field === 'classification_axes'));
   assert.equal(axesPart.length, 1); assert.equal(axesPart[0].filter(g => g.field !== 'overview').length, 4);
+  // A family's other gap goes with its axis gap, so two parts never replace one family.
+  const withOverview = splitGaps([...gaps, { target: 'family-learned', field: 'overview', problem: 'p', fill: 'search' as const, query: null }], 3);
+  assert.equal(withOverview.filter(part => part.some(g => g.target === 'family-learned')).length, 1);
+  // The fill applies a part operation by operation: one family on a missing axis is dropped, the part's other fills stay.
+  const fillRun = steps({ onRun: stage => stage === 'fill-1' ? ok(patch('fill', [{ op: 'set_title', title: '補完した題' }, { op: 'replace_entity', entity: { ...outlineSnapshot.entities.find(e => e.id === 'family-cbs')!, axis: 'axis-nowhere' } }])) : undefined });
+  const filled = await executeStagedResearch(emptySurvey('t'), 'b', fillRun.s);
+  assert.ok(filled.status === 'succeeded');
+  assert.ok(fillRun.calls.includes('fill-1'), 'the fill runs');
+  assert.equal(applyPatch(emptySurvey('t'), filled.patch, 'b').title, '補完した題');
+  assert.match(filled.patch.message, /補完（作業1）のうち検証に通らない操作1件を外しました/);
+  // Listers, the explore and the fill hand their results over unvalidated (lenient), to be applied operation by operation.
+  assert.ok(['diverge', 'list-1', 'fill-1'].every(stage => !fillRun.options[stage] || fillRun.options[stage][0].lenient));
   const plain = outlineSnapshot.entities.find(e => e.id === papers[0]) as Paper;
   const paper = { ...plain, id: 'd-paper', label: 'A new paper', title: 'A new paper from another field', doi: null, arxiv_id: null, url: null, proposes: [], addresses: [], reading: null, claims: [], evidence: [], abstract_ja: null };
   const family = { id: 'd-family', type: 'Concept', label: '他分野の考え方', provenance: 'codex', description: 'd', axis: 'axis-nowhere' };

@@ -321,7 +321,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       // The plan's usage limit fails every later agent at once: none is started after it (design 0037).
       if (isUsageLimit(attempt.state.error)) usageLimit ??= 'ChatGPTの利用上限に達しました';
       let output: string | undefined; let outputError: string | undefined;
-      if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? chunks.finish(raw) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
+      if (ok) try { const raw = readFileSync(join(directory, outputFile), 'utf8'); output = chunks ? (options.lenient ? chunks.combined(raw) : chunks.finish(raw)) : raw; writeFileSync(join(directory, `stage-${stage}.json`), output, { mode: 0o600 }); } catch (error) { output = undefined; outputError = error instanceof Error ? error.message : 'Codexの出力を検証できませんでした'; }
       const error = ok ? outputError : attemptError(attempt);
       const result = { searches: attempt.state.searches, elapsedMs: Date.now() - started, searched: { queries: attempt.state.queries, opened: attempt.state.opened } };
       if (output !== undefined) return { ok: true, output, ...result };

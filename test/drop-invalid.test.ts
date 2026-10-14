@@ -46,3 +46,23 @@ test('without time for a repair run, the research result drops what fails instea
   const timedOut = await executeResearch({ ...steps, canRepair: () => true, repair: async () => ({ code: null, state: initialCodexState(), timedOut: true }) });
   assert.ok(timedOut.status === 'succeeded' && /修正が終わらなかったため/.test(timedOut.patch.message));
 });
+
+test('an error line names its owner only: one misspelt family axis does not drop the Domain that adds the axes (ADR 0026)', () => {
+  // A survey without axes: the patch adds them to the Domain and moves the families onto them, one family misspelt.
+  const base = structuredClone(fixture);
+  const domain = base.entities.find(e => e.type === 'Domain')!;
+  if (domain.type !== 'Domain') throw Error('no domain');
+  delete domain.classification_axes;
+  for (const e of base.entities) if (e.type === 'Concept') delete e.axis;
+  const concept = (id: string, axis: string) => ({ op: 'replace_entity', entity: { ...base.entities.find(e => e.id === id)!, axis } });
+  const p = patch([{ op: 'replace_entity', entity: { ...domain, classification_axes: [{ id: 'axis-planning', label: '計画の方式', kind: 'approach', description: 'd', central: true }] } },
+    concept('family-cbs', 'axis-planning'), concept('family-prioritized', 'axis-planning'), concept('family-learned', 'axis-planing'), { op: 'set_title', title: 't' }]);
+  const kept = dropInvalid(p, q => { applyPatch(base, q, 'b'); });
+  assert.ok(kept);
+  assert.equal(kept.dropped, 1);
+  assert.deepEqual(kept.patch.operations.map(op => 'entity' in op ? op.entity.id : op.op), ['mapf', 'family-cbs', 'family-prioritized', 'set_title']);
+  // A Domain replace that removes an axis a family outside the patch still uses is dropped (the line's owner is not in the patch).
+  const removing = patch([{ op: 'replace_entity', entity: { ...fixture.entities.find(e => e.type === 'Domain')!, classification_axes: [] } }, { op: 'set_title', title: 't' }]);
+  const rest = dropInvalid(removing, validate);
+  assert.ok(rest); assert.deepEqual(rest.patch.operations.map(op => op.op), ['set_title']);
+});

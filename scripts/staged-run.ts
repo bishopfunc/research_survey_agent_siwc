@@ -34,6 +34,9 @@ export interface StageOptions {
   model?: string;
   /** The tutorial agent submits its Tutorial in parts; their sections are joined (design 0037). */
   tutorialParts?: boolean;
+  /** The result is applied operation by operation (dropInvalid): the run hands it over unvalidated, so one bad operation in
+   * the final response does not cost the others (listers, the explore, the fill). */
+  lenient?: boolean;
   /** Saves results as they go (submit_patch); `onSaved` gets the cumulative patch each time one is saved. */
   checkpoints?: boolean;
   /** A text it returns is added to the tool's answer (a lister learns which of its papers another agent listed). */
@@ -175,7 +178,10 @@ export function splitGaps(gaps: CheckedGap[], parts: number): CheckedGap[][] {
   const byTarget = new Map<string, CheckedGap[]>();
   // A survey-level check (the tutorial, methods without family…) may need any entity; it goes with the Tutorial's gaps into one part.
   // The classification axes (the Domain's axes and each family's axis, ADR 0026) depend on each other: one part fills them all.
-  const groupOf = (gap: CheckedGap) => ['axes', 'classification_axes', 'axis'].includes(gap.field) ? 'axes' : gap.target === 'survey' || /^tutorial/i.test(gap.target) ? 'survey' : gap.target;
+  // Every other gap on an entity those gaps name (a family's overview beside its axis) joins them, so two parts never replace one entity.
+  const AXES = ['axes', 'classification_axes', 'axis'];
+  const axisTargets = new Set(gaps.filter(g => AXES.includes(g.field) && g.target !== 'survey').map(g => g.target));
+  const groupOf = (gap: CheckedGap) => AXES.includes(gap.field) || axisTargets.has(gap.target) ? 'axes' : gap.target === 'survey' || /^tutorial/i.test(gap.target) ? 'survey' : gap.target;
   for (const gap of gaps) byTarget.set(groupOf(gap), [...(byTarget.get(groupOf(gap)) ?? []), gap]);
   const out: CheckedGap[][] = Array.from({ length: Math.max(1, Math.min(parts, byTarget.size)) }, () => []);
   for (const group of byTarget.values()) out.reduce((min, g) => g.length < min.length ? g : min).push(...group);
@@ -344,7 +350,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const n = ++listIndex, stage: StageId = `list-${n}`;
     const told = new Set<string>();
     listers.set(family, (async () => {
-      const result = await steps.run(stage, steps.prompt.list(view, angle ? null : family, n, angle), view, { seconds, checkpoints: true, effort: 'low',
+      const result = await steps.run(stage, steps.prompt.list(view, angle ? null : family, n, angle), view, { seconds, checkpoints: true, lenient: true, effort: 'low',
         onSaved: patch => { try { enqueue(applyPatch(view, { ...newPapersOnly(restrictToWorker(patch, view, []), view), base_commit_id: stage }, stage)); } catch { /* applied below */ } return listedElsewhere(patch, told); } });
       await outlineApplied;
       await serial(async () => {
@@ -400,7 +406,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   let explorePatch: SurveyPatch | null = null;
   const exploreSeconds = Math.min(T.explore, left(T.extractEnd - T.extractMin));
   if (exploreSeconds >= 40 && !halted()) {
-    const result = await steps.run('diverge', steps.prompt.diverge(outline, memory), outline, { seconds: exploreSeconds, checkpoints: true,
+    const result = await steps.run('diverge', steps.prompt.diverge(outline, memory), outline, { seconds: exploreSeconds, checkpoints: true, lenient: true,
       onSaved: patch => { try { enqueue(applyPatch(outline, { ...newPapersOnly(restrictToWorker(patch, outline, []), outline), base_commit_id: 'diverge' }, 'diverge')); } catch { /* applied below */ } } });
     await serial(async () => {
       try {
@@ -495,11 +501,12 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     const parts = splitGaps(chosen, FILL_PARTS);
     steps.progress(`6/${total} Fill：${parts.length}つのAgentで抜け漏れを埋めています`);
     const before = snapshot;
-    const results = await Promise.all(parts.map((gaps, i) => steps.run(`fill-${i + 1}`, steps.prompt.fill(before, gaps, memory, i + 1, parts.length), before, { seconds: fillSeconds, checkpoints: true })));
+    const results = await Promise.all(parts.map((gaps, i) => steps.run(`fill-${i + 1}`, steps.prompt.fill(before, gaps, memory, i + 1, parts.length), before, { seconds: fillSeconds, checkpoints: true, lenient: true })));
     if (!steps.active()) return { status: 'stopped' };
     for (const [i, result] of results.entries()) {
       // The fill ends next to the deadline: its result is not enriched (that may take tens of seconds), and every part's message counts.
-      try { const patch = await parse(`fill-${i + 1}`, result, false); snapshot = apply(snapshot, withoutRemovals(patch), `fill-${i + 1}`, patch); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
+      // Applied operation by operation: one bad operation (a family on a missing axis) costs only itself.
+      try { const patch = await parse(`fill-${i + 1}`, result, false), own = withoutRemovals(patch); const checked = own.operations.length ? dropInvalid({ ...own, base_commit_id: `fill-${i + 1}` }, p => applyPatch(snapshot, p, `fill-${i + 1}`)) : { patch: own, dropped: 0 }; if (!checked) throw Error('補完の結果が検証に通りませんでした'); snapshot = apply(snapshot, checked.patch, `fill-${i + 1}`, patch); if (checked.dropped) notes.push(`補完（作業${i + 1}）のうち検証に通らない操作${checked.dropped}件を外しました`); if (patch.follow_ups?.length) followUps = patch.follow_ups; if (patch.message) notes.push(`補完（作業${i + 1}）：${patch.message}`); }
       catch (e) { notes.push(`補完（作業${i + 1}）を使えませんでした：${reason(e)}`); }
     }
   } else if (chosen.length && !halted()) notes.push(`時間の上限のため補完を省きました（抜け漏れ${chosen.length}件）`);

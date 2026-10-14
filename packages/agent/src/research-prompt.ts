@@ -193,7 +193,7 @@ export function fillInstructions(gaps: unknown[], memory: SearchMemory, part = 1
     searchMemoryText(memory),
     `Output: replace_entity for the entities you complete ([keepstored]) and add_entity for the Evidence, Claims and Keywords and add_relation for the relations the gaps need, with every new ID prefixed f${part}-. Remove nothing, list in the message the gaps you could not fill, and end with the three follow_ups built from them.`,
     // The classification axes depend on each other (ADR 0026); the part with their gaps may change the Domain and every family.
-    ...((gaps as { field?: unknown }[]).some(g => ['axes', 'classification_axes', 'axis'].includes(String(g?.field))) ? ['Classification axes ([methods]): for these gaps you may change the Domain and every method family: set the Domain\'s classification_axes (one central) and each family\'s axis to one of those axis IDs, in one submission so they validate together.'] : []),
+    ...((gaps as { field?: unknown }[]).some(g => ['axes', 'classification_axes', 'axis'].includes(String(g?.field))) ? ['Classification axes ([methods]): for these gaps you may change the Domain and the method families your gaps name: set the Domain\'s classification_axes (one central) and each named family\'s axis to one of those axis IDs, keeping the axes families already have, in one submission so they validate together.'] : []),
     // A missing or failing tutorial is rewritten after the sample, like the tutorial agent does.
     ...(/tutorial/i.test(JSON.stringify(gaps)) ? [`When the survey has no Tutorial or it misses requirements, write it as [tutorial] describes. ${referenceOutline()}`] : []),
   ].join('\n\n');

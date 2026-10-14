@@ -24,6 +24,10 @@ test('each requirement fails on its own when the tutorial misses it', () => {
     ['directions', t => { for (const s of t.sections) if (s.role === 'summary') s.body = s.body.replace(/^- .*$/gm, ''); }],
     // A which-method-when list is not the directions: only the list after 今後の方向性 counts.
     ['directions', t => { for (const s of t.sections) if (s.role === 'summary') s.body = '- 最適解が必要：CBS [@paper-cbs]\n- 大規模：LaCAM* [@paper-lacam-star]\n- 即応：PIBT [@paper-pibt]'; }],
+    // Mentioning 今後の方向性 in a sentence before a which-method-when list is not the directions list.
+    ['directions', t => { for (const s of t.sections) if (s.role === 'summary') s.body = 'この章では選び方と今後の方向性をまとめる。\n\n- 最適解が必要：CBS [@paper-cbs]\n- 大規模：LaCAM* [@paper-lacam-star]\n- 即応：PIBT [@paper-pibt]'; }],
+    // The list stops at the first other paragraph: two directions, then the which-method list, are not three.
+    ['directions', t => { for (const s of t.sections) if (s.role === 'summary') s.body = '今後の方向性：\n\n- 規模 [@paper-lacam-star]\n- 学習 [@paper-ml-cbs]\n\n選び方は次のとおり。\n\n- 最適：CBS [@paper-cbs]'; }],
     ['scope', t => { const m = t.sections.find(s => s.role === 'motivation')!; m.body = m.body.replace(/^- 前提.*$/m, ''); }],
     ['methods', t => { t.sections = t.sections.filter((s, i) => s.role !== 'methods' || i < 4); }],
     ['progression', t => { const m = t.sections.filter(s => s.role === 'methods'), z = m.length - 1; [m[0].body, m[z].body] = [m[z].body, m[0].body]; [m[0].refs, m[z].refs] = [m[z].refs, m[0].refs]; [m[0].media, m[z].media] = [m[z].media, m[0].media]; }],
