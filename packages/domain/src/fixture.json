@@ -7,7 +7,16 @@
       "label": "MAPF",
       "provenance": "fixture",
       "type": "Domain",
-      "description": "複数のエージェントをグラフの上で、互いにぶつけずにそれぞれの目標へ動かす経路計画。"
+      "description": "複数のエージェントをグラフの上で、互いにぶつけずにそれぞれの目標へ動かす経路計画。",
+      "classification_axes": [
+        {
+          "id": "axis-planning",
+          "label": "計画の方式",
+          "kind": "approach",
+          "description": "全員の経路を何で決めるか。衝突を見つけて分岐しながら探す、優先度の順に1歩ずつ決める、学習した方策や判断に任せる、の順に研究が広がってきた。",
+          "central": true
+        }
+      ]
     },
     {
       "id": "collision",
@@ -120,7 +129,8 @@
         "ft-ml-cbs-fact-family-cbs",
         "src-cbs",
         "src-tree"
-      ]
+      ],
+      "axis": "axis-planning"
     },
     {
       "id": "paper-cbs",
@@ -1023,7 +1033,8 @@
       "evidence": [
         "ft-pibt-fact-family-prioritized",
         "src-family-prioritized"
-      ]
+      ],
+      "axis": "axis-planning"
     },
     {
       "id": "family-learned",
@@ -1041,7 +1052,8 @@
         "ft-primal-fact-family-learned",
         "src-primal",
         "src-gnn-mapf"
-      ]
+      ],
+      "axis": "axis-planning"
     },
     {
       "id": "decentralized",

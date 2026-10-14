@@ -49,6 +49,10 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
   const layers = new Set(snapshot.entities.flatMap(e => e.type === 'Keyword' && LAYERS.includes(e.category) ? [e.category] : []));
   const resources = snapshot.entities.filter((e): e is Extract<typeof snapshot.entities[number], { type: 'Resource' }> => e.type === 'Resource');
   const tutorial = assessTutorial(snapshot);
+  // Classification axes (design 0038, ADR 0026): the families sit on the Domain's axes, one of them central.
+  const axes = snapshot.entities.flatMap(e => e.type === 'Domain' ? e.classification_axes ?? [] : []);
+  const central = axes.filter(a => a.central).length;
+  const withoutAxis = snapshot.entities.filter(e => e.type === 'Concept' && families.has(e.id) && !e.axis).length;
   const check = (id: string, label: string, pass: boolean, detail: string): SurveyCheck => ({ id, label, pass, detail });
   return [
     check('papers', `論文が${t.papers}本以上（目標は数十〜百本）`, papers.length >= t.papers, `${papers.length}本`),
@@ -58,6 +62,7 @@ export function assessSurvey(snapshot: SurveySnapshot): SurveyCheck[] {
     check('unique', '同じ論文が重複していない', duplicates === 0, `重複${duplicates}`),
     check('span', `古典から最新まで（論文の年の幅が${t.yearSpan}年以上）`, span >= t.yearSpan, years.length ? `${Math.min(...years)}〜${Math.max(...years)}` : '年なし'),
     check('methods', `手法が${t.methods}つ以上、系統が${t.families}つ以上、すべての手法が系統に属する`, methods.length >= t.methods && families.size >= t.families && methods.every(m => inFamily.has(m.id)), `手法${methods.length}・系統${families.size}・未分類${methods.filter(m => !inFamily.has(m.id)).length}`),
+    check('axes', '手法の分類の軸：軸を決め、中心の軸が1つあり、すべての系統が軸を持つ', axes.length > 0 && central === 1 && withoutAxis === 0, `軸${axes.length}・中心${central}・軸の無い系統${withoutAxis}`),
     check('issues', `課題が${t.issuesMin}〜${t.issuesMax}、すべてに達成度`, issues.length >= t.issuesMin && issues.length <= t.issuesMax && achieved.length === issues.length, `課題${issues.length}・達成度${achieved.length}`),
     check('knowledge', `ナレッジの層が${t.knowledgeLayers}つ以上`, layers.size >= t.knowledgeLayers, `${layers.size}/8`),
     check('guide', '文献ガイド：3件以上、うちサーベイ1件以上', resources.length >= 3 && resources.some(r => r.kind === 'survey'), `${resources.length}件（サーベイ${resources.filter(r => r.kind === 'survey').length}）`),
@@ -72,6 +77,7 @@ export function findGaps(snapshot: SurveySnapshot): SurveyGap[] {
   const gaps: SurveyGap[] = [];
   const gap = (target: string, field: string, problem: string) => gaps.push({ target, field, problem });
   const inFamily = new Set(snapshot.relations.filter(r => r.type === 'instance_of').map(r => r.from));
+  const families = new Set(snapshot.relations.filter(r => r.type === 'instance_of' && snapshot.entities.some(e => e.id === r.to && e.type === 'Concept')).map(r => r.to));
   const achieved = new Set(snapshot.relations.filter(r => r.type === 'about' && snapshot.entities.some(e => e.id === r.from && e.type === 'Claim')).map(r => r.to));
   for (const e of snapshot.entities) {
     if (['Issue', 'Method', 'Concept', 'Paper', 'Keyword', 'Resource'].includes(e.type) && !overviewOf(e).trim()) gap(e.id, 'overview', '概要が空');
@@ -79,6 +85,11 @@ export function findGaps(snapshot: SurveySnapshot): SurveyGap[] {
       if (!e.english_terms?.length) gap(e.id, 'english_terms', '英語表現が無い');
       if (!e.evidence?.length) gap(e.id, 'evidence', '出典が無い');
       if (!achieved.has(e.id)) gap(e.id, 'about', '達成度の主張が無い');
+    }
+    if (e.type === 'Concept' && families.has(e.id) && !e.axis) gap(e.id, 'axis', '分類の軸が無い');
+    if (e.type === 'Domain' && families.size) {
+      if (!e.classification_axes?.length) gap(e.id, 'classification_axes', '分類の軸が無い');
+      else if (!e.classification_axes.some(a => a.central)) gap(e.id, 'classification_axes', '中心の軸が無い');
     }
     if (e.type === 'Method') {
       if (!inFamily.has(e.id)) gap(e.id, 'instance_of', '系統が無い');

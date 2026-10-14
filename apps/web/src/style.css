@@ -453,6 +453,11 @@ h1 { font-family: var(--font-display); font-size: var(--text-display); font-weig
 .timeline-label .row-term { display: block; margin-top: 2px; font-size: var(--text-small); font-weight: 400; color: var(--color-muted); }
 .timeline-label .row-heading { align-items: flex-start; }
 .timeline-label .row-heading .connection-dot { margin-top: 5px; }
+.row-axis { display: inline-block; margin-top: 4px; padding: 1px 8px; border: var(--rule-width) solid var(--color-line); border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: 400; color: var(--color-muted); }
+.timeline-label .row-axis { display: inline-block; }
+.axis-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.axis-list li strong { margin-right: 6px; }
+.axis-list li p { margin: 4px 0 0; }
 .row-overview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; margin-top: 6px; font-size: var(--text-small); font-weight: 400; line-height: 1.55; color: var(--color-ink); }
 .row-status { margin-top: 6px; }
 .short-rows .timeline-label { padding-top: 16px; }

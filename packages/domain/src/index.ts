@@ -125,6 +125,16 @@ export function validateSnapshot(value: unknown): string[] {
     }
   }
   if (value.entities.filter(e => e.type === 'Tutorial').length > 1) errors.push('チュートリアルは1つの調査に1つだけです');
+  // Classification axes (design 0038, ADR 0026): unique within a Domain, at most one central, and a family's axis exists.
+  const axes = new Set<string>();
+  for (const d of value.entities) if (d.type === 'Domain' && d.classification_axes) {
+    const ids = d.classification_axes.map(a => a.id);
+    if (new Set(ids).size !== ids.length) errors.push(`${d.id}: 分類の軸のIDが重複しています`);
+    if (d.classification_axes.filter(a => a.central).length > 1) errors.push(`${d.id}: 中心の軸は1つだけです`);
+    if (d.classification_axes.length > 6) errors.push(`${d.id}: 分類の軸は6つまでです`);
+    ids.forEach(id => axes.add(id));
+  }
+  for (const c of value.entities) if (c.type === 'Concept' && c.axis && !axes.has(c.axis)) errors.push(`${c.id}: 分類の軸 ${c.axis} がありません`);
   const typed = RELATION_ENDPOINTS;
   const triples = new Set<string>();
   for (const r of value.relations) {

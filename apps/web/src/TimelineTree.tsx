@@ -11,10 +11,10 @@ export const ITEM = { compact: { width: 156, height: 72 }, paper: { width: 220, 
 export interface TimelineCard { title: string; meta?: string; note?: string; dot?: string; hint?: string; status?: { tone: string; label: string; text?: string } }
 /** A row heading for a parent item (root issue, method family, method): its name, English term, overview and, for an
  * issue, the state of its achievement. */
-export function RowHeading({ title, term, overview, status, dot, chosen, indent = 0, onClick }: { title: string; term?: string; overview?: string; status?: { tone: string; label: string }; dot?: string; chosen: boolean; indent?: number; onClick: () => void }) {
+export function RowHeading({ title, term, axis, overview, status, dot, chosen, indent = 0, onClick }: { title: string; term?: string; axis?: string; overview?: string; status?: { tone: string; label: string }; dot?: string; chosen: boolean; indent?: number; onClick: () => void }) {
   return <button className={`row-heading ${chosen ? 'chosen' : ''}`} style={indent ? { paddingLeft: indent } : undefined} title={overview} onClick={onClick}>
     {dot && <span className={`connection-dot ${dot}`}/>}
-    <span>{title}{term && <small className="row-term">{term}</small>}{overview && <small className="row-overview">{overview}</small>}{status && <span className={`status-chip row-status ${status.tone}`}>{status.label}</span>}</span>
+    <span>{title}{term && <small className="row-term">{term}</small>}{axis && <small className="row-axis">{axis}</small>}{overview && <small className="row-overview">{overview}</small>}{status && <span className={`status-chip row-status ${status.tone}`}>{status.label}</span>}</span>
   </button>;
 }
 /** A paper item in every paper tree: its title, year, venue and citation count, and one sentence the tree is about

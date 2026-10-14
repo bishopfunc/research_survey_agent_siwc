@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEvolution, buildFamilies, buildMethodTree } from '../packages/domain/src/evolution';
+import { buildEvolution, buildFamilies, buildMethodTree, classificationAxes } from '../packages/domain/src/evolution';
 import { fixture, validateSnapshot } from '../packages/domain/src/index';
 
 test('the origin of a method is its earliest registered edition; years and branches are preserved', () => {
@@ -67,3 +67,19 @@ test('methods are grouped by their family (instance_of a Concept) in publication
   assert.deepEqual(groups[0], ['family-cbs', ['cbs', 'ecbs', 'icbs', 'ml-cbs']]);
 });
 
+
+test('families are ordered by their classification axis, the central axis first; the tree knows each axis (ADR 0026)', () => {
+  const input = structuredClone(fixture);
+  const domain = input.entities.find(e => e.type === 'Domain');
+  if (domain?.type !== 'Domain') throw Error('no domain');
+  domain.classification_axes = [{ id: 'axis-execution', label: '実行の形', kind: 'other', description: '中央で計画するか、各ロボットで決めるか。' }, ...domain.classification_axes!];
+  const learned = input.entities.find(e => e.id === 'family-learned');
+  if (learned?.type !== 'Concept') throw Error('no family');
+  learned.axis = 'axis-execution';
+  assert.deepEqual(validateSnapshot(input), []);
+  assert.deepEqual(classificationAxes(input).map(a => a.id), ['axis-planning', 'axis-execution'], 'the central axis comes first');
+  assert.deepEqual(buildFamilies(input).map(g => g.family?.id), ['family-cbs', 'family-prioritized', 'family-learned']);
+  const tree = buildMethodTree(input);
+  assert.equal(tree.axes.get('axis-planning')?.central, true);
+  assert.equal(tree.axes.get(tree.families.get('family-learned')!.axis!)?.label, '実行の形');
+});

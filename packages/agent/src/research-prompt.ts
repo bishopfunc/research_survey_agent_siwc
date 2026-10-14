@@ -66,7 +66,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T18:13+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T19:21+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -113,8 +113,8 @@ export const OUTLINE_INSTRUCTIONS = [
   'Mode: new survey, step 1 of 6 (map). You map the field quickly: as soon as you submit a method family, another agent lists its papers and other agents read each of them, so do not list Papers yourself.',
   EXHAUSTIVE_SCOPE,
   `1. ${RESEARCH_STEPS[0].instruction}`,
-  'Output: a concise Japanese survey title; one Domain whose description ([overview]) says what the field studies and where it is heading, naming its main venues by acronym; at least three Resources ([guide]): two or more surveys, tutorials or reading lists (one a survey) whose contents and taxonomies define the field, and the leaderboards and official dataset or benchmark pages you opened; 4–10 draft Issues (kind, part_of, english_terms, description) and 3–6 method families with about 6–15 Methods ([methods]), drafts without Evidence that later steps source and rebuild from the papers. No Papers, Keywords, Claims, Evidence or Tutorial, and leave follow_ups empty.',
-  'Submission order, so that nothing points to what is not sent yet: within about the first minute, after a few searches, the title, the Domain and the method families, one submission per family with its Methods and their instance_of relations (its papers are listed while you work); then the draft Issues with the addresses relations from the Methods; last the Resources with the issues and methods they cover. Keep every description to one sentence and omit fields you leave null: only what was submitted is kept when the time runs out.',
+  'Output: a concise Japanese survey title; one Domain whose description ([overview]) says what the field studies and where it is heading, naming its main venues by acronym, with its classification_axes and one central axis ([methods]); at least three Resources ([guide]): two or more surveys, tutorials or reading lists (one a survey) whose contents and taxonomies define the field, and the leaderboards and official dataset or benchmark pages you opened; 4–10 draft Issues (kind, part_of, english_terms, description) and 3–6 method families with about 6–15 Methods ([methods]), drafts without Evidence that later steps source and rebuild from the papers. No Papers, Keywords, Claims, Evidence or Tutorial, and leave follow_ups empty.',
+  'Submission order, so that nothing points to what is not sent yet: within about the first minute, after a few searches, the title, the Domain with its classification axes and the method families, one submission per family (its axis set) with its Methods and their instance_of relations (its papers are listed while you work); then the draft Issues with the addresses relations from the Methods; last the Resources with the issues and methods they cover. Keep every description to one sentence and omit fields you leave null: only what was submitted is kept when the time runs out.',
 ].join('\n\n');
 /** Step 1, one agent per method family (design 0037): lists the family's papers in small submissions, each read at once. A scout
  * (no family) lists the field's papers from one angle when the map has submitted no family in time. */

@@ -20,6 +20,16 @@ export interface Domain {
   provenance: "fixture" | "user" | "codex";
   type: "Domain";
   description: string;
+  /**
+   * The axes the survey classifies its method families along (design 0038, ADR 0026): what each method does in the pipeline (function), what it represents (representation), how it estimates or learns (approach), what it takes as input (input). At most one is central: the axis that changed most over the field's history, along which the families and the tutorial's research trends are ordered. At most six (checked by the validator).
+   */
+  classification_axes?: {
+    id: string;
+    label: string;
+    kind: "function" | "representation" | "approach" | "input" | "other";
+    description: string;
+    central?: boolean;
+  }[];
 }
 export interface Concept {
   id: string;
@@ -38,6 +48,10 @@ export interface Concept {
     | [string, string, string, string]
     | [string, string, string, string, string];
   evidence?: string[];
+  /**
+   * For a method family: the ID of the classification axis (Domain.classification_axes) it sits on.
+   */
+  axis?: string;
 }
 export interface Issue {
   id: string;

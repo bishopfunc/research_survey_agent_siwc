@@ -55,3 +55,30 @@ test('facts come from the full text: a reading sourced only by the abstract is n
   assert.deepEqual(findGaps(fixture).filter(g => g.field === 'reading.cites').map(g => g.target), ['paper-cbs']);
 });
 
+
+test('classification axes: the families sit on the Domain\'s axes with one central; the validator and the gaps say what is wrong (ADR 0026)', async () => {
+  const { stripCodexNulls } = await import('../packages/domain/src/codex-schema');
+  const { snapshotSchema } = await import('../packages/domain/src/index');
+  assert.ok(assessSurvey(fixture).find(c => c.id === 'axes')!.pass);
+  const domainOf = (s: typeof fixture) => { const d = s.entities.find(e => e.type === 'Domain'); if (d?.type !== 'Domain') throw Error('no domain'); return d; };
+  const conceptOf = (s: typeof fixture, id: string) => { const c = s.entities.find(e => e.id === id); if (c?.type !== 'Concept') throw Error('no concept'); return c; };
+  // A family without an axis, an axis list without a central axis, or none at all fails the check and is a gap.
+  const noAxis = structuredClone(fixture); delete conceptOf(noAxis, 'family-learned').axis;
+  assert.ok(!assessSurvey(noAxis).find(c => c.id === 'axes')!.pass);
+  assert.ok(findGaps(noAxis).some(g => g.target === 'family-learned' && g.field === 'axis'));
+  const noCentral = structuredClone(fixture); domainOf(noCentral).classification_axes![0].central = false;
+  assert.ok(!assessSurvey(noCentral).find(c => c.id === 'axes')!.pass);
+  assert.ok(findGaps(noCentral).some(g => g.target === 'mapf' && g.problem === '中心の軸が無い'));
+  const none = structuredClone(fixture); delete domainOf(none).classification_axes; for (const id of ['family-cbs', 'family-prioritized', 'family-learned']) delete conceptOf(none, id).axis;
+  assert.deepEqual(validateSnapshot(none), [], 'the axes are optional: older surveys stay valid');
+  assert.ok(findGaps(none).some(g => g.target === 'mapf' && g.problem === '分類の軸が無い'));
+  // The validator: a missing axis, a repeated axis ID, two central axes.
+  const wrong = structuredClone(fixture); conceptOf(wrong, 'family-cbs').axis = 'axis-nowhere';
+  assert.match(validateSnapshot(wrong).join(), /分類の軸 axis-nowhere がありません/);
+  const twice = structuredClone(fixture); const axes = domainOf(twice).classification_axes!; axes.push({ ...axes[0] });
+  assert.match(validateSnapshot(twice).join(), /分類の軸のIDが重複/);
+  assert.match(validateSnapshot(twice).join(), /中心の軸は1つだけ/);
+  // Codex's strict output sends central: null for a non-central axis; it is dropped, not kept as null.
+  const strict = stripCodexNulls({ operations: [{ op: 'replace_entity', entity: { ...domainOf(fixture), classification_axes: [{ id: 'a', label: 'A', kind: 'approach', description: 'd', central: null }] } }] }, snapshotSchema.$defs as Record<string, Record<string, unknown>>) as { operations: { entity: { classification_axes: Record<string, unknown>[] } }[] };
+  assert.deepEqual(Object.keys(strict.operations[0].entity.classification_axes[0]).sort(), ['description', 'id', 'kind', 'label']);
+});

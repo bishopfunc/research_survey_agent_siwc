@@ -5,7 +5,14 @@ import { generations, layoutTimeline, type TimelineLayout } from './timeline';
 export interface EvolutionNode { method: Method; papers: Paper[]; origin: Paper | null; year: number | null; parents: { id: string; type: Relation['type'] }[] }
 export interface Evolution { nodes: EvolutionNode[]; years: (number | null)[]; warnings: string[] }
 export interface MethodFamily { family: Concept | null; nodes: EvolutionNode[] }
-export interface MethodTree { layout: TimelineLayout; nodes: Map<string, EvolutionNode>; families: Map<string, Concept>; warnings: string[] }
+export interface MethodTree { layout: TimelineLayout; nodes: Map<string, EvolutionNode>; families: Map<string, Concept>; axes: Map<string, ClassificationAxis>; warnings: string[] }
+/** A classification axis of the survey's Domain (design 0038, ADR 0026). */
+export type ClassificationAxis = NonNullable<Extract<SurveySnapshot['entities'][number], { type: 'Domain' }>['classification_axes']>[number];
+/** The survey's classification axes in display order: the central axis first, then the Domains' order. */
+export function classificationAxes(snapshot: SurveySnapshot): ClassificationAxis[] {
+  const axes = snapshot.entities.flatMap(e => e.type === 'Domain' ? e.classification_axes ?? [] : []);
+  return [...axes.filter(a => a.central), ...axes.filter(a => !a.central)];
+}
 /** Publication order; ties by ID compared as plain strings (not localeCompare, which differs between browsers and Node). */
 export const byPublication = (a: Paper, b: Paper) => (a.year ?? Infinity) - (b.year ?? Infinity) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
@@ -45,7 +52,8 @@ export function buildEvolution(snapshot: SurveySnapshot, search = ''): Evolution
 }
 
 /** Methods grouped by the Concept they are an instance_of (their family), each in publication order.
- * Families are ordered by their earliest method, then by ID; methods without a family come last as one null group. */
+ * Families are ordered by their classification axis (the central axis first, then the Domain's order, families without an
+ * axis after), then by their earliest method, then by ID; methods without a family come last as one null group. */
 export function buildFamilies(snapshot: SurveySnapshot): MethodFamily[] {
   const { nodes } = buildEvolution(snapshot);
   const concepts = new Map(snapshot.entities.filter((e): e is Concept => e.type === 'Concept').map(c => [c.id, c]));
@@ -54,8 +62,10 @@ export function buildFamilies(snapshot: SurveySnapshot): MethodFamily[] {
     const families = [...new Set(snapshot.relations.filter(r => r.type === 'instance_of' && r.from === n.method.id && concepts.has(r.to)).map(r => r.to))];
     for (const id of families.length ? families : [null]) groups.set(id, [...(groups.get(id) ?? []), n]);
   }
+  const axisOrder = new Map(classificationAxes(snapshot).map((a, i) => [a.id, i]));
+  const rank = (family: Concept) => family.axis !== undefined && axisOrder.has(family.axis) ? axisOrder.get(family.axis)! : axisOrder.size;
   const grouped = [...groups].filter(([id]) => id !== null).map(([id, list]) => ({ family: concepts.get(id!)!, nodes: list }))
-    .sort((a, b) => (a.nodes[0].year ?? Infinity) - (b.nodes[0].year ?? Infinity) || (a.family.id < b.family.id ? -1 : a.family.id > b.family.id ? 1 : 0)); // not localeCompare: browsers and Node order labels differently
+    .sort((a, b) => rank(a.family) - rank(b.family) || (a.nodes[0].year ?? Infinity) - (b.nodes[0].year ?? Infinity) || (a.family.id < b.family.id ? -1 : a.family.id > b.family.id ? 1 : 0)); // not localeCompare: browsers and Node order labels differently
   const rest = groups.get(null);
   return rest ? [...grouped, { family: null, nodes: rest }] : grouped;
 }
@@ -74,5 +84,5 @@ export function buildMethodTree(snapshot: SurveySnapshot): MethodTree {
     return { id: n.method.id, year: generation.get(n.method.id)!, rows: first ? [first, ...own.filter(f => f !== first)] : [] };
   });
   const links = evolution.nodes.flatMap(n => n.parents.map(p => ({ from: p.id, to: n.method.id })));
-  return { layout: layoutTimeline(items, groups.map(g => g.family.id), links), nodes: new Map(evolution.nodes.map(n => [n.method.id, n])), families: new Map(groups.map(g => [g.family.id, g.family])), warnings: evolution.warnings };
+  return { layout: layoutTimeline(items, groups.map(g => g.family.id), links), nodes: new Map(evolution.nodes.map(n => [n.method.id, n])), families: new Map(groups.map(g => [g.family.id, g.family])), axes: new Map(classificationAxes(snapshot).map(a => [a.id, a])), warnings: evolution.warnings };
 }
