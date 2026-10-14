@@ -294,10 +294,12 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const readPaper = async (paper: string, view: SurveySnapshot, n: number, seconds: number): Promise<StageResult> => {
     const stage: StageId = `extract-${n}`, context = paperContext(view, paper);
     const prompt = steps.prompt.extract(context, paper, n);
-    // A reader submits its paper's fields it changes (submit_patch), so a timed-out reader keeps what it submitted.
-    const result = await steps.run(stage, prompt, context, { seconds, effort: 'low', checkpoints: true, model: steps.readerModel });
+    // A reader submits its paper's fields it changes (submit_patch), so a timed-out reader keeps what it submitted. Its prompt
+    // shows the smaller context; its submissions are validated against the whole survey it was queued from, because the
+    // context leaves out the Evidence the issues and methods cite.
+    const result = await steps.run(stage, prompt, view, { seconds, effort: 'low', checkpoints: true, model: steps.readerModel });
     const again = left(T.extractEnd);
-    if (!result.ok && steps.active() && !halted() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, context, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true, model: steps.readerModel }); }
+    if (!result.ok && steps.active() && !halted() && (result.elapsedMs ?? 0) < RETRY_IF_FAILED_WITHIN_MS && again >= T.extractMin) { record(result); return steps.run(stage, prompt, view, { seconds: Math.min(T.extract, again), effort: 'low', checkpoints: true, model: steps.readerModel }); }
     return result;
   };
   const applyPaper = async (paper: string, n: number, result: StageResult, view: SurveySnapshot) => {

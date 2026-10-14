@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
+import { streamCheckpoints } from '../scripts/stream-checkpoints';
+import { stripCodexNulls } from '../packages/domain/src/codex-schema';
+import { snapshotSchema } from '../packages/domain/src/index';
 import { applyReading, executeStagedResearch, familiesOf, fullTextUrl, readerView, mergeMemory, newPapersOnly, paperIds as idsOf, paperKey, paperContext, samePaper, restrictToWorker, settleIssueCandidates, snapshotAsPatch, splitGaps, stageStep, stageTraceText, type CheckedGap, type StagedSteps, type StageOptions, type StageResult } from '../scripts/staged-run';
 
 /** The sample as the map's output: everything except readings, claims, evidence, keywords and the tutorial. */
@@ -246,6 +249,26 @@ test('two copies of one paper read before the bibliography matched them give one
   assert.match(outcome.patch.message, /同じ論文（m1-a）を読み済みです/);
   const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
   assert.ok((final.entities.find(e => e.id === 'm1-a') as Paper).reading);
+});
+
+test('the submissions of a reader are validated against the whole survey: its context leaves out the Evidence the methods cite', async () => {
+  // The sample's methods cite Evidence; the reader's context keeps the methods but not that Evidence.
+  const method = fixture.entities.find(e => e.type === 'Method' && (e as { evidence?: string[] }).evidence?.length)!;
+  const paper = fixture.entities.find(e => e.type === 'Paper' && (e as Paper).proposes.includes(method.id)) as Paper;
+  const context = paperContext(fixture, paper.id);
+  assert.ok(context.entities.some(e => e.id === method.id) && !context.entities.some(e => e.type === 'Evidence'));
+  const sparse = { message: 'read', operations: [{ op: 'replace_entity', entity: { id: paper.id, type: 'Paper', abstract_ja: '和訳' } }] };
+  const normalize = (p: unknown) => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
+  assert.equal(streamCheckpoints(context, 'b', normalize, () => {}).submit(sparse).status, 'held', 'the context alone does not validate');
+  assert.equal(streamCheckpoints(fixture, 'b', normalize, () => {}).submit(sparse).status, 'saved');
+  // The staged run hands the reader's step the survey it was queued from, not the context.
+  const seen: Record<string, SurveySnapshot> = {};
+  const run = steps();
+  const inner = run.s.run;
+  run.s.run = (stage, prompt, snapshot, o) => { seen[stage] = snapshot; return inner(stage, prompt, snapshot, o); };
+  await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  const read = Object.keys(seen).filter(s => s.startsWith('extract-'));
+  assert.ok(read.length && read.every(stage => seen[stage].entities.some(e => e.type === 'Resource')), 'a reader validates against the whole survey');
 });
 
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
