@@ -57,7 +57,10 @@ export function parseRoute(raw: string): { skill: RoutedSkillId; reason: string 
 export function guessSkill(instruction: string): RoutedSkillId {
   const text = instruction.normalize('NFKC');
   const research = /調べ|追加|加え|深掘|調査|更新|集め|探し/.test(text);
-  if (/解説|説明|教えて|とは|なぜ|違い|わかりやすく|分かりやすく|どういう|どうやって|仕組み/.test(text) && !research) return 'explain';
+  if (/解説|説明|教えて/.test(text) && !research) return 'explain';
+  // An edit of what is stored ("もっと短く直して") is a revise, unless it asks for new research.
+  if (/直して|直す|修正|訂正|補完|書き直|短く|言い換|誤り|間違|和訳|翻訳|消して|削除/.test(text) && !/調べ|深掘|網羅|最新|集め|探し/.test(text)) return 'revise';
+  if (/とは|なぜ|違い|わかりやすく|分かりやすく|どういう|どうやって|仕組み/.test(text) && !research) return 'explain';
   if (/視点|観点|別の|違う|異なる|他分野|ほかの分野|他の分野|隣接|反対/.test(text)) return 'perspective';
   if (/深掘|もっと|さらに|最新|詳しく調べ|網羅/.test(text)) return 'deepen';
   return 'revise';
