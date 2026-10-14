@@ -67,6 +67,8 @@ export interface StagedSteps {
   concurrency: number;
   /** The readers' model; the other steps use the default. */
   readerModel?: string;
+  /** Papers read in depth at most (MAX_READS). */
+  maxReads: number;
   /** Records a step the server runs itself (the schema check) in the trace. */
   mark?(stage: StageId): void;
   normalize(patch: unknown): unknown;
@@ -297,7 +299,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // Step 2, the readings: a queue fed by the map's and the explore's saved submissions, read by up to `concurrency` agents.
   const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot }[] = [], reads: Promise<void>[] = [];
   let running = 0, extractIndex = 0;
-  const count = { read: 0, failed: 0, late: 0, dropped: 0 };
+  const count = { read: 0, failed: 0, late: 0, dropped: 0, capped: 0 };
   let resolveOutline!: () => void, resolveDiscovery!: () => void;
   const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
   const discoveryApplied = new Promise<void>(resolve => { resolveDiscovery = resolve; });
@@ -308,7 +310,12 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const readThisRun = new Set<string>();
   const queuedAlready = (paper: Paper) => { const ids = paperIds(paper); return queuedPapers.some(other => samePaper(ids, other)); };
   const enqueue = (view: SurveySnapshot) => {
-    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id) && !queuedAlready(e)) { queued.add(e.id); queuedPapers.push(paperIds(e)); queue.push({ paper: e.id, view }); }
+    for (const e of view.entities) if (e.type === 'Paper' && !e.reading && !queued.has(e.id) && !queuedAlready(e)) {
+      queued.add(e.id); queuedPapers.push(paperIds(e));
+      // At most MAX_READS papers are read; the rest stay in the survey unread.
+      if (queuedPapers.length > steps.maxReads) { count.capped++; continue; }
+      queue.push({ paper: e.id, view });
+    }
     pump();
   };
   /** What a lister's answer says about the papers of its submissions another agent listed first (each named once). */
@@ -462,7 +469,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   clearTimeout(tutorialTimer);
   if (!steps.active()) return { status: 'stopped' };
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
-  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
+  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}${count.capped ? `、精読の上限${steps.maxReads}本を超えた${count.capped}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
 
   // Step 4: one integration, and a separate agent writing the Tutorial from the same snapshot.
   const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin - 2 * T.stopSlack));

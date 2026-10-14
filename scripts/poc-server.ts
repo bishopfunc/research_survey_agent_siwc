@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -11,7 +11,7 @@ import { patchSchema } from '../packages/domain/src/index';
 import { buildExplainPrompt, buildRepairPrompt, buildSurveyPrompt, CODEX_DISABLED_FEATURES, LISTER_RULE_IDS, READER_RULE_IDS, CODEX_EXECUTION, PROMPT_VERSION, promptVersion, REPAIR_PROMPT_VERSION, stagedPromptVersion, type ResearchMode } from '../packages/agent/src/prompt';
 import { buildRouterPrompt, explanationSchema, ROUTER_TIMEOUT_SECONDS, ROUTER_VERSION, routerSchema, skillById, skillInstructions, type Explanation, type SkillId } from '../packages/agent/src/skills/index';
 import { executeSkillRun, type SkillOutcome, type StepResult } from './skill-run';
-import { DEFAULT_EXTRACT_CONCURRENCY, DEFAULT_EXTRACT_MODEL, SURVEY_TIMING, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
+import { DEFAULT_EXTRACT_CONCURRENCY, DEFAULT_EXTRACT_MODEL, MAX_READS, SURVEY_TIMING, listInstructions, papersPerFamily, SCOUT_ANGLES, divergeInstructions, extractInstructions, fillInstructions, integrateInstructions, OUTLINE_INSTRUCTIONS, tutorialInstructions, VALIDATE_SCHEMA, validateInstructions } from '../packages/agent/src/research-prompt';
 import { MAX_FIGURE_BYTES, saveFigurePNG, assertFigureAssets } from './figure-store';
 import { codexPatchSchema, stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { initialCodexState, readCodexEvent, redact, traceItem, type TraceItem } from './codex-events';
@@ -160,8 +160,12 @@ function closeHost(runId: string) {
   setTimeout(() => rmSync(entry.workdir, { recursive: true, force: true }), 10_000).unref();
 }
 /** The Codex settings both transports pass; app-server applies them to every thread of the run's process. */
+/** A local model catalog (scripts/codex-catalog.mjs --keep-lite) when present: one tool call per response, so each submit_patch
+ * is saved at once (design 0036). On the VPS the codex wrapper passes its own catalog (CODEX_CATALOG). */
+const LOCAL_CATALOG = resolve('.poc/codex-catalog.json');
+const catalogArgs = () => !process.env.CODEX_CATALOG && existsSync(LOCAL_CATALOG) ? ['-c', `model_catalog_json=${JSON.stringify(LOCAL_CATALOG)}`] : [];
 function codexSettings(webSearch: string) {
-  return ['-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature])];
+  return [...catalogArgs(), '-c', `model_reasoning_effort="${CODEX_EXECUTION.reasoningEffort}"`, '-c', 'approval_policy="never"', '-c', `web_search="${webSearch}"`, '-c', `model_reasoning_summary="${CODEX_EXECUTION.reasoningSummary}"`, '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', ...CODEX_DISABLED_FEATURES.flatMap(feature => ['--disable', feature])];
 }
 /** `note` is added to submit_patch's answer once, for example which papers another lister listed first. */
 type StepCheckpoints = { chunks: Checkpoints; step?: number; note?(): string | undefined };
@@ -346,7 +350,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot, [], true),
     },
     now: () => Date.now(),
-    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL,
+    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL, maxReads: MAX_READS,
     mark: stage => { addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run); },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),

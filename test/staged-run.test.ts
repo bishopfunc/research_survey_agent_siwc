@@ -73,7 +73,7 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
       validate: (_s, gaps) => { calls.push(`validate:${gaps.length}`); return 'validate'; },
       fill: (_s, gaps, _m, part, parts) => { calls.push(`fill:${part}/${parts}:${gaps.map(g => g.target).join(',')}`); return 'fill'; },
     },
-    now: over.now ?? (() => 0), concurrency: over.concurrency ?? 4,
+    now: over.now ?? (() => 0), concurrency: over.concurrency ?? 4, maxReads: 100,
     normalize: p => p, prepare: async p => p, checkpoint: () => {}, active: over.active ?? (() => true), progress: m => { calls.push(`progress:${m}`); },
   };
   return fake;
@@ -341,6 +341,17 @@ test('the classification-axes gaps go to one fill part; an explore family on a m
   const final = applyPatch(emptySurvey('t'), outcome.patch, 'b');
   assert.ok(final.entities.some(e => e.id === 'd-paper') && !final.entities.some(e => e.id === 'd-family'));
   assert.match(outcome.patch.message, /発散の結果のうち検証に通らない操作1件を外しました/);
+});
+
+test('at most maxReads papers are read; the rest stay in the survey unread and the proposal says how many', async () => {
+  const run = steps();
+  run.s.maxReads = 3;
+  const outcome = await executeStagedResearch(emptySurvey('t'), 'b', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  assert.equal(run.calls.filter(c => /^extract-\d+$/.test(c)).length, 3);
+  const listed = applyPatch(emptySurvey('t'), outcome.patch, 'b').entities.filter(e => e.type === 'Paper').length;
+  assert.ok(listed > 3, 'the unread papers stay');
+  assert.match(outcome.patch.message, new RegExp(`精読の上限3本を超えた${listed - 3}本`));
 });
 
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
