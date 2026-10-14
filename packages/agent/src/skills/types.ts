@@ -19,6 +19,8 @@ export interface Skill {
   timeoutSeconds: number;
   /** Seconds of that limit kept for one repair run; 0 drops what the validator names instead. */
   repairTimeoutSeconds: number;
+  /** Reasoning effort other than the default, for the one-minute skills. */
+  effort?: string;
 }
 /** The instructions Codex receives for a skill: its mode line and its numbered steps. */
 export function skillInstructions(skill: Skill): string {

@@ -338,9 +338,9 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   }) : executeSkillRun(input.instruction, {
     route: async () => {
       addTrace(run, { kind: 'step', text: '依頼の種類を判定' }); save(run);
-      return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot) + contextInstructions(input.context_papers, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false }), directory, 'route.json');
+      return stepResult(await runCodexStep(run, directory, 'route', buildRouterPrompt(input.instruction, input.snapshot) + contextInstructions(input.context_papers, input.snapshot), ROUTER_TIMEOUT_SECONDS, { output: 'route.json', schema: 'router-schema.json', webSearch: 'disabled', failRunOnTimeout: false, effort: 'low' }), directory, 'route.json');
     },
-    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), Math.max(15, secondsLeft(skillById('explain').timeoutSeconds)), { output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
+    explain: async () => stepResult(await runCodexStep(run, directory, 'explain', buildExplainPrompt({ instruction: input.instruction, snapshot: input.snapshot, as_of: asOf, instructions: skillInstructions(skillById('explain')), useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers }), Math.max(15, secondsLeft(skillById('explain').timeoutSeconds)), { effort: skillById('explain').effort, output: 'explanation.json', schema: 'explanation-schema.json' }), directory, 'explanation.json'),
     research: skillId => { const skill = skillById(skillId); return executeResearch({
       snapshot: input.snapshot,
       // Like a new-survey stage, the research sends checkpoints; a run that timed out keeps what they saved (design 0034).
@@ -350,7 +350,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
           writeFileSync(join(directory, `checkpoint-research-${sequence}.json`), JSON.stringify(patch), { mode: 0o600 });
           addTrace(run, { kind: 'step', text: `research：途中保存 ${sequence}` }); save(run);
         }, () => run.status === 'running');
-        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` }), Math.max(20, secondsLeft(skill.timeoutSeconds, skill.repairTimeoutSeconds)), { checkpoints: { chunks }, failRunOnTimeout: false });
+        const attempt = await runCodexStep(run, directory, 'research', buildSurveyPrompt({ mode: input.mode, instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot: input.snapshot, as_of: asOf, useLibrary: input.useLibrary, library: input.library, context_papers: input.context_papers, instructions: `${skillInstructions(skill)}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` }), Math.max(20, secondsLeft(skill.timeoutSeconds, skill.repairTimeoutSeconds)), { checkpoints: { chunks }, failRunOnTimeout: false, effort: skill.effort });
         const file = join(directory, outputs.research);
         const settled = settleCheckpoints(chunks, attemptError(attempt), { read: () => readFileSync(file, 'utf8'), write: text => writeFileSync(file, text, { mode: 0o600 }), active: () => run.status === 'running' });
         if (settled.partial) { addTrace(run, { kind: 'step', text: 'research：途中保存までの結果を使います' }); save(run); }
