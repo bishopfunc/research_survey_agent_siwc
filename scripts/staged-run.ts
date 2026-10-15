@@ -97,10 +97,14 @@ export function readerView(context: SurveySnapshot, paper: string): SurveySnapsh
 }
 /** Where a reader finds its paper's full text: the arXiv HTML, else the paper's URL or DOI. */
 export function fullTextUrl(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }): string | undefined {
+  return fullTextUrls(paper)[0];
+}
+/** The full text's addresses in the order a reader tries them: for an arXiv paper its HTML, the ar5iv mirror and the PDF. */
+export function fullTextUrls(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }): string[] {
   const ids = paperIds(paper);
-  if (ids.arxiv) return `https://arxiv.org/html/${ids.arxiv}`;
-  if (typeof paper.url === 'string' && /^https?:\/\//.test(paper.url)) return paper.url;
-  return ids.doi ? `https://doi.org/${ids.doi}` : undefined;
+  if (ids.arxiv) return [`https://arxiv.org/html/${ids.arxiv}`, `https://ar5iv.labs.arxiv.org/html/${ids.arxiv}`, `https://arxiv.org/pdf/${ids.arxiv}`];
+  if (typeof paper.url === 'string' && /^https?:\/\//.test(paper.url)) return [paper.url];
+  return ids.doi ? [`https://doi.org/${ids.doi}`] : [];
 }
 /** A reading agent's result in the survey (design 0037): its paper takes only the reading, the translation of the abstract (when the
  * survey has the abstract) and the Claims and Evidence it cites; the rest is new entities and relations. Operations the validator

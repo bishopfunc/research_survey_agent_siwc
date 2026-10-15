@@ -66,7 +66,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-15T21:46+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-15T21:58+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -135,10 +135,13 @@ export function listInstructions(family: string | null, methods: string[], targe
   ].join('\n\n');
 }
 /** Step 2: one agent reads one paper (design 0037). The server copies only the paper's reading and abstract_ja into the survey. */
-export function extractInstructions(paper: string, n: number, url?: string) {
+export function extractInstructions(paper: string, n: number, url?: string | string[]) {
   const prefix = `p${n}-`;
+  // Mirrors in order (2026-10-15 on the VPS, readers retried arxiv.org/html that did not open while ar5iv did).
+  const [first, ...rest] = typeof url === 'string' ? [url] : url ?? [];
+  const text = first ? ` (full text: ${first}${rest.length ? `; if it does not open, ${rest.join(', then ')}; open each address at most twice` : ''})` : '';
   return [
-    `Mode: new survey, step 2 of 6 (read one paper in depth). You are one of many agents reading in parallel; each reads one paper. Your paper: ${paper}${url ? ` (full text: ${url})` : ''}. The snapshot holds your paper and, by ID and label only, the field, its issues and methods.`,
+    `Mode: new survey, step 2 of 6 (read one paper in depth). You are one of many agents reading in parallel; each reads one paper. Your paper: ${paper}${text}. The snapshot holds your paper and, by ID and label only, the field, its issues and methods.`,
     `2. ${RESEARCH_STEPS[1].instruction}`,
     'Issue candidates (the first step of [issues]): add one Issue per distinct problem the paper says it works on (kind, english_terms as the paper words them, description), citing new Evidence from the paper ([paperparts] says where to read). Add a candidate even when an Issue of the snapshot already names the problem (the integration merges them; an exception to the reuse in [locality]). Do not merge them, relate them, put them in addresses or write achievement Claims for them.',
     `Output: submit everything in one submit_patch call: a replace_entity of your paper with only id, type, reading and abstract_ja (the server copies its other fields; it takes only these, the Claims and Evidence it lists, and proposes and addresses when the paper has none), at most 1 issue candidate, at most 2 Claims for its main results with about and supports, and only the Evidence they and the reading cite (at most 4). Then return the final response with operations empty and a one-sentence message. No other Paper, no Tutorial and no follow_ups. If your paper has no proposes or addresses yet, set them to the Methods and Issues of the snapshot it belongs to (the server keeps them only then). Prefix every new ID with ${prefix}. Be quick and short: open the paper's full text once (the full text given, else the arXiv HTML, the PDF or the publisher page) and find in it the method, the main results table and the limitations; at most 3 web actions. Keep every reading field to one or two sentences, every excerpt short, and submit as soon as you have them; it must be done within the time.`,

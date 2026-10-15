@@ -176,6 +176,7 @@ test('issues are built bottom-up: per-paper candidates with sources, then a hier
 test('one agent per paper; separate agents for the explore, the tutorial, the validate and each fill part; search memory as data', () => {
   const memory = { queries: ['MAPF survey'], opened: ['https://example.org/a'] };
   const extract = extractInstructions('paper-lacam', 7);
+  assert.match(extractInstructions('p', 1, ['https://arxiv.org/html/1', 'https://ar5iv.labs.arxiv.org/html/1']), /Your paper: p \(full text: https:\/\/arxiv\.org\/html\/1; if it does not open, https:\/\/ar5iv\.labs\.arxiv\.org\/html\/1; open each address at most twice\)/);
   assert.match(extractInstructions('p', 1, 'https://arxiv.org/html/1'), /Your paper: p \(full text: https:\/\/arxiv\.org\/html\/1\)\. The snapshot holds your paper and, by ID and label only/);
   assert.match(extract, /step 2 of 6[\s\S]*Your paper: paper-lacam[\s\S]*2\. Concrete: read your paper in full[\s\S]*one submit_patch call: a replace_entity of your paper with only id, type, reading and abstract_ja[\s\S]*it takes only these, the Claims and Evidence it lists[\s\S]*operations empty[\s\S]*No other Paper[\s\S]*Prefix every new ID with p7-/);
   assert.match(integrateInstructions(['p1-c']), /step 4 of 6[\s\S]*write no Tutorial[\s\S]*the Issues p1-c are per-paper issue candidates[\s\S]*the three follow_ups/);
