@@ -66,7 +66,7 @@ export const ADDITIONAL_RESEARCH_STEPS = [
 
 /** New surveys run as the six steps of design 0037; each agent reserves time for writing. The tutorial agent carries the sample
  * tutorial's outline, so a change to the sample changes this prompt too. */
-export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-14T22:08+09:00';
+export const STAGED_PROMPT_VERSION = 'survey-staged@2026-10-15T20:23+09:00';
 /** Seconds from the start of a new survey (design 0037). Every agent's limit is its step's, cut to what is left before the step's
  * end; the last `tail` seconds belong to the server (merging, bibliography). */
 export const SURVEY_TIMING = {
@@ -199,6 +199,6 @@ export function fillInstructions(gaps: unknown[], memory: SearchMemory, part = 1
     // The classification axes depend on each other (ADR 0026); the part with their gaps may change the Domain and every family.
     ...((gaps as { field?: unknown }[]).some(g => ['axes', 'classification_axes', 'axis'].includes(String(g?.field))) ? ['Classification axes ([methods]): for these gaps you may change the Domain and the method families your gaps name: set the Domain\'s classification_axes (one central) and each named family\'s axis to one of those axis IDs, keeping the axes families already have, in one submission so they validate together.'] : []),
     // A missing or failing tutorial is rewritten after the sample, like the tutorial agent does.
-    ...(/tutorial/i.test(JSON.stringify(gaps)) ? [`When the survey has no Tutorial or it misses requirements, write it as [tutorial] describes. ${referenceOutline()}`] : []),
+    ...(/tutorial/i.test(JSON.stringify(gaps)) ? [`When the survey has no Tutorial or it misses requirements, write it as [tutorial] describes. To add or fix sections, send the Tutorial with only those sections: they join the stored ones (a section with a stored heading replaces it in place, a new one goes after the stored sections of its role). To rewrite it (for example to fix the order or the headings), send every section, in order. ${referenceOutline()}`] : []),
   ].join('\n\n');
 }

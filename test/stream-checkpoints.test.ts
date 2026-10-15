@@ -145,7 +145,7 @@ test('the tutorial agent submits its Tutorial in parts: sections join in order, 
   const sec = (heading: string, body = heading) => ({ role: 'methods', heading, body, refs: [] });
   const tutorial = (sections: unknown[]) => ({ id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections });
   const normalize = (p: unknown) => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
-  const parts = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true });
+  const parts = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: 'parts' });
   assert.equal(parts.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] }).status, 'saved');
   assert.equal(parts.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C'), sec('A', 'A2')] } }] }).status, 'saved');
   // A part sent again as an addition joins too.
@@ -164,7 +164,7 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
   const tutorial = (sections: unknown[]) => ({ id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections });
   const normalize = (p: unknown) => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
   const headings = (raw: string) => (applyPatch(emptySurvey('t'), JSON.parse(raw), 'b').entities.find(e => e.id === 'tutorial') as { sections: { heading: string; body: string }[] }).sections.map(s => `${s.heading}${s.body === s.heading ? '' : `=${s.body}`}`);
-  const start = () => { const c = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true }); c.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] }); c.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C'), sec('D')] } }] }); return c; };
+  const start = () => { const c = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: 'parts' }); c.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] }); c.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C'), sec('D')] } }] }); return c; };
   // The strict final response carries the last sections with the label: they join the submitted ones.
   assert.deepEqual(headings(start().finish(JSON.stringify(patch([{ op: 'replace_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['A', 'B', 'C', 'D', 'E', 'F']);
   assert.deepEqual(headings(start().combined(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E')]) }])))), ['A', 'B', 'C', 'D', 'E']);
@@ -181,14 +181,14 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
   assert.deepEqual(headings(held.partial()!), ['A', 'B', 'C', 'D', 'E=fixed', 'F', 'G']);
   // A held part never fixed does not cost the final response's valid sections.
   const dropped: string[] = [];
-  const abandoned = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true, dropped: reason => dropped.push(reason) });
+  const abandoned = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: 'parts', dropped: reason => dropped.push(reason) });
   abandoned.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A'), sec('B')]) }] });
   abandoned.submit({ message: '2', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('C'), sec('D')] } }] });
   assert.equal(abandoned.submit({ message: '3', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('X', 'see [@nowhere]')] } }] }).status, 'held');
   assert.deepEqual(headings(abandoned.finish(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['A', 'B', 'C', 'D', 'E', 'F']);
   assert.equal(dropped.length, 1); assert.match(dropped[0], /nowhere/);
   // Even when the first part was held and never fixed, a valid final response is kept.
-  const firstHeld = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: true, dropped: reason => dropped.push(reason) });
+  const firstHeld = streamCheckpoints(emptySurvey('t'), 'b', normalize, () => {}, () => true, { appendSections: 'parts', dropped: reason => dropped.push(reason) });
   assert.equal(firstHeld.submit({ message: '1', operations: [{ op: 'add_entity', entity: tutorial([sec('A', 'see [@nowhere]'), sec('B')]) }] }).status, 'held');
   assert.deepEqual(headings(firstHeld.finish(JSON.stringify(patch([{ op: 'add_entity', entity: tutorial([sec('E'), sec('F')]) }])))), ['E', 'F']);
   assert.equal(dropped.length, 2);
@@ -199,17 +199,21 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
 });
 test('a later stage (the fill) adding a few sections joins them to the stored Tutorial of its snapshot instead of replacing it', () => {
   // 2026-10-15: a fill sent the Tutorial with two challenge sections and the sixteen the tutorial agent wrote were lost.
-  const sec = (heading: string, body = heading) => ({ role: 'challenges', heading, body, refs: [] });
+  const sec = (heading: string, body = heading) => ({ role: { A: 'motivation', B: 'methods', C: 'challenges', D: 'methods', E: 'challenges', F: 'conclusion' }[heading[0]], heading, body, refs: [] });
   const normalize = (p: unknown) => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
-  const stored = applyPatch(emptySurvey('t'), normalize(patch([{ op: 'add_entity', entity: { id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections: [sec('A'), sec('B'), sec('C')] } }])) as SurveyPatch, 'b');
+  const stored = applyPatch(emptySurvey('t'), normalize(patch([{ op: 'add_entity', entity: { id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections: [sec('A'), sec('B'), sec('C'), sec('F')] } }])) as SurveyPatch, 'b');
   const headings = (raw: string) => (applyPatch(stored, JSON.parse(raw), 'b').entities.find(e => e.id === 'tutorial') as { label: string; sections: { heading: string; body: string }[] }).sections.map(s => `${s.heading}${s.body === s.heading ? '' : `=${s.body}`}`);
-  const fill = () => streamCheckpoints(stored, 'b', normalize, () => {}, () => true, { appendSections: true });
+  const fill = () => streamCheckpoints(stored, 'b', normalize, () => {}, () => true, { appendSections: 'fixes' });
   const submitted = fill();
   assert.equal(submitted.submit({ message: 'fill', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('D'), sec('B', 'B2')] } }] }).status, 'saved');
-  assert.deepEqual(headings(submitted.partial()!), ['A', 'B=B2', 'C', 'D']);
-  // The strict final response (every key) joins the same way.
-  const strict = { id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections: [sec('E')] };
-  assert.deepEqual(headings(fill().combined(JSON.stringify(patch([{ op: 'replace_entity', entity: strict }])))), ['A', 'B', 'C', 'E']);
+  // A new section goes after the stored sections of its role (not after the conclusion).
+  assert.deepEqual(headings(submitted.partial()!), ['A', 'B=B2', 'D', 'C', 'F']);
+  // The strict final response (every key) joins the same way, even when it fixes the first section and half of the others.
+  const strict = (sections: unknown[]) => ({ id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections });
+  assert.deepEqual(headings(fill().combined(JSON.stringify(patch([{ op: 'replace_entity', entity: strict([sec('E')]) }])))), ['A', 'B', 'C', 'E', 'F']);
+  assert.deepEqual(headings(fill().combined(JSON.stringify(patch([{ op: 'replace_entity', entity: strict([sec('A', 'A2'), sec('B', 'B2')]) }])))), ['A=A2', 'B=B2', 'C', 'F']);
+  // A rewrite sends every section: it replaces, so a new order or a renamed heading is kept.
+  assert.deepEqual(headings(fill().combined(JSON.stringify(patch([{ op: 'replace_entity', entity: strict([sec('A'), sec('B'), sec('C2'), sec('F')]) }])))), ['A', 'B', 'C2', 'F']);
 });
 test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
   const fence = '```';

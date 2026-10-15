@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { patchSchema, applyPatch, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
+import { TUTORIAL_ROLES } from '../packages/domain/src/tutorial';
 import { mergeRepair } from './research-run';
 
 const ajv = new Ajv({ strict: false });
@@ -26,12 +27,14 @@ function relax(patch: SurveyPatch): SurveyPatch {
 
 /** A checkpoint never mutates the run snapshot. A cumulatively valid Patch is saved at once; a well-formed checkpoint that
  * does not validate yet is held and validated with the final remainder. Only an unreadable checkpoint spoils the final. */
-/** `appendSections` (every stage of a new survey): the tutorial agent submits its Tutorial in parts and a later stage (the fill) adds or
- * fixes a few sections (design 0037); each part's sections join the
- * stored ones (a section with an earlier heading replaces it in place) instead of replacing them, so a deadline keeps what was written.
- * A whole Tutorial (with its label or summary, starting again from the first stored heading) still replaces it; the final response
- * is joined the same way. */
-export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, normalize: (value: unknown) => unknown, save: (patch: SurveyPatch, sequence: number) => void, active = () => true, options: { appendSections?: boolean; dropped?(reason: string): void } = {}) {
+/** `appendSections` (every stage of a new survey, design 0037): the tutorial agent submits its Tutorial in parts ('parts') and a later
+ * stage (the fill) adds or fixes a few sections ('fixes'); either joins the sent sections to the stored ones instead of replacing
+ * them (a section with a stored heading replaces it in place, a new one goes after the last stored section of its role or an earlier
+ * one), so a deadline keeps what was written. A whole Tutorial still replaces it: for 'parts' one with its label or summary that
+ * starts again from the first stored heading and repeats at least half of the stored headings; for 'fixes' (whose strict final
+ * response always carries the label) one with at least as many sections as stored, as the fill is told to send a rewrite.
+ * The final response is joined the same way. */
+export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, normalize: (value: unknown) => unknown, save: (patch: SurveyPatch, sequence: number) => void, active = () => true, options: { appendSections?: 'parts' | 'fixes'; dropped?(reason: string): void } = {}) {
   let accepted: SurveyPatch | undefined, all: SurveyPatch | undefined, sequence = 0, unreadable = false;
   const validate = (patch: SurveyPatch) => applyPatch(snapshot, relax(patch), baseId);
   const valid = (patch: SurveyPatch) => { try { validate(patch); return true; } catch { return false; } };
@@ -40,9 +43,14 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
    * stage's snapshot), as [keepstored] asks; the strict final output always sends every key. A null never erases a stored value. */
   const stored = (id: string, source: SurveyPatch | undefined) => [...(source?.operations ?? [])].reverse().flatMap(op => 'entity' in op && op.entity.id === id ? [op.entity] : [])[0] ?? snapshot.entities.find(e => e.id === id);
   const over = (before: object, after: object) => ({ ...before, ...Object.fromEntries(Object.entries(after).filter(([key, value]) => value !== null || (before as Record<string, unknown>)[key] == null)) });
-  type Section = { heading?: unknown };
+  type Section = { heading?: unknown; role?: unknown };
   type Operation = SurveyPatch['operations'][number];
-  const joined = (before: Section[], after: Section[]) => [...before.map(s => after.find(a => a.heading === s.heading) ?? s), ...after.filter(a => !before.some(s => s.heading === a.heading))];
+  const rank = (s: Section) => { const at = TUTORIAL_ROLES.indexOf(s.role as typeof TUTORIAL_ROLES[number]); return at < 0 ? TUTORIAL_ROLES.length : at; };
+  const joined = (before: Section[], after: Section[]) => after.filter(a => !before.some(s => s.heading === a.heading)).reduce((list, a) => {
+    // A new section goes after the last section of its role or an earlier one (the tutorial agent writes in order: it appends).
+    const at = list.reduce((last, s, i) => rank(s) <= rank(a) ? i : last, -1);
+    return [...list.slice(0, at + 1), a, ...list.slice(at + 1)];
+  }, before.map(s => after.find(a => a.heading === s.heading) ?? s));
   /** A part of the Tutorial joined to what `source` stored; undefined when it is no part (another entity, no stored Tutorial, a whole one). */
   const part = (op: Operation, source: SurveyPatch | undefined) => {
     if (!options.appendSections || !op || !('entity' in op) || op.entity?.type !== 'Tutorial' || !Array.isArray((op.entity as { sections?: unknown }).sections)) return undefined;
@@ -52,7 +60,8 @@ export function streamCheckpoints(snapshot: SurveySnapshot, baseId: string, norm
     // Whole: it carries the label or summary, starts from the first stored heading and repeats at least half of the stored headings
     // (a labelled part that fixes the first section and adds new ones is still a part).
     const kept = before.sections.filter(s => sent.sections.some(a => a.heading === s.heading)).length;
-    const whole = (sent.label != null || sent.summary != null) && sent.sections[0]?.heading === before.sections[0].heading && kept * 2 >= before.sections.length;
+    const whole = options.appendSections === 'fixes' ? sent.sections.length >= before.sections.length
+      : (sent.label != null || sent.summary != null) && sent.sections[0]?.heading === before.sections[0].heading && kept * 2 >= before.sections.length;
     return whole ? undefined : { ...op, entity: over(before, { ...op.entity, sections: joined(before.sections, sent.sections) }) } as Operation;
   };
   const keepStored = (patch: SurveyPatch, source: SurveyPatch | undefined) => ({ ...patch, operations: patch.operations?.map(op => { const tutorial = part(op, source); if (tutorial) return tutorial; const before = op?.op === 'replace_entity' && op.entity ? stored(op.entity.id, source) : undefined; return before && 'entity' in op && before.type === op.entity.type ? { ...op, entity: over(before, op.entity) } : op; }) }) as SurveyPatch;
