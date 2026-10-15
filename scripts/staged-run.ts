@@ -303,7 +303,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const serial = <R>(task: () => Promise<R> | R): Promise<R> => { const run = chain.then(task); chain = run.catch(() => {}); return run; };
 
   // Step 2, the readings: a queue fed by the map's and the explore's saved submissions, read by up to `concurrency` agents.
-  const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot }[] = [], reads: Promise<void>[] = [];
+  const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot; arxiv?: boolean }[] = [], reads: Promise<void>[] = [];
   let running = 0, extractIndex = 0;
   const count = { read: 0, failed: 0, late: 0, dropped: 0, capped: 0, reread: 0 };
   /** Papers whose first reader returned nothing; each goes to the back of the queue once (2026-10-15 on the VPS, a page that
@@ -323,7 +323,10 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       queued.add(e.id); queuedPapers.push(paperIds(e));
       // At most MAX_READS papers are read; the rest stay in the survey unread.
       if (queuedPapers.length > steps.maxReads) { count.capped++; continue; }
-      queue.push({ paper: e.id, view });
+      // arXiv papers are read first: their text can be had (2026-10-16 on the VPS, most papers left unread had no arXiv text);
+      // the others stay queued after them, in listing order.
+      if (paperIds(e).arxiv) { const at = queue.findIndex(q => !q.arxiv); queue.splice(at < 0 ? queue.length : at, 0, { paper: e.id, view, arxiv: true }); }
+      else queue.push({ paper: e.id, view, arxiv: false });
     }
     pump();
   };

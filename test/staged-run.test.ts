@@ -381,6 +381,15 @@ test('a paper whose reader returns nothing goes to the back of the queue once an
   assert.match(outcome.patch.message, /読み直した1本/);
   assert.doesNotMatch(outcome.patch.message, /読めなかった/);
 });
+test('arXiv papers are read before the others, which stay queued in listing order', async () => {
+  const one = steps({ concurrency: 1 });
+  await executeStagedResearch(emptySurvey('新規調査'), 'base-1', one.s);
+  const read = one.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
+  // The CBS family lists cbs-2012, ecbs and icbs (no arXiv ID) before eecbs (arXiv) in one result: eecbs is read first, the
+  // others keep their order.
+  const at = (id: string) => read.indexOf(id);
+  assert.ok(at('paper-eecbs') >= 0 && at('paper-eecbs') < at('paper-cbs-2012') && at('paper-cbs-2012') < at('paper-ecbs') && at('paper-ecbs') < at('paper-icbs'), read.join(' '));
+});
 test('a paper read again waits for the server to fetch its text first', async () => {
   const order: string[] = [];
   const run = steps({ onRun: stage => { order.push(stage); return stage === 'extract-1' ? ok(patch('could not open the page', [])) : undefined; } });
