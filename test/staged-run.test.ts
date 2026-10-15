@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
-import { SURVEY_TIMING } from '../packages/agent/src/research-prompt';
+import { SCOUT_ANGLES, SURVEY_TIMING, TARGET_PAPERS } from '../packages/agent/src/research-prompt';
 import { streamCheckpoints } from '../scripts/stream-checkpoints';
 import { stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { snapshotSchema } from '../packages/domain/src/index';
@@ -80,6 +80,14 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
 }
 type Paper = Extract<SurveySnapshot['entities'][number], { type: 'Paper' }>;
 
+test('listers that list TARGET_PAPERS papers get no scouts to top them up', async () => {
+  const sample = outlineSnapshot.entities.find(e => e.type === 'Paper') as Paper;
+  const many = Array.from({ length: TARGET_PAPERS }, (_, i) => ({ op: 'add_entity', entity: { ...sample, id: `m1-x${i}`, label: `X${i}`, title: `Paper X${i}`, arxiv_id: `2401.${10000 + i}`, doi: null, url: null, reading: null } }));
+  const run = steps({ onRun: stage => stage === 'list-1' ? ok(patch('many', many)) : undefined });
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
+  assert.equal(outcome.status, 'succeeded');
+  assert.equal(run.calls.filter(c => c.includes(':scout ')).length, 0);
+});
 test('each family the map submits gets a lister at once; every listed paper is read by its own agent; the map lists none', async () => {
   const firstFamily = map.operations.filter(op => op.op !== 'add_relation' || op.relation.type !== 'instance_of' || op.relation.to === [...families.keys()][0]);
   const order: string[] = [];
@@ -97,7 +105,10 @@ test('each family the map submits gets a lister at once; every listed paper is r
   if (outcome.status !== 'succeeded') return;
   assert.deepEqual(order.slice(0, 2), ['list-1', 'extract-1'], 'the first family is listed and read before the map ends');
   assert.ok(order.indexOf('map done') > 1);
-  assert.equal(run.calls.filter(c => c.startsWith('list:')).length, families.size, 'one lister per family');
+  assert.equal(run.calls.filter(c => c.startsWith('list:') && !c.includes(':scout ')).length, families.size, 'one lister per family');
+  // The sample lists fewer than TARGET_PAPERS papers: as listers end, scouts from each angle not used yet top them up.
+  assert.ok(papers.length < TARGET_PAPERS);
+  assert.deepEqual(run.calls.filter(c => c.includes(':scout ')).map(c => c.replace(/^list:\d+:scout /, '')), [...SCOUT_ANGLES]);
   const read = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
   assert.deepEqual([...read].sort(), [...papers].sort(), 'each paper once');
   const final = applyPatch(emptySurvey('t'), outcome.patch, 'base-1');

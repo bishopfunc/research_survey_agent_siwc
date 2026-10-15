@@ -4,7 +4,7 @@
 // Results from parallel agents change the survey one at a time; the user sees a single proposal against the empty base.
 import { applyPatch, validateSnapshot, type Entity, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
 import { assessSurvey, findGaps, type SurveyGap } from '../packages/domain/src/survey-assessment';
-import { FAMILY_NUDGE, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SCOUT_ANGLES, SURVEY_TIMING, type SearchMemory } from '../packages/agent/src/research-prompt';
+import { FAMILY_NUDGE, FILL_PARTS, MAX_CHOSEN_GAPS, MAX_GAPS, RESEARCH_STEPS, SCOUT_ANGLES, SURVEY_TIMING, TARGET_PAPERS, type SearchMemory } from '../packages/agent/src/research-prompt';
 import type { ResearchOutcome } from './research-run';
 import { dropInvalid, targetOf } from './drop-invalid';
 
@@ -399,7 +399,16 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
           snapshot = apply(snapshot, checked.patch, stage, own);
         } catch (e) { if (steps.active()) notes.push(`${stageTraceText(stage)}を使えませんでした：${reason(e)}`); }
       });
+      topUp();
     })());
+  };
+  // A lister that ends with fewer than TARGET_PAPERS listed hands over to a scout from an angle not used yet, while the listing
+  // time lasts (2026-10-15 on the VPS, three Luna listers listed 10 papers in all).
+  const topUp = () => {
+    // Papers queued for reading and papers of the listers' applied results (a final result is queued only after the listing).
+    if (new Set([...queued, ...snapshot.entities.flatMap(e => e.type === 'Paper' ? [e.id] : [])]).size >= TARGET_PAPERS) return;
+    const angle = SCOUT_ANGLES.find(a => !listers.has(`scout:${a}`));
+    if (angle) startLister(`scout:${angle}`, snapshot, angle);
   };
   let mapView = base;
   // Once scouts list the field, families found later get no lister of their own (the plan's usage limit counts every agent).
