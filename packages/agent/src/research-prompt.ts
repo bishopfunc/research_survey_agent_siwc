@@ -79,7 +79,7 @@ export const SURVEY_TIMING = {
    * field's papers from several angles instead. */
   familyNudge: 45, scoutStart: 90,
   /** One paper per agent: its limit, the least worth starting, and when every reading must be over. */
-  extract: 150, extractMin: 60, extractEnd: 400,
+  extract: 150, extractMin: 60, extractEnd: 430,
   /** Explore starts after the map, beside the readings, and must leave its papers time to be read. */
   explore: 120,
   /** The tutorial starts beside the readings, from the papers read so far, and must be over before the validate. */
