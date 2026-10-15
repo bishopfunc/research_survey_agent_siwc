@@ -368,6 +368,19 @@ test('at most maxReads papers are read; the rest stay in the survey unread and t
   assert.match(outcome.patch.message, new RegExp(`精読の上限3本を超えた${listed - 3}本`));
 });
 
+test('a paper whose reader returns nothing goes to the back of the queue once and is read again', async () => {
+  const run = steps({ onRun: stage => stage === 'extract-1' ? ok(patch('could not open the page', [])) : undefined });
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  if (outcome.status !== 'succeeded') return;
+  const read = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
+  const first = read[0];
+  assert.equal(read.filter(p => p === first).length, 2, 'read twice');
+  const final = applyPatch(emptySurvey('t'), outcome.patch, 'base-1');
+  assert.ok((final.entities.find(e => e.id === first) as Paper).reading);
+  assert.match(outcome.patch.message, /読み直した1本/);
+  assert.doesNotMatch(outcome.patch.message, /読めなかった/);
+});
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);

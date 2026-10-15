@@ -76,6 +76,7 @@
 - 保存するPatch、Commit、DSL、ブラウザとのAPIは変えない。手順の番号と名前（経過の表示、/lab）は6手順になる。
 - `submit_patch` は、Map（全体像・系統ごと・偵察）、Extract、Explore、Synthesize、Tutorial、Fill、追記の調査が使う。Validateは最終応答だけを使う。系統ごと・偵察のAgentへの返答には、他のAgentが先に挙げた論文を添える。
 - Validateの出力：`{gaps:[{n, why, fill:'existing'|'search', query}], message}`。nは点検の一覧の番号で、サーバーが対象・欄・問題を補ってFillへ渡す（試行5では対象・欄・問題も書かせて30秒で書き終わらなかった）。
+- 精読のAgentが結果を出さなかった論文（本文を開けなかったなど）は、時間が残っていれば1回だけキューの最後に戻して読み直す（2026-10-15のVPSで、同時に始めた精読のAgentが開けなかったページの多くは、1本ずつなら開けた）。説明に読み直した本数を書く。
 - Extractに渡す本文の取得先：arXivの論文はHTML版とar5ivのミラーで、精読のAgentごとに交互にどちらを先に試すかを変え、同じ取得先を開くのは2回まで。精読のAgentは2秒以上空けて始める。PDFは渡さない（2026-10-15のVPS：1本ずつならHTML版もar5ivも開けたが、同時に始めた精読のAgentの3分の1ほどが本文を開けなかった。PDFは「大きすぎる」で開けなかった）。arXiv以外は論文のURLかDOI。
 - `EXTRACT_MODEL` でExtractのモデルを変えられる（既定 `gpt-6-luna`）。
 - `SURVEY_MODEL` でExtract以外のすべての手順（依頼の判定、解説、修正・補完、違う視点、深掘りも含む）のモデルを変えられる（既定 `gpt-6-luna`、上の「モデル」）。

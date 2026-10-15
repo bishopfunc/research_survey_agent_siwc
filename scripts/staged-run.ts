@@ -303,7 +303,10 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   // Step 2, the readings: a queue fed by the map's and the explore's saved submissions, read by up to `concurrency` agents.
   const queued = new Set<string>(), queue: { paper: string; view: SurveySnapshot }[] = [], reads: Promise<void>[] = [];
   let running = 0, extractIndex = 0;
-  const count = { read: 0, failed: 0, late: 0, dropped: 0, capped: 0 };
+  const count = { read: 0, failed: 0, late: 0, dropped: 0, capped: 0, reread: 0 };
+  /** Papers whose first reader returned nothing; each goes to the back of the queue once (2026-10-15 on the VPS, a page that
+   * did not open while many readers fetched at once often opened later). */
+  const reread = new Set<string>();
   let resolveOutline!: () => void, resolveDiscovery!: () => void;
   const outlineApplied = new Promise<void>(resolve => { resolveOutline = resolve; });
   const discoveryApplied = new Promise<void>(resolve => { resolveDiscovery = resolve; });
@@ -359,7 +362,10 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
     await serial(async () => {
       try {
         let own = await parse(stage, result, false), target = paper;
-        if (!own.operations?.length) throw Error(own.message ? `読んだ結果がありません（${own.message.slice(0, 120)}）` : '読んだ結果がありません');
+        if (!own.operations?.length) {
+          if (!reread.has(paper) && steps.active() && !halted() && left(T.extractEnd) >= T.extractMin) { reread.add(paper); count.reread++; queue.push({ paper, view }); pump(); return; }
+          throw Error(own.message ? `読んだ結果がありません（${own.message.slice(0, 120)}）` : '読んだ結果がありません');
+        }
         // A paper another lister listed under another ID first was dropped when its lister's result was applied: the reading
         // goes to that paper instead, unless it was read already.
         const listed = view.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
@@ -486,7 +492,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   clearTimeout(tutorialTimer);
   if (!steps.active()) return { status: 'stopped' };
   const papers = snapshot.entities.filter((e): e is Paper => e.type === 'Paper');
-  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}${count.capped ? `、精読の上限${steps.maxReads}本を超えた${count.capped}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
+  notes.unshift(`論文${papers.length}本のうち${papers.filter(p => p.reading).length}本を精読しました（この調査で読んだ${count.read}本${count.failed ? `、読めなかった${count.failed}本` : ''}${count.late ? `、時間内に順番が来なかった${count.late}本` : ''}${count.capped ? `、精読の上限${steps.maxReads}本を超えた${count.capped}本` : ''}${count.reread ? `、読み直した${count.reread}本` : ''}）${count.dropped ? `。読んだ結果のうち検証に通らない操作${count.dropped}件を外しました` : ''}`);
 
   // Step 4: one integration, and a separate agent writing the Tutorial from the same snapshot.
   const synthSeconds = Math.min(T.synthesize, left(T.total - T.tail - T.validate - T.fillMin - 2 * T.stopSlack));
