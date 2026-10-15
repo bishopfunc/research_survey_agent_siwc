@@ -33,6 +33,8 @@ import { openSqlite, fileBlobStore } from '../packages/storage/src/node';
 import { libraryKey, paperLibrary } from '../packages/storage/src/index';
 import { libraryEntry, MAX_LIBRARY_CHARS, MAX_LIBRARY_PAPERS } from '../packages/agent/src/library';
 import type { LibraryPaper } from '../packages/agent/src/prompt';
+import { READ_PAPER_INSTRUCTIONS, READ_PAPER_TOOL, SEARCH_PAPERS_INSTRUCTIONS, SEARCH_PAPERS_TOOL } from '../packages/agent/src/paper-tools';
+import { paperReader, paperSearch } from './paper-tools';
 
 const port = Number(process.env.POC_PORT ?? 8788);
 const origin = `http://127.0.0.1:${port}`;
@@ -136,6 +138,16 @@ async function readerSlot() {
   nextReader = at + READER_GAP_MS;
   if (at > now) await new Promise(resolve => setTimeout(resolve, at - now));
 }
+/** The server's paper tools (design 0039), on app-server only: the listers and the explore search papers, the readers read them. */
+const toolKind = (step: string) => CODEX_TRANSPORT !== 'app-server' ? null : /^(list-\d+|diverge)$/.test(step) ? 'search' : /^extract-\d+$/.test(step) ? 'read' : null;
+const withPaperTools = (step: string, instructions: string) => toolKind(step) === 'search' ? `${instructions}\n\n${SEARCH_PAPERS_INSTRUCTIONS}` : toolKind(step) === 'read' ? `${instructions}\n\n${READ_PAPER_INSTRUCTIONS}` : instructions;
+/** One paper search per run (its memory and limit); one reader for the server (the arXiv queue is shared). */
+const searches = new Map<string, ReturnType<typeof paperSearch>>();
+const searchFor = (runId: string) => { let s = searches.get(runId); if (!s) { s = paperSearch(url => fetch(url, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json, application/atom+xml' } }), process.env.OPENALEX_API_KEY, arxivApi); searches.set(runId, s); } return s; };
+const readPaper = paperReader({
+  cached: async id => { try { const text = await blobs.get(`arxiv/${cacheName(id)}`); return text ? JSON.parse(text) : null; } catch { return null; } },
+  fetch: id => fetchAndCacheArxiv(id),
+});
 /** The model of every other step (design 0037); an operator may set another with SURVEY_MODEL, e.g. to try a survey all on gpt-6-luna. */
 const SURVEY_MODEL = /^[\w.-]+$/.test(process.env.SURVEY_MODEL ?? '') ? process.env.SURVEY_MODEL! : CODEX_EXECUTION.model;
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
@@ -225,8 +237,19 @@ function runCodexStep(run: Run, directory: string, step: string, prompt: string,
         model, effort: options.effort ?? CODEX_EXECUTION.reasoningEffort, summary: CODEX_EXECUTION.reasoningSummary, text,
         // The process searches the web live; a step that must not (the repair) turns it off for its own thread.
         config: webSearch === CODEX_EXECUTION.webSearch ? undefined : { web_search: webSearch },
-        outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), tools: cp ? [SUBMIT_PATCH_TOOL] : undefined, onLine,
+        outputSchema: JSON.parse(readFileSync(schemaFile, 'utf8')), onLine,
+        tools: cp ? [SUBMIT_PATCH_TOOL, ...(toolKind(step) === 'search' ? [SEARCH_PAPERS_TOOL] : toolKind(step) === 'read' ? [READ_PAPER_TOOL] : [])] : undefined,
         async onToolCall(tool, args) {
+          if (tool === SEARCH_PAPERS_TOOL.name && toolKind(step) === 'search') {
+            const answer = run.status === 'running' ? await searchFor(run.id)(args as Record<string, unknown>) : { text: 'stopped: the run has ended.', success: false, source: 'none', results: 0 };
+            record(JSON.stringify({ type: 'app.tool', step, tool, status: answer.success ? 'answered' : 'empty', source: answer.source, results: answer.results }));
+            return { text: answer.text, success: answer.success };
+          }
+          if (tool === READ_PAPER_TOOL.name && toolKind(step) === 'read') {
+            const answer = run.status === 'running' ? await readPaper(args as Record<string, unknown>) : { text: 'stopped: the run has ended.', success: false, source: 'unavailable' as const };
+            record(JSON.stringify({ type: 'app.tool', step, tool, status: answer.source, chars: answer.text.length }));
+            return { text: answer.text, success: answer.success };
+          }
           if (tool !== SUBMIT_PATCH_TOOL.name || !cp) return { text: `unknown tool ${tool}`, success: false };
           const result = run.status === 'running' && !supervisor.timedOut ? cp.chunks.submit(args) : { status: 'stopped' as const, operations: 0 };
           const note = cp.note?.();
@@ -352,12 +375,12 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       outline: () => stagePrompt(OUTLINE_INSTRUCTIONS, input.snapshot, input.library, true),
       list: (snapshot, family, n, angle) => {
         const families = familiesOf(snapshot), label = (id: string) => snapshot.entities.find(e => e.id === id)?.label ?? id;
-        return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle, family ? [...families.keys()].filter(f => f !== family).map(label) : []), snapshot, input.library, true, LISTER_RULE_IDS);
+        return stagePrompt(withPaperTools(`list-${n}`, listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle, family ? [...families.keys()].filter(f => f !== family).map(label) : [])), snapshot, input.library, true, LISTER_RULE_IDS);
       },
       // A reader submits its result with submit_patch, sending only the fields of its paper it changes.
-      extract: (snapshot, paper, n) => { const p = snapshot.entities.find(e => e.id === paper); return stagePrompt(extractInstructions(paper, n, p?.type === 'Paper' ? fullTextUrls(p, n) : undefined), readerView(snapshot, paper), [], true, READER_RULE_IDS); },
+      extract: (snapshot, paper, n) => { const p = snapshot.entities.find(e => e.id === paper); return stagePrompt(withPaperTools(`extract-${n}`, extractInstructions(paper, n, p?.type === 'Paper' ? fullTextUrls(p, n) : undefined)), readerView(snapshot, paper), [], true, READER_RULE_IDS); },
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
-      diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
+      diverge: (snapshot, memory) => stagePrompt(withPaperTools('diverge', divergeInstructions(memory)), snapshot, [], true),
       tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot, [], true),
       // The validate decides from the gap list and a compact outline of the survey, without the survey rules (it writes no entity).
       validate: (snapshot, gaps) => `${validateInstructions(gaps)}\n\nThe survey (data): ${surveyOutline(snapshot)}`,
