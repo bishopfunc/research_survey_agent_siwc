@@ -116,6 +116,8 @@ async function libraryForRun(snapshot: SurveySnapshot, fromBrowser: Record<strin
   }
   return out;
 }
+/** New surveys running now; the figures of earlier runs wait for them. */
+let surveysRunning = 0;
 function warmFigures(patch: SurveyPatch) {
   void warmArxiv(patch.operations.flatMap(op => 'entity' in op && op.entity.type === 'Paper' ? [parseArxivId(op.entity.arxiv_id, op.entity.url, op.entity.doi)] : []).filter((id): id is string => !!id));
 }
@@ -123,7 +125,11 @@ function warmFigures(patch: SurveyPatch) {
 async function warmArxiv(ids: string[]) {
   const missing: string[] = [];
   for (const id of new Set(ids)) if (!(await readArxivCache(id))) missing.push(id);
-  void (async () => { for (const id of missing) { try { await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ } } })();
+  void (async () => { for (const id of missing) {
+    // While a new survey runs, the arXiv queue (15 s apart) is left to its readers' prefetch (design 0039).
+    while (surveysRunning > 0) await new Promise(r => setTimeout(r, 5_000));
+    try { await fetchAndCacheArxiv(id); } catch { /* opened later, it is fetched again */ }
+  } })();
   return missing.length;
 }
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
@@ -353,6 +359,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   // The map, the listers, the explore, the integration, the tutorial and the fill submit as they go; a reader and the validate write
   // a short final response.
   const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false, rules?: readonly string[]) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, rules, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
+  if (input.mode === 'new') surveysRunning++;
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
     run: async (stage, prompt, snapshot, options) => {
       if (stage.startsWith('extract-')) await readerSlot();
@@ -457,7 +464,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
     else { run.status = 'failed'; run.message = outcome.message.slice(0, 1600); }
     save(run);
   }).catch(error => { if (run.status === 'running') { run.status = 'failed'; run.message = error instanceof Error ? error.message.slice(0, 1600) : '調査に失敗しました'; save(run); } })
-    .finally(() => { logged.delete(id); closeHost(id); });
+    .finally(() => { logged.delete(id); closeHost(id); searches.delete(id); if (input.mode === 'new') surveysRunning--; });
   return run;
 }
 const vite = await createVite({ configFile: resolve('apps/web/vite.config.ts'), server: { middlewareMode: true }, appType: 'spa' });
