@@ -159,7 +159,8 @@ async function prefetchPaper(paper: { arxiv_id?: unknown; url?: unknown; doi?: u
   prefetching.add(id);
   fetchAndCacheArxiv(id).catch(() => undefined).finally(() => prefetching.delete(id));
 }
-const readPaper = paperReader({ cached: cachedText, fetch: id => fetchAndCacheArxiv(id), pending: id => prefetching.has(id) });
+// The readers do not fetch themselves (maxWaiting 0): the prefetch fetches in reading order, and a reader whose paper is not cached yet opens the page.
+const readPaper = paperReader({ cached: cachedText, fetch: id => fetchAndCacheArxiv(id), pending: id => prefetching.has(id) }, 0);
 /** The model of every other step (design 0037); an operator may set another with SURVEY_MODEL, e.g. to try a survey all on gpt-6-luna. */
 const SURVEY_MODEL = /^[\w.-]+$/.test(process.env.SURVEY_MODEL ?? '') ? process.env.SURVEY_MODEL! : CODEX_EXECUTION.model;
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry

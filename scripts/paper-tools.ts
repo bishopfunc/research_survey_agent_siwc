@@ -108,10 +108,12 @@ export function paperReader(deps: ReadDeps, maxWaiting = 1, timeoutMs = 40_000) 
     const usable = (saved: ArxivFigures | null) => !!saved && (saved.sections?.length ?? 0) > 0;
     const cached = await deps.cached(id).catch(() => null);
     if (usable(cached)) return { text: paperText(cached!), success: true, source: 'cache' };
-    // A prefetched paper is waited for (up to the timeout); otherwise one fetch of the reader's own waits at a time.
+    // A paper the server prefetches is not waited for: the queue holds every queued paper 15 s apart, and waiting cost the readers
+    // their time (2026-10-16 on the VPS, 27 readers waited 40 s each and 23 papers never got a reader). The reader opens the page.
     const prefetched = deps.pending?.(id) ?? false;
-    if (!prefetched && waiting >= maxWaiting) return { text: 'busy: the server is fetching other papers from arXiv (one request every 15 seconds); open the full text address yourself.', success: false, source: 'busy' };
-    if (!prefetched) waiting++;
+    if (prefetched) return { text: 'busy: the server is still fetching this paper from arXiv (one request every 15 seconds); open the full text address yourself.', success: false, source: 'busy' };
+    if (waiting >= maxWaiting) return { text: 'busy: the server is fetching other papers from arXiv (one request every 15 seconds); open the full text address yourself.', success: false, source: 'busy' };
+    waiting++;
     try {
       // The arXiv queue may hold other fetches (the figures after a run): past the timeout the fetch goes on and is cached, and the
       // reader opens the page itself.
@@ -121,6 +123,6 @@ export function paperReader(deps: ReadDeps, maxWaiting = 1, timeoutMs = 40_000) 
       if (fetched === 'late') return { text: 'busy: the server could not fetch this paper in time; open the full text address yourself.', success: false, source: 'busy' };
       return usable(fetched) ? { text: paperText(fetched), success: true, source: 'fetched' } : { text: 'unavailable: arXiv has no HTML text for this paper; open the full text address yourself.', success: false, source: 'unavailable' };
     } catch { return { text: 'unavailable: the server could not fetch this paper now; open the full text address yourself.', success: false, source: 'unavailable' }; }
-    finally { if (!prefetched) waiting--; }
+    finally { waiting--; }
   };
 }
