@@ -223,9 +223,9 @@ test('a new survey ends with a newcomer tutorial modeled on a good field tutoria
   assert.match(integrateInstructions([]), /write no Tutorial/);
   assert.match(SURVEY_RULES_INSTRUCTIONS, /When methods, issues or papers change, update the matching sections and citations/);
 });
-test('a new survey lists about thirty-three papers family by family and reads them in parallel as they are listed, within ten minutes', () => {
-  assert.equal(TARGET_PAPERS, 33);
-  assert.deepEqual([papersPerFamily(1), papersPerFamily(5), papersPerFamily(10)], [10, 7, 4]);
+test('a new survey lists about forty-five papers family by family and reads them in parallel as they are listed, within ten minutes', () => {
+  assert.equal(TARGET_PAPERS, 45);
+  assert.deepEqual([papersPerFamily(1), papersPerFamily(5), papersPerFamily(10)], [10, 9, 5]);
   const list = listInstructions('family-cbs', ['cbs', 'ecbs'], 11, 3);
   assert.match(list, /list the primary papers of the family family-cbs \(its Methods: cbs, ecbs\)[\s\S]*List about 11 primary papers of this family, from its first paper to the state of the art/);
   assert.match(list, /batches of 3–5 papers as soon as you have them, most important first: each Paper with an id prefixed m3-[\s\S]*Omit every other field: the server fills the bibliography\. Never add a paper the snapshot already has/);

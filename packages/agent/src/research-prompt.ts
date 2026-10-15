@@ -92,13 +92,14 @@ export const SURVEY_TIMING = {
 } as const;
 /** Step 3 adds at most this many papers; step 2 reads them. */
 export const DIVERGE_MAX_PAPERS = 10;
-/** Papers the listers find in all, shared over the families (design 0037: thirty read in depth, a few more listed for the ones
- * that cannot be read). */
-export const TARGET_PAPERS = 33;
+/** Papers the listers find in all, shared over the families (design 0037: thirty read in depth, more listed for the ones that
+ * cannot be read; 2026-10-15 on the VPS, a quarter to a third of the readers could not open their paper). */
+export const TARGET_PAPERS = 45;
 /** Papers read in depth at most (design 0037): the target of thirty and a margin for failed readings. The listers often list more
  * (54 in the run of 2026-10-14 22:14); reading them all kept the readings until 400 s, left the integration and the tutorial short
- * of time, and used half of the plan's five-hour usage. Papers past the limit stay in the survey, unread. */
-export const MAX_READS = 36;
+ * of time, and used half of the plan's five-hour usage (on Sol). Papers past the limit stay in the survey, unread. With every step
+ * on Luna (2026-10-15) a reading is cheap, and the limit leaves room for the readers that cannot open their paper. */
+export const MAX_READS = 45;
 /** Where the scouts look when the map has submitted no family in time. */
 /** After the map, scouts make up the listers to at least this many (2026-10-15 on the VPS, a map with one family left one lister). */
 export const MIN_LISTERS = 5;
