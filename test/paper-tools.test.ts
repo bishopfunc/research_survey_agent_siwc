@@ -60,6 +60,15 @@ test('read_paper returns the cached text, fetches one paper at a time, and says 
   release();
   assert.equal((await none).source, 'unavailable');
   assert.deepEqual(fetched, ['2401.00001', '2010.02502']);
+  // A prefetched paper is waited for even while another fetch waits.
+  let releasePrefetch!: () => void;
+  const prefetchedRead = paperReader({ cached: async () => null, fetch: id => new Promise(resolve => { if (id === '2401.00009') releasePrefetch = () => resolve(saved(1)); }), pending: id => id === '2401.00009' }, 1, 50);
+  const own = prefetchedRead({ arxiv_id: '2401.00008' });
+  const joined = prefetchedRead({ arxiv_id: '2401.00009' });
+  await new Promise(r => setImmediate(r));
+  releasePrefetch();
+  assert.equal((await joined).source, 'fetched');
+  assert.equal((await own).source, 'busy');
   // A fetch stuck behind the arXiv queue answers busy in time.
   const slow = paperReader({ cached: async () => null, fetch: () => new Promise(() => {}) }, 1, 10);
   assert.equal((await slow({ arxiv_id: '2401.00003' })).source, 'busy');

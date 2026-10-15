@@ -149,10 +149,17 @@ const withPaperTools = (step: string, instructions: string) => toolKind(step) ==
 /** One paper search per run (its memory and limit); one reader for the server (the arXiv queue is shared). */
 const searches = new Map<string, ReturnType<typeof paperSearch>>();
 const searchFor = (runId: string) => { let s = searches.get(runId); if (!s) { s = paperSearch(url => fetch(url, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json, application/atom+xml' } }), process.env.OPENALEX_API_KEY, arxivApi); searches.set(runId, s); } return s; };
-const readPaper = paperReader({
-  cached: async id => { try { const text = await blobs.get(`arxiv/${cacheName(id)}`); return text ? JSON.parse(text) : null; } catch { return null; } },
-  fetch: id => fetchAndCacheArxiv(id),
-});
+const cachedText = async (id: string) => { try { const text = await blobs.get(`arxiv/${cacheName(id)}`); return text ? JSON.parse(text) : null; } catch { return null; } };
+/** Papers queued for reading are fetched in order through the arXiv queue, so their readers find the text cached (design 0039). */
+const prefetching = new Set<string>();
+async function prefetchPaper(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }) {
+  if (CODEX_TRANSPORT !== 'app-server') return;
+  const id = parseArxivId(paper.arxiv_id as string | null, paper.url as string | null, paper.doi as string | null)?.replace(/v\d+$/, '');
+  if (!id || prefetching.has(id) || ((await cachedText(id))?.sections?.length ?? 0) > 0) return;
+  prefetching.add(id);
+  fetchAndCacheArxiv(id).catch(() => undefined).finally(() => prefetching.delete(id));
+}
+const readPaper = paperReader({ cached: cachedText, fetch: id => fetchAndCacheArxiv(id), pending: id => prefetching.has(id) });
 /** The model of every other step (design 0037); an operator may set another with SURVEY_MODEL, e.g. to try a survey all on gpt-6-luna. */
 const SURVEY_MODEL = /^[\w.-]+$/.test(process.env.SURVEY_MODEL ?? '') ? process.env.SURVEY_MODEL! : CODEX_EXECUTION.model;
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
@@ -392,7 +399,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot, [], true),
     },
     now: () => Date.now(),
-    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL, maxReads: MAX_READS,
+    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL, maxReads: MAX_READS, prefetch: paper => { void prefetchPaper(paper); },
     mark: stage => { addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run); },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),

@@ -92,8 +92,11 @@ export function paperText(saved: Pick<ArxivFigures, 'arxiv_id' | 'source_url' | 
 
 export interface ReadDeps {
   cached(id: string): Promise<ArxivFigures | null>;
-  /** Fetches through the arXiv queue (15 s apart, design 0016) and keeps the result for the figures too. */
+  /** Fetches through the arXiv queue (15 s apart, design 0016) and keeps the result for the figures too; a fetch of the same paper
+   * already under way (a prefetch) is joined. */
   fetch(id: string): Promise<ArxivFigures>;
+  /** Whether the server already fetches this paper (prefetched when it was queued for reading). */
+  pending?(id: string): boolean;
 }
 /** read_paper for the server: the cached text at once; otherwise one fetch through the arXiv queue, unless one is already waiting
  * (a second would wait over 30 s of the reader's time, so it is told to open the page itself). */
@@ -105,8 +108,10 @@ export function paperReader(deps: ReadDeps, maxWaiting = 1, timeoutMs = 40_000) 
     const usable = (saved: ArxivFigures | null) => !!saved && (saved.sections?.length ?? 0) > 0;
     const cached = await deps.cached(id).catch(() => null);
     if (usable(cached)) return { text: paperText(cached!), success: true, source: 'cache' };
-    if (waiting >= maxWaiting) return { text: 'busy: the server is fetching other papers from arXiv (one request every 15 seconds); open the full text address yourself.', success: false, source: 'busy' };
-    waiting++;
+    // A prefetched paper is waited for (up to the timeout); otherwise one fetch of the reader's own waits at a time.
+    const prefetched = deps.pending?.(id) ?? false;
+    if (!prefetched && waiting >= maxWaiting) return { text: 'busy: the server is fetching other papers from arXiv (one request every 15 seconds); open the full text address yourself.', success: false, source: 'busy' };
+    if (!prefetched) waiting++;
     try {
       // The arXiv queue may hold other fetches (the figures after a run): past the timeout the fetch goes on and is cached, and the
       // reader opens the page itself.
@@ -116,6 +121,6 @@ export function paperReader(deps: ReadDeps, maxWaiting = 1, timeoutMs = 40_000) 
       if (fetched === 'late') return { text: 'busy: the server could not fetch this paper in time; open the full text address yourself.', success: false, source: 'busy' };
       return usable(fetched) ? { text: paperText(fetched), success: true, source: 'fetched' } : { text: 'unavailable: arXiv has no HTML text for this paper; open the full text address yourself.', success: false, source: 'unavailable' };
     } catch { return { text: 'unavailable: the server could not fetch this paper now; open the full text address yourself.', success: false, source: 'unavailable' }; }
-    finally { waiting--; }
+    finally { if (!prefetched) waiting--; }
   };
 }

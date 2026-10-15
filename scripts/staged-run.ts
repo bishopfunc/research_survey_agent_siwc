@@ -47,6 +47,8 @@ export interface StageOptions {
 export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
 export interface StagedSteps {
   run(stage: StageId, prompt: string, snapshot: SurveySnapshot, options: StageOptions): Promise<StageResult>;
+  /** A paper queued for reading, so the server can fetch its text before its reader asks (design 0039). */
+  prefetch?(paper: Paper): void;
   prompt: {
     outline(): string;
     /** One agent per method family lists its papers; a scout (family null) lists the field's papers from one angle. */
@@ -322,6 +324,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       // At most MAX_READS papers are read; the rest stay in the survey unread.
       if (queuedPapers.length > steps.maxReads) { count.capped++; continue; }
       queue.push({ paper: e.id, view });
+      steps.prefetch?.(e);
     }
     pump();
   };
