@@ -28,13 +28,16 @@ export interface SearchArgs { query?: unknown; sort?: unknown; from_year?: unkno
 /** search_papers for one run: answers from OpenAlex, else from the arXiv API; repeats are answered from memory. */
 export function paperSearch(fetcher: TextFetcher, apiKey?: string, arxivSchedule: <T>(task: () => Promise<T>) => Promise<T> = t => t()) {
   const seen = new Map<string, Promise<string>>();
-  let used = 0;
+  let used = 0, openAlexOut = false;
   const openAlex = async (query: string, sort: string, from: number | null) => {
+    // Once OpenAlex refuses for its daily budget (429), the rest of the run asks the arXiv API only.
+    if (openAlexOut) return [];
     const filter = from ? `&filter=from_publication_date:${from}-01-01` : '';
     const order = sort === 'cited' ? '&sort=cited_by_count:desc' : '';
     const select = '&select=display_name,publication_year,doi,cited_by_count,primary_location,locations';
     const key = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
     const response = await fetcher(`${OPENALEX}/works?search=${encodeURIComponent(query)}${filter}${order}&per-page=${RESULTS}${select}${key}`);
+    if (response.status === 429) openAlexOut = true;
     if (!response.ok) throw Error(`OpenAlex HTTP ${response.status}`);
     const body = JSON.parse(await response.text()) as { results?: Work[] };
     return (body.results ?? []).map(workLine).filter((l): l is string => !!l);

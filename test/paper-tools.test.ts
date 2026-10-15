@@ -20,8 +20,11 @@ test('search_papers answers from OpenAlex with the arXiv ID from a location, and
   // A repeat is answered from memory; a failing OpenAlex hands over to the arXiv API.
   await search({ query: 'Consistency Models', sort: 'cited', from_year: 2020 });
   assert.equal(urls.length, 1);
-  const fallback = paperSearch(async url => url.includes('openalex') ? response(429, '') : response(200, feed));
+  const asked: string[] = [];
+  const fallback = paperSearch(async url => { asked.push(url.includes('openalex') ? 'openalex' : 'arxiv'); return url.includes('openalex') ? response(429, '') : response(200, feed); });
   const ddim = await fallback({ query: 'ddim' });
+  await fallback({ query: 'ddpm' });
+  assert.deepEqual(asked, ['openalex', 'arxiv', 'arxiv'], 'after a 429 OpenAlex is not asked again in the run');
   assert.ok(ddim.success && ddim.source === 'arXiv');
   assert.match(ddim.text, /1\. Denoising Diffusion Implicit Models \| 2020 \| arXiv:2010\.02502/);
   assert.equal((await fallback({ query: '  ' })).success, false);

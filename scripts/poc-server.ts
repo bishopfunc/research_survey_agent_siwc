@@ -66,9 +66,14 @@ async function body(req: IncomingMessage) {
   for await (const chunk of req) { size += chunk.length; if (size > 4_000_000) throw Error('BODY_TOO_LARGE'); chunks.push(chunk); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
-/** The arXiv API asks for at most one request every three seconds. */
-let arxivApiLast = 0;
-const arxivApi = async <T,>(task: () => Promise<T>) => { const wait = arxivApiLast + 3_000 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait)); arxivApiLast = Date.now(); return task(); };
+/** The arXiv API asks for at most one request every three seconds: requests wait in one queue (concurrent listers' searches went
+ * out together before, 2026-10-15). */
+let arxivApiLast = 0, arxivApiQueue: Promise<unknown> = Promise.resolve();
+const arxivApi = <T,>(task: () => Promise<T>): Promise<T> => {
+  const run = arxivApiQueue.then(async () => { const wait = arxivApiLast + 3_000 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait)); arxivApiLast = Date.now(); return task(); });
+  arxivApiQueue = run.catch(() => undefined);
+  return run;
+};
 // Paper library (design 0021): local SQLite and file blobs here, D1 and R2 on Cloudflare, behind the same interfaces.
 const papersDb = paperLibrary(openSqlite(resolve('.poc/library.sqlite')));
 await papersDb.migrate(readFileSync(resolve('packages/storage/migrations/0001_paper_library.sql'), 'utf8'));

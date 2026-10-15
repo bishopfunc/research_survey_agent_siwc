@@ -18,7 +18,7 @@ VPS（SIWCの経路）では、Codexの軽量版の検索（responses lite、`<p
 ### search_papers（論文を挙げるAgent・偵察・Explore）
 
 - 入力：`query`（英語の検索語）、`sort`（`relevance` か `cited`）、`from_year`（任意）。
-- サーバーはOpenAlexの作品検索（`/works?search=`、`OPENALEX_API_KEY` があれば付ける）で上位10件を返す。各行に題・年・arXiv ID（作品の所在のURLから取る）・DOI・引用数・会議名。OpenAlexが失敗したとき（429・5xx・時間切れ）はarXiv APIの検索（`export.arxiv.org/api/query`、3秒間隔）で返す。
+- サーバーはOpenAlexの作品検索（`/works?search=`、`OPENALEX_API_KEY` があれば付ける）で上位10件を返す。各行に題・年・arXiv ID（作品の所在のURLから取る）・DOI・引用数・会議名。OpenAlexが失敗したとき（429・5xx・時間切れ）はarXiv APIの検索（`export.arxiv.org/api/query`、3秒間隔。サーバー全体で1つの待ち行列に並べる）で返す。OpenAlexが429（1日の枠切れ）を返したら、その調査の残りはarXiv APIだけに聞く（2026-10-15のVPS：キーが無く無料枠を使い切っていた。並べずに同時に送ったarXiv APIの検索も断られ、24回が空だった）。
 - 返す識別子は、Agentが見た識別子として扱ってよい（共通ルール[bibliography]の例外。論文を挙げる段階では既に検索結果の識別子を認めている）。
 - 1つの新規調査で最大60回（OpenAlexの1日の無料枠を守るため）。超えたら「上限に達した」と答え、AgentはWeb検索に戻る。同じ問い合わせは調査の中で使い回す。
 
