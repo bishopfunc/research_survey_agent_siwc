@@ -74,7 +74,7 @@ export const SURVEY_TIMING = {
   /** The map of the field (no papers); each method family it submits gets a lister at once. */
   map: 150,
   /** One lister per family: its limit, and when every lister must be over so its papers can still be read. */
-  list: 150, listEnd: 330,
+  list: 210, listEnd: 330,
   /** Without a submitted family by `familyNudge` the map is told to submit them; without one by `scoutStart` scouts list the
    * field's papers from several angles instead. */
   familyNudge: 45, scoutStart: 90,
