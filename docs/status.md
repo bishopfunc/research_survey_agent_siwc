@@ -251,3 +251,10 @@ docs/design、docs/adr、テンプレート、AGENTS.md、チェックとGitHub 
 2026-10-15 23:00 JST: main（6c42237、論文を挙げるAgentの上限を210秒に延長）をVPSへデプロイし、`survey-app:6c422370dcae` が起動。VPSで新規調査（拡散モデル）：552秒で成功（213操作、検証に通過）。論文36本（前回20本）、精読19本、読めなかった17本（47%。前回は20%）。読めなかった理由の大半は本文を開けないこと（ar5iv・arXivとも）。VPS（hosted web_search）でページを開く処理の成功率は試行ごとに55〜80%と揺れ、精読30本に届く試行はまだない。利用量：5時間枠 63%→68%、週の枠 10%→11%。
 
 2026-10-15 23:20 JST: ユーザー指示「VPSの検索をローカルと同じ軽量版にできるか確かめる」。VPSのアプリのコンテナ内で、gateのトークン（SIWC）を使い、HTTPステータスだけを表示する確認（トークンは表示・保存しない）：トークンに `chatgpt_account_id` の主張が無い。`https://chatgpt.com/backend-api/codex/models` と `/alpha/search` は401（`rejected_by_access_enforcement`、`no_matching_rule`）、`https://api.openai.com/v1/alpha/search` は401（`rejected_by_hardened_oauth_boundary`、ChatPassの資格情報はこの操作を許可されていない）。SIWCのトークンではlite方式の検索（standalone web search）は使えず、VPSはhosted web_searchのままにする。同じ時刻のVPSの新規調査（b96f05d、本文を開けなかった論文を1回読み直す）：論文20本のうち18本を精読（読み直した4本、読めなかった2本）。
+
+2026-10-15 23:00〜2026-10-16 01:40 JST: 自前の道具（design 0039）をVPSで実推論。
+- 4134593（search_papers・read_paper）、拡散モデル：572秒、論文40本、精読29本（読めなかった3本、順番が来なかった8本）。search_papersはOpenAlexが429（キー無し・無料枠切れ）、arXiv APIも同時に送って24回が空。read_paperは控え33回（前の試行の控え）・取得5回。
+- 1ae0d3b（arXiv APIを1つの待ち行列に、OpenAlexは429の後は使わない）、RAG：563秒、論文34本、精読24本。search_papersは55回とも答えた（arXiv）、read_paperは取得17回・混雑23回。
+- 86a22c6（本文の先読み、読み手は先読みを最大40秒待つ）、NeRF：554秒、論文46本、精読9本（順番が来なかった23本）。先読みが15秒間隔で並び、読み手が待って枠を使い切った。
+- d54cb54（読み手は待たず、控えに無ければ自分で開く）、GNN：542秒、論文34本、精読25本（読み直した10本、読めなかった7本）。read_paperは控え6回・混雑40回。
+いずれも10分以内、検証に通過。VPSの精読は24〜29本で、目標30本に届いていない。arXivのCrawl-delay 15秒のため、サーバーが本文を取れるのは1回の調査で20本程度で、前の調査の図の取得とも待ち行列を分け合う。利用量：5時間枠 0%→11%（01:00以降の3回）、週の枠 14%→16%。
