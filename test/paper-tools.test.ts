@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_SEARCHES, paperReader, paperSearch, paperText, workLine } from '../scripts/paper-tools';
+import { arxivQuery, MAX_SEARCHES, paperReader, paperSearch, paperText, workLine } from '../scripts/paper-tools';
 import { READ_PAPER_TOOL, SEARCH_PAPERS_TOOL } from '../packages/agent/src/paper-tools';
 import type { ArxivFigures } from '../scripts/arxiv-figures';
 
@@ -30,6 +30,11 @@ test('search_papers answers from OpenAlex with the arXiv ID from a location, and
   assert.equal((await fallback({ query: '  ' })).success, false);
 });
 
+test('the arXiv API query needs every word, keeps quoted phrases and drops stop words', () => {
+  assert.equal(arxivQuery('text-to-speech acoustic model'), 'all:text-to-speech AND all:acoustic AND all:model');
+  assert.equal(arxivQuery('"neural vocoder" for speech synthesis'), 'all:"neural vocoder" AND all:speech AND all:synthesis');
+  assert.equal(arxivQuery('Tacotron: Towards End-to-End Speech Synthesis'), 'all:Tacotron AND all:Towards AND all:End-to-End AND all:Speech AND all:Synthesis');
+});
 test('search_papers stops at its limit per survey', async () => {
   const search = paperSearch(async () => response(200, JSON.stringify({ results: [work] })));
   for (let i = 0; i < MAX_SEARCHES; i++) assert.ok((await search({ query: `q${i}` })).success);
