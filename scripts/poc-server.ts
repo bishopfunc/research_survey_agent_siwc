@@ -156,14 +156,14 @@ const withPaperTools = (step: string, instructions: string) => toolKind(step) ==
 const searches = new Map<string, ReturnType<typeof paperSearch>>();
 const searchFor = (runId: string) => { let s = searches.get(runId); if (!s) { s = paperSearch(url => fetch(url, { signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json, application/atom+xml' } }), process.env.OPENALEX_API_KEY, arxivApi); searches.set(runId, s); } return s; };
 const cachedText = async (id: string) => { try { const text = await blobs.get(`arxiv/${cacheName(id)}`); return text ? JSON.parse(text) : null; } catch { return null; } };
-/** Papers queued for reading are fetched in order through the arXiv queue, so their readers find the text cached (design 0039). */
+/** A paper whose first reader returned nothing is fetched through the arXiv queue before its second reader starts (design 0039). */
 const prefetching = new Set<string>();
 async function prefetchPaper(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }) {
   if (CODEX_TRANSPORT !== 'app-server') return;
   const id = parseArxivId(paper.arxiv_id as string | null, paper.url as string | null, paper.doi as string | null)?.replace(/v\d+$/, '');
-  if (!id || prefetching.has(id) || ((await cachedText(id))?.sections?.length ?? 0) > 0) return;
+  if (!id || ((await cachedText(id))?.sections?.length ?? 0) > 0) return;
   prefetching.add(id);
-  fetchAndCacheArxiv(id).catch(() => undefined).finally(() => prefetching.delete(id));
+  await fetchAndCacheArxiv(id).then(() => undefined, () => undefined).finally(() => prefetching.delete(id));
 }
 // The readers do not fetch themselves (maxWaiting 0): the prefetch fetches in reading order, and a reader whose paper is not cached yet opens the page.
 const readPaper = paperReader({ cached: cachedText, fetch: id => fetchAndCacheArxiv(id), pending: id => prefetching.has(id) }, 0);
@@ -407,7 +407,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
       fill: (snapshot, gaps, memory, part, parts) => stagePrompt(fillInstructions(gaps, memory, part, parts), snapshot, [], true),
     },
     now: () => Date.now(),
-    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL, maxReads: MAX_READS, prefetch: paper => { void prefetchPaper(paper); },
+    concurrency: EXTRACT_CONCURRENCY, readerModel: EXTRACT_MODEL, maxReads: MAX_READS, prefetch: paper => prefetchPaper(paper),
     mark: stage => { addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run); },
     normalize, prepare,
     checkpoint: (stage, patch) => writeFileSync(join(directory, `checkpoint-${stage}.json`), JSON.stringify(patch), { mode: 0o600 }),

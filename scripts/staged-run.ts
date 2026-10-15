@@ -47,8 +47,8 @@ export interface StageOptions {
 export const RETRY_IF_FAILED_WITHIN_MS = 90_000;
 export interface StagedSteps {
   run(stage: StageId, prompt: string, snapshot: SurveySnapshot, options: StageOptions): Promise<StageResult>;
-  /** A paper queued for reading, so the server can fetch its text before its reader asks (design 0039). */
-  prefetch?(paper: Paper): void;
+  /** Fetches a paper's text for its second reader (design 0039); resolves when the text is cached or cannot be had. */
+  prefetch?(paper: Paper): Promise<void>;
   prompt: {
     outline(): string;
     /** One agent per method family lists its papers; a scout (family null) lists the field's papers from one angle. */
@@ -324,7 +324,6 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       // At most MAX_READS papers are read; the rest stay in the survey unread.
       if (queuedPapers.length > steps.maxReads) { count.capped++; continue; }
       queue.push({ paper: e.id, view });
-      steps.prefetch?.(e);
     }
     pump();
   };
@@ -366,7 +365,16 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       try {
         let own = await parse(stage, result, false), target = paper;
         if (!own.operations?.length) {
-          if (!reread.has(paper) && steps.active() && !halted() && left(T.extractEnd) >= T.extractMin) { reread.add(paper); count.reread++; queue.push({ paper, view }); pump(); return; }
+          if (!reread.has(paper) && steps.active() && !halted() && left(T.extractEnd) >= T.extractMin) {
+            // The second reader starts once the server has the paper's text (fetched 15 s apart, only for these papers), so it
+            // reads the text instead of trying the pages that did not open (2026-10-16: prefetching every queued paper lagged behind).
+            reread.add(paper); count.reread++;
+            const entity = view.entities.find((e): e is Paper => e.id === paper && e.type === 'Paper');
+            reads.push((entity && steps.prefetch ? steps.prefetch(entity).catch(() => undefined) : Promise.resolve()).then(() => {
+              if (steps.active() && !halted() && left(T.extractEnd) >= T.extractMin) { queue.push({ paper, view }); pump(); } else { count.reread--; count.late++; }
+            }));
+            return;
+          }
           throw Error(own.message ? `読んだ結果がありません（${own.message.slice(0, 120)}）` : '読んだ結果がありません');
         }
         // A paper another lister listed under another ID first was dropped when its lister's result was applied: the reading

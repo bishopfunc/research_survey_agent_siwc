@@ -381,6 +381,17 @@ test('a paper whose reader returns nothing goes to the back of the queue once an
   assert.match(outcome.patch.message, /読み直した1本/);
   assert.doesNotMatch(outcome.patch.message, /読めなかった/);
 });
+test('a paper read again waits for the server to fetch its text first', async () => {
+  const order: string[] = [];
+  const run = steps({ onRun: stage => { order.push(stage); return stage === 'extract-1' ? ok(patch('could not open the page', [])) : undefined; } });
+  run.s.prefetch = async paper => { order.push(`prefetch:${paper.id}`); await new Promise(r => setTimeout(r, 20)); order.push('fetched'); };
+  const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
+  assert.ok(outcome.status === 'succeeded');
+  const first = run.calls.filter(c => c.startsWith('paper:'))[0].split(':')[2];
+  assert.ok(order.includes(`prefetch:${first}`));
+  const second = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')).find((c, i, all) => c[2] === first && all.findIndex(d => d[2] === first) !== i)!;
+  assert.ok(order.indexOf('fetched') < order.indexOf(`extract-${second[1]}`), 'the second reader starts after the fetch');
+});
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });
   const outcome = await executeStagedResearch(emptySurvey('t'), 'b', bounded.s);
