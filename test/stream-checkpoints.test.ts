@@ -197,6 +197,20 @@ test('tutorial parts: the final response joins too, a held part does not hold ba
   assert.equal(fixFirst.submit({ message: '3', operations: [{ op: 'add_entity', entity: tutorial([sec('A', 'A2'), sec('E')]) }] }).status, 'saved');
   assert.deepEqual(headings(fixFirst.partial()!), ['A=A2', 'B', 'C', 'D', 'E']);
 });
+test('a later stage (the fill) adding a few sections joins them to the stored Tutorial of its snapshot instead of replacing it', () => {
+  // 2026-10-15: a fill sent the Tutorial with two challenge sections and the sixteen the tutorial agent wrote were lost.
+  const sec = (heading: string, body = heading) => ({ role: 'challenges', heading, body, refs: [] });
+  const normalize = (p: unknown) => stripCodexNulls(p, snapshotSchema.$defs as Record<string, Record<string, unknown>>);
+  const stored = applyPatch(emptySurvey('t'), normalize(patch([{ op: 'add_entity', entity: { id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections: [sec('A'), sec('B'), sec('C')] } }])) as SurveyPatch, 'b');
+  const headings = (raw: string) => (applyPatch(stored, JSON.parse(raw), 'b').entities.find(e => e.id === 'tutorial') as { label: string; sections: { heading: string; body: string }[] }).sections.map(s => `${s.heading}${s.body === s.heading ? '' : `=${s.body}`}`);
+  const fill = () => streamCheckpoints(stored, 'b', normalize, () => {}, () => true, { appendSections: true });
+  const submitted = fill();
+  assert.equal(submitted.submit({ message: 'fill', operations: [{ op: 'replace_entity', entity: { id: 'tutorial', type: 'Tutorial', sections: [sec('D'), sec('B', 'B2')] } }] }).status, 'saved');
+  assert.deepEqual(headings(submitted.partial()!), ['A', 'B=B2', 'C', 'D']);
+  // The strict final response (every key) joins the same way.
+  const strict = { id: 'tutorial', type: 'Tutorial', label: 'T', provenance: 'codex', summary: 's', sections: [sec('E')] };
+  assert.deepEqual(headings(fill().combined(JSON.stringify(patch([{ op: 'replace_entity', entity: strict }])))), ['A', 'B', 'C', 'E']);
+});
 test('a decorated marker (bold, inline code, numbered, labelled, an upper-case fence) still reads its checkpoint', () => {
   const fence = '```';
   const forms = ['**SURVEY_CHECKPOINT**\n', '`SURVEY_CHECKPOINT`\n', 'SURVEY_CHECKPOINT 2/4:\n', 'SURVEY_CHECKPOINT — 論文1本\n', `SURVEY_CHECKPOINT\n${fence}JSON\n`];

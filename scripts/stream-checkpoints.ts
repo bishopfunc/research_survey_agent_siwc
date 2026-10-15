@@ -26,7 +26,8 @@ function relax(patch: SurveyPatch): SurveyPatch {
 
 /** A checkpoint never mutates the run snapshot. A cumulatively valid Patch is saved at once; a well-formed checkpoint that
  * does not validate yet is held and validated with the final remainder. Only an unreadable checkpoint spoils the final. */
-/** `appendSections`: the tutorial agent of a new survey submits its Tutorial in parts (design 0037); each part's sections join the
+/** `appendSections` (every stage of a new survey): the tutorial agent submits its Tutorial in parts and a later stage (the fill) adds or
+ * fixes a few sections (design 0037); each part's sections join the
  * stored ones (a section with an earlier heading replaces it in place) instead of replacing them, so a deadline keeps what was written.
  * A whole Tutorial (with its label or summary, starting again from the first stored heading) still replaces it; the final response
  * is joined the same way. */

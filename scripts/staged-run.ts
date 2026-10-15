@@ -33,8 +33,6 @@ export interface StageOptions {
   effort?: string;
   /** A model other than the default (the readers', design 0037). */
   model?: string;
-  /** The tutorial agent submits its Tutorial in parts; their sections are joined (design 0037). */
-  tutorialParts?: boolean;
   /** The result is applied operation by operation (dropInvalid): the run hands it over unvalidated, so one bad operation in
    * the final response does not cost the others (listers, the explore, the fill). */
   lenient?: boolean;
@@ -433,7 +431,7 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
   const startTutorial = () => {
     const seconds = Math.min(T.tutorial, left(T.total - T.tail - T.validate - T.fillMin - 2 * T.stopSlack));
     if (tutorialRun || !steps.prompt.tutorial || !steps.active() || halted() || seconds < 30) return;
-    tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true, tutorialParts: true });
+    tutorialRun = steps.run('tutorial', steps.prompt.tutorial(snapshot), snapshot, { seconds, checkpoints: true });
   };
   const tutorialTimer = setTimeout(startTutorial, Math.max(0, (T.tutorialStart - elapsed()) * 1000));
   tutorialTimer.unref?.();
