@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, emptySurvey, fixture, validateSnapshot, type SurveyPatch, type SurveySnapshot } from '../packages/domain/src/index';
-import { SCOUT_ANGLES, SURVEY_TIMING, TARGET_PAPERS } from '../packages/agent/src/research-prompt';
+import { MIN_LISTERS, SCOUT_ANGLES, SURVEY_TIMING, TARGET_PAPERS } from '../packages/agent/src/research-prompt';
 import { streamCheckpoints } from '../scripts/stream-checkpoints';
 import { stripCodexNulls } from '../packages/domain/src/codex-schema';
 import { snapshotSchema } from '../packages/domain/src/index';
@@ -80,13 +80,14 @@ function steps(over: { results?: Record<string, StageResult>; onRun?: (stage: st
 }
 type Paper = Extract<SurveySnapshot['entities'][number], { type: 'Paper' }>;
 
-test('listers that list TARGET_PAPERS papers get no scouts to top them up', async () => {
+test('listers that list TARGET_PAPERS papers get no scouts to top them up, only those making up MIN_LISTERS', async () => {
   const sample = outlineSnapshot.entities.find(e => e.type === 'Paper') as Paper;
   const many = Array.from({ length: TARGET_PAPERS }, (_, i) => ({ op: 'add_entity', entity: { ...sample, id: `m1-x${i}`, label: `X${i}`, title: `Paper X${i}`, arxiv_id: `2401.${10000 + i}`, doi: null, url: null, reading: null } }));
   const run = steps({ onRun: stage => stage === 'list-1' ? ok(patch('many', many)) : undefined });
   const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
   assert.equal(outcome.status, 'succeeded');
-  assert.equal(run.calls.filter(c => c.includes(':scout ')).length, 0);
+  // Only the scouts that make the listers up to MIN_LISTERS after the map; none tops them up.
+  assert.equal(run.calls.filter(c => c.includes(':scout ')).length, Math.max(0, MIN_LISTERS - families.size));
 });
 test('each family the map submits gets a lister at once; every listed paper is read by its own agent; the map lists none', async () => {
   const firstFamily = map.operations.filter(op => op.op !== 'add_relation' || op.relation.type !== 'instance_of' || op.relation.to === [...families.keys()][0]);
@@ -376,7 +377,9 @@ test('at most `concurrency` papers are read at once, and papers that cannot star
     if (!stage.startsWith('list')) return undefined;
     // The listers finish after the last start worth making, without saving anything earlier.
     now = (SURVEY_TIMING.extractEnd - SURVEY_TIMING.extractMin + 1) * 1000;
-    return ok(patch('late', listed([...families.keys()][Number(stage.split('-')[1]) - 1]).map(entity => ({ op: 'add_entity', entity }))));
+    // The listers after the families' are scouts making them up to MIN_LISTERS; they find nothing new.
+    const family = [...families.keys()][Number(stage.split('-')[1]) - 1];
+    return ok(patch('late', family ? listed(family).map(entity => ({ op: 'add_entity', entity })) : []));
   } });
   const result = await executeStagedResearch(emptySurvey('t'), 'b', late.s);
   assert.ok(result.status === 'succeeded');

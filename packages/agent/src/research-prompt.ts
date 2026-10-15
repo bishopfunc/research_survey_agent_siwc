@@ -100,6 +100,8 @@ export const TARGET_PAPERS = 33;
  * of time, and used half of the plan's five-hour usage. Papers past the limit stay in the survey, unread. */
 export const MAX_READS = 36;
 /** Where the scouts look when the map has submitted no family in time. */
+/** After the map, scouts make up the listers to at least this many (2026-10-15 on the VPS, a map with one family left one lister). */
+export const MIN_LISTERS = 5;
 export const SCOUT_ANGLES = ['surveys and the papers they cite', 'curated reading lists and awesome repositories', 'leaderboards and official benchmark pages', 'the main venues and arXiv of the last two years', 'the seminal and most cited papers'] as const;
 export const FAMILY_NUDGE = 'Server message: submit the method families you have now, each with its Methods (submit_patch), before anything else (the classification axes can follow later); their papers are listed while you continue.';
 export function papersPerFamily(families: number) { return Math.min(10, Math.max(4, Math.ceil(TARGET_PAPERS / Math.max(1, families)))); }
