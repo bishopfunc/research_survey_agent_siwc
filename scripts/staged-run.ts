@@ -99,10 +99,12 @@ export function readerView(context: SurveySnapshot, paper: string): SurveySnapsh
 export function fullTextUrl(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }): string | undefined {
   return fullTextUrls(paper)[0];
 }
-/** The full text's addresses in the order a reader tries them: for an arXiv paper its HTML, the ar5iv mirror and the PDF. */
-export function fullTextUrls(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }): string[] {
+/** The full text's addresses in the order a reader tries them: for an arXiv paper its HTML and the ar5iv mirror, the mirror first
+ * for every other reader (`n` odd), so readers started together do not all fetch from one host. The PDF is left out: the hosted
+ * web search could not open it ("content too large", 2026-10-15 on the VPS). */
+export function fullTextUrls(paper: { arxiv_id?: unknown; url?: unknown; doi?: unknown }, n = 0): string[] {
   const ids = paperIds(paper);
-  if (ids.arxiv) return [`https://arxiv.org/html/${ids.arxiv}`, `https://ar5iv.labs.arxiv.org/html/${ids.arxiv}`, `https://arxiv.org/pdf/${ids.arxiv}`];
+  if (ids.arxiv) { const pages = [`https://arxiv.org/html/${ids.arxiv}`, `https://ar5iv.labs.arxiv.org/html/${ids.arxiv}`]; return n % 2 ? pages.reverse() : pages; }
   if (typeof paper.url === 'string' && /^https?:\/\//.test(paper.url)) return [paper.url];
   return ids.doi ? [`https://doi.org/${ids.doi}`] : [];
 }

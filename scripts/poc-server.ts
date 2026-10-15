@@ -127,6 +127,15 @@ const CODEX_TRANSPORT: CodexTransport = process.env.CODEX_TRANSPORT === 'exec' ?
 const EXTRACT_CONCURRENCY = Math.max(1, Number(process.env.EXTRACT_CONCURRENCY) || (CODEX_TRANSPORT === 'exec' ? 3 : DEFAULT_EXTRACT_CONCURRENCY));
 /** The readers' model (design 0037); an operator may set another with EXTRACT_MODEL. */
 const EXTRACT_MODEL = /^[\w.-]+$/.test(process.env.EXTRACT_MODEL ?? '') ? process.env.EXTRACT_MODEL! : DEFAULT_EXTRACT_MODEL;
+/** Readers start at least this far apart, so their page fetches do not reach arXiv all at once (design 0037; 2026-10-15 on the
+ * VPS, a page that opened alone failed for a third of the readers started together). */
+const READER_GAP_MS = 2000;
+let nextReader = 0;
+async function readerSlot() {
+  const now = Date.now(), at = Math.max(now, nextReader);
+  nextReader = at + READER_GAP_MS;
+  if (at > now) await new Promise(resolve => setTimeout(resolve, at - now));
+}
 /** The model of every other step (design 0037); an operator may set another with SURVEY_MODEL, e.g. to try a survey all on gpt-6-luna. */
 const SURVEY_MODEL = /^[\w.-]+$/.test(process.env.SURVEY_MODEL ?? '') ? process.env.SURVEY_MODEL! : CODEX_EXECUTION.model;
 /** app-server has no --ignore-user-config (design 0036): every MCP server Codex lists for the run is replaced by a disabled entry
@@ -310,6 +319,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
   const stagePrompt = (instructions: string, snapshot: SurveySnapshot, library: LibraryPaper[] = [], submits = false, rules?: readonly string[]) => buildSurveyPrompt({ mode: 'new', instruction: input.instruction, base_commit_id: input.base_commit_id, snapshot, as_of: asOf, useLibrary: input.useLibrary, library, context_papers: input.context_papers, rules, instructions: submits ? `${instructions}\n\n${checkpointInstructions(CODEX_TRANSPORT)}` : instructions });
   const research: Promise<SkillOutcome> = input.mode === 'new' ? executeStagedResearch(input.snapshot, input.base_commit_id, {
     run: async (stage, prompt, snapshot, options) => {
+      if (stage.startsWith('extract-')) await readerSlot();
       addTrace(run, { kind: 'step', step: stageStep(stage), text: stageTraceText(stage) }); save(run);
       const started = Date.now();
       const attemptId = randomUUID();
@@ -345,7 +355,7 @@ function startRun(input: { mode: ResearchMode; instruction: string; base_commit_
         return stagePrompt(listInstructions(family, family ? families.get(family) ?? [] : [], papersPerFamily(family ? families.size : SCOUT_ANGLES.length), n, angle, family ? [...families.keys()].filter(f => f !== family).map(label) : []), snapshot, input.library, true, LISTER_RULE_IDS);
       },
       // A reader submits its result with submit_patch, sending only the fields of its paper it changes.
-      extract: (snapshot, paper, n) => { const p = snapshot.entities.find(e => e.id === paper); return stagePrompt(extractInstructions(paper, n, p?.type === 'Paper' ? fullTextUrls(p) : undefined), readerView(snapshot, paper), [], true, READER_RULE_IDS); },
+      extract: (snapshot, paper, n) => { const p = snapshot.entities.find(e => e.id === paper); return stagePrompt(extractInstructions(paper, n, p?.type === 'Paper' ? fullTextUrls(p, n) : undefined), readerView(snapshot, paper), [], true, READER_RULE_IDS); },
       integrate: (snapshot, candidates) => stagePrompt(integrateInstructions(candidates), snapshot, [], true),
       diverge: (snapshot, memory) => stagePrompt(divergeInstructions(memory), snapshot, [], true),
       tutorial: snapshot => stagePrompt(tutorialInstructions(), snapshot, [], true),

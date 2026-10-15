@@ -217,7 +217,8 @@ test('a reader sees its paper in full and the rest by ID and label; it is pointe
   assert.equal(fullTextUrl({ doi: '10.1109/cvpr.2018.00387' }), 'https://doi.org/10.1109/cvpr.2018.00387');
   assert.equal(fullTextUrl({ url: 'https://openreview.net/forum?id=x', doi: '10.1/x' }), 'https://openreview.net/forum?id=x');
   assert.equal(fullTextUrl({}), undefined);
-  assert.deepEqual(fullTextUrls({ arxiv_id: '2304.03047v2' }), ['https://arxiv.org/html/2304.03047', 'https://ar5iv.labs.arxiv.org/html/2304.03047', 'https://arxiv.org/pdf/2304.03047']);
+  assert.deepEqual(fullTextUrls({ arxiv_id: '2304.03047v2' }, 2), ['https://arxiv.org/html/2304.03047', 'https://ar5iv.labs.arxiv.org/html/2304.03047']);
+  assert.deepEqual(fullTextUrls({ arxiv_id: '2304.03047v2' }, 3), ['https://ar5iv.labs.arxiv.org/html/2304.03047', 'https://arxiv.org/html/2304.03047']);
 });
 
 test('a started tutorial is used when the integration is skipped or the usage limit stops later steps; no reader is retried after the limit', async () => {
