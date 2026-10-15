@@ -67,6 +67,7 @@ Codexに渡す出力スキーマ（`codexPatchSchema`）は、アプリの検証
 
 - ユーザー指示により、モデルを `gpt-6.1-sol`、推論の強さを `medium` に固定する（`CODEX_EXECUTION.model` / `reasoningEffort`、`-m` と `model_reasoning_effort` で渡す）。これまでは指定が無く、`--ignore-user-config` のためCLIの既定（0.144.6では `gpt-5.6-sol`）で動いていた。既定はCLIの更新やモデル一覧の変更で黙って変わる。
 - `gpt-6.1-sol` はCodex 0.144.6ではChatGPTアカウントで使えない（400）。CLIを0.162.1に更新した。
+- 2026-10-15、ユーザーの判断で、すべての手順のモデルを `gpt-6-luna` に変えた（推論の強さは変えない。[0037](0037-ten-minute-survey.md) の「モデル」）。
 - 0.162.1ではWeb検索がcode mode経由で呼ばれる。`code_mode_host` を無効にするとWeb検索も使えなくなり、Codexは記憶から答える（`gpt-5.6-sol` でも同じ）。このため `code_mode_host` は無効化の一覧から外す。code modeのスクリプトには `fs`・`require`・`fetch` が無く、ローカルのファイルは読めなかった。
 - 代わりに `view_image` を無効にする。有効なままだと、code mode経由でローカル画像を読めた。
 - ユーザーのスキル（`~/.agents/skills` など）の一覧が、`--ignore-user-config` を付けても研究用のCodexに渡っていた。`-c skills.include_instructions=false` で渡さない。
