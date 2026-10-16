@@ -18,6 +18,8 @@ services:
       EXTRACT_CONCURRENCY: ${EXTRACT_CONCURRENCY:-16}
       EXTRACT_MODEL: ${EXTRACT_MODEL:-}
       SURVEY_MODEL: ${SURVEY_MODEL:-}
+      # OpenAlex for the bibliography and search_papers (design 0039); the owner puts it in .env, it never reaches Codex.
+      OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
     volumes:
       - poc:/app/.poc
       - gate:/app/.gate

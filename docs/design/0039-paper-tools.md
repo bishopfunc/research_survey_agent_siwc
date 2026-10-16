@@ -42,7 +42,7 @@ VPS（SIWCの経路）では、Codexの軽量版の検索（responses lite、`<p
 ## 安全と運用
 
 - 外部への接続は、OpenAlex・arXiv APIの検索と、arXivのHTML（既存の図の取得と同じ）だけ。URLはサーバーが組み立て、Agentが任意のURLを取らせることはできない（arXiv IDとして読めない入力は拒む）。
-- APIキーはサーバーの環境変数のまま、Codexには渡さない。
+- APIキーはサーバーの環境変数のまま、Codexには渡さない。VPSでは所有者が `~/apps/survey/.env` に `OPENALEX_API_KEY` を置き、`deploy/vps/compose.yaml` がアプリに渡し、デプロイでも残る（`scripts/deploy-vps.sh`）。
 - 道具の呼び出しは `events.jsonl` に `app.tool`（道具名・件数・結果の種類）として残す。
 
 ## 検証
