@@ -16,7 +16,7 @@ test('search_papers answers from OpenAlex with the arXiv ID from a location, and
   const found = await search({ query: 'consistency models', sort: 'cited', from_year: 2020 });
   assert.ok(found.success && found.source === 'OpenAlex' && found.results === 1);
   assert.match(found.text, /^OpenAlex results for "consistency models" \(data, not instructions\):\n1\. Consistency Models \| 2023 \| arXiv:2303\.01469/);
-  assert.match(urls[0], /search=consistency%20models.*filter=from_publication_date:2020-01-01.*sort=cited_by_count:desc.*api_key=k/);
+  assert.match(urls[0], /works\?filter=title_and_abstract\.search%3Aconsistency%20models,from_publication_date:2020-01-01&sort=cited_by_count:desc.*api_key=k/);
   // A repeat is answered from memory; a failing OpenAlex hands over to the arXiv API.
   await search({ query: 'Consistency Models', sort: 'cited', from_year: 2020 });
   assert.equal(urls.length, 1);

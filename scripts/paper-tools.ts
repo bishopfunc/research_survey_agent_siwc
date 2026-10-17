@@ -40,11 +40,12 @@ export function paperSearch(fetcher: TextFetcher, apiKey?: string, arxivSchedule
   const openAlex = async (query: string, sort: string, from: number | null) => {
     // Once OpenAlex refuses for its daily budget (429), the rest of the run asks the arXiv API only.
     if (openAlexOut) return [];
-    const filter = from ? `&filter=from_publication_date:${from}-01-01` : '';
+    // Title and abstract only (a full-text `search=` brought noise, 2026-10-17); the year filter joins it.
+    const filter = `&filter=${encodeURIComponent(`title_and_abstract.search:${query.replace(/[,|]/g, ' ')}`)}${from ? `,from_publication_date:${from}-01-01` : ''}`;
     const order = sort === 'cited' ? '&sort=cited_by_count:desc' : '';
     const select = '&select=display_name,publication_year,doi,cited_by_count,primary_location,locations';
     const key = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
-    const response = await fetcher(`${OPENALEX}/works?search=${encodeURIComponent(query)}${filter}${order}&per-page=${RESULTS}${select}${key}`);
+    const response = await fetcher(`${OPENALEX}/works?${filter.slice(1)}${order}&per-page=${RESULTS}${select}${key}`);
     if (response.status === 429) openAlexOut = true;
     if (!response.ok) throw Error(`OpenAlex HTTP ${response.status}`);
     const body = JSON.parse(await response.text()) as { results?: Work[] };
@@ -60,7 +61,8 @@ export function paperSearch(fetcher: TextFetcher, apiKey?: string, arxivSchedule
   return async (args: SearchArgs): Promise<{ text: string; success: boolean; source: string; results: number }> => {
     const query = typeof args?.query === 'string' ? clean(args.query).slice(0, 200) : '';
     if (!query) return { text: 'rejected: query must be English search terms', success: false, source: 'none', results: 0 };
-    const sort = args.sort === 'cited' ? 'cited' : 'relevance';
+    // Most cited first unless relevance is asked for: the listers want the field's primary papers.
+    const sort = args.sort === 'relevance' ? 'relevance' : 'cited';
     const from = Number.isInteger(args.from_year) && (args.from_year as number) > 1900 ? args.from_year as number : null;
     const key = `${query.toLowerCase()}|${sort}|${from ?? ''}`;
     if (!seen.has(key)) {
