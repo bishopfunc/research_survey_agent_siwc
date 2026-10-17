@@ -15,7 +15,7 @@ services:
       # app-server by default; exec is the fallback (design 0036). Concurrent paper readers of a new survey and their model;
       # empty keeps the app's default (design 0037).
       CODEX_TRANSPORT: ${CODEX_TRANSPORT:-app-server}
-      EXTRACT_CONCURRENCY: ${EXTRACT_CONCURRENCY:-16}
+      EXTRACT_CONCURRENCY: ${EXTRACT_CONCURRENCY:-20}
       EXTRACT_MODEL: ${EXTRACT_MODEL:-}
       SURVEY_MODEL: ${SURVEY_MODEL:-}
       # OpenAlex for the bibliography and search_papers (design 0039); the owner puts it in .env, it never reaches Codex.
