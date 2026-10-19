@@ -8,6 +8,8 @@ import type { ArxivFigures } from './arxiv-figures';
 /** Searches per new survey at most: OpenAlex's free daily allowance is shared with the bibliography (design 0039). */
 export const MAX_SEARCHES = 60;
 const RESULTS = 10;
+/** arXiv as an OpenAlex source (checked 2026-10-19). */
+const ARXIV_SOURCE = 'S4306400194';
 const SECTION_CHARS = 4_000, TEXT_CHARS = 40_000, TABLE_ROWS = 12;
 
 type Work = { display_name?: string; title?: string; publication_year?: number; doi?: string | null; cited_by_count?: number;
@@ -37,11 +39,12 @@ export interface SearchArgs { query?: unknown; sort?: unknown; from_year?: unkno
 export function paperSearch(fetcher: TextFetcher, apiKey?: string, arxivSchedule: <T>(task: () => Promise<T>) => Promise<T> = t => t()) {
   const seen = new Map<string, Promise<string>>();
   let used = 0, openAlexOut = false;
-  const openAlex = async (query: string, sort: string, from: number | null) => {
+  const openAlex = async (query: string, sort: string, from: number | null, arxivOnly: boolean) => {
     // Once OpenAlex refuses for its daily budget (429), the rest of the run asks the arXiv API only.
     if (openAlexOut) return [];
-    // Title and abstract only (a full-text `search=` brought noise, 2026-10-17); the year filter joins it.
-    const filter = `&filter=${encodeURIComponent(`title_and_abstract.search:${query.replace(/[,|]/g, ' ')}`)}${from ? `,from_publication_date:${from}-01-01` : ''}`;
+    // Title and abstract only (a full-text `search=` brought noise, 2026-10-17); the year filter joins it. arxivOnly keeps works with
+    // an arXiv version, whose text the readers can open (2026-10-19: most cited works without one left 23 papers unread).
+    const filter = `&filter=${encodeURIComponent(`title_and_abstract.search:${query.replace(/[,|]/g, ' ')}`)}${from ? `,from_publication_date:${from}-01-01` : ''}${arxivOnly ? `,locations.source.id:${ARXIV_SOURCE}` : ''}`;
     const order = sort === 'cited' ? '&sort=cited_by_count:desc' : '';
     const select = '&select=display_name,publication_year,doi,cited_by_count,primary_location,locations';
     const key = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
@@ -70,7 +73,9 @@ export function paperSearch(fetcher: TextFetcher, apiKey?: string, arxivSchedule
       used++;
       seen.set(key, (async () => {
         let lines: string[] = [], source = 'OpenAlex';
-        try { lines = await openAlex(query, sort, from); } catch { lines = []; }
+        try { lines = await openAlex(query, sort, from, true); } catch { lines = []; }
+        // Fewer than five with an arXiv version: the others follow (classic papers without one stay findable).
+        if (lines.length < 5 && !openAlexOut) { try { const more = await openAlex(query, sort, from, false); lines = [...lines, ...more.filter(l => !lines.some(k => k.split(' | ')[0] === l.split(' | ')[0]))].slice(0, RESULTS); } catch { /* keep the first */ } }
         if (!lines.length) { source = 'arXiv'; try { lines = await arxiv(query, sort, from); } catch { lines = []; } }
         // Every word must match: a long query that matches nothing is asked again with its first three terms.
         const short = arxivQuery(query).split(' AND ').slice(0, 3);

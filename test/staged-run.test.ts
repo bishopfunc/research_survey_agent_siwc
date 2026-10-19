@@ -368,38 +368,42 @@ test('at most maxReads papers are read; the rest stay in the survey unread and t
   assert.match(outcome.patch.message, new RegExp(`精読の上限3本を超えた${listed - 3}本`));
 });
 
-test('a paper whose reader returns nothing goes to the back of the queue once and is read again', async () => {
-  const run = steps({ onRun: stage => stage === 'extract-1' ? ok(patch('could not open the page', [])) : undefined });
+/** Fails the first reading of `target` (and every reading of `always`), whichever reader gets it. */
+function failing(target: string, always?: string) {
+  const failed = new Set<string>();
+  let run!: ReturnType<typeof steps>;
+  run = steps({ onRun: stage => {
+    const paper = run.calls.filter(c => c.startsWith(`paper:${stage.split('-')[1]}:`)).at(-1)?.split(':')[2];
+    if (!stage.startsWith('extract') || !paper) return undefined;
+    if (paper === always || (paper === target && !failed.has(paper))) { failed.add(paper); return ok(patch('could not open the page', [])); }
+    return undefined;
+  } });
+  return run;
+}
+test('an arXiv paper whose reader returns nothing goes to the back of the queue once and is read again; another is not', async () => {
+  const run = failing('paper-eecbs', 'paper-cbs');
   const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
   assert.ok(outcome.status === 'succeeded');
   if (outcome.status !== 'succeeded') return;
   const read = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
-  const first = read[0];
-  assert.equal(read.filter(p => p === first).length, 2, 'read twice');
+  assert.equal(read.filter(p => p === 'paper-eecbs').length, 2, 'the arXiv paper is read twice');
+  assert.equal(read.filter(p => p === 'paper-cbs').length, 1, 'a paper without an arXiv ID is not read again');
   const final = applyPatch(emptySurvey('t'), outcome.patch, 'base-1');
-  assert.ok((final.entities.find(e => e.id === first) as Paper).reading);
+  assert.ok((final.entities.find(e => e.id === 'paper-eecbs') as Paper).reading);
   assert.match(outcome.patch.message, /読み直した1本/);
-  assert.doesNotMatch(outcome.patch.message, /読めなかった/);
-});
-test('arXiv papers are read before the others, which stay queued in listing order', async () => {
-  const one = steps({ concurrency: 1 });
-  await executeStagedResearch(emptySurvey('新規調査'), 'base-1', one.s);
-  const read = one.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')[2]);
-  // The CBS family lists cbs-2012, ecbs and icbs (no arXiv ID) before eecbs (arXiv) in one result: eecbs is read first, the
-  // others keep their order.
-  const at = (id: string) => read.indexOf(id);
-  assert.ok(at('paper-eecbs') >= 0 && at('paper-eecbs') < at('paper-cbs-2012') && at('paper-cbs-2012') < at('paper-ecbs') && at('paper-ecbs') < at('paper-icbs'), read.join(' '));
+  assert.match(outcome.patch.message, /読めなかった1本/);
 });
 test('a paper read again waits for the server to fetch its text first', async () => {
   const order: string[] = [];
-  const run = steps({ onRun: stage => { order.push(stage); return stage === 'extract-1' ? ok(patch('could not open the page', [])) : undefined; } });
+  const run = failing('paper-eecbs');
+  const inner = run.s.run;
+  run.s.run = async (stage, prompt, snapshot, o) => { order.push(stage); return inner(stage, prompt, snapshot, o); };
   run.s.prefetch = async paper => { order.push(`prefetch:${paper.id}`); await new Promise(r => setTimeout(r, 20)); order.push('fetched'); };
   const outcome = await executeStagedResearch(emptySurvey('新規調査'), 'base-1', run.s);
   assert.ok(outcome.status === 'succeeded');
-  const first = run.calls.filter(c => c.startsWith('paper:'))[0].split(':')[2];
-  assert.ok(order.includes(`prefetch:${first}`));
-  const second = run.calls.filter(c => c.startsWith('paper:')).map(c => c.split(':')).find((c, i, all) => c[2] === first && all.findIndex(d => d[2] === first) !== i)!;
-  assert.ok(order.indexOf('fetched') < order.indexOf(`extract-${second[1]}`), 'the second reader starts after the fetch');
+  assert.ok(order.includes('prefetch:paper-eecbs'));
+  const second = run.calls.filter(c => c.startsWith('paper:') && c.endsWith(':paper-eecbs')).map(c => c.split(':')[1])[1];
+  assert.ok(order.indexOf('fetched') < order.indexOf(`extract-${second}`), 'the second reader starts after the fetch');
 });
 test('at most `concurrency` papers are read at once, and papers that cannot start before the readings end are not read', async () => {
   const bounded = steps({ concurrency: 2 });

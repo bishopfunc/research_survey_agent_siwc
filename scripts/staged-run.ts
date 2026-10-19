@@ -368,7 +368,9 @@ export async function executeStagedResearch(base: SurveySnapshot, baseId: string
       try {
         let own = await parse(stage, result, false), target = paper;
         if (!own.operations?.length) {
-          if (!reread.has(paper) && steps.active() && !halted() && left(T.extractEnd) >= T.extractMin) {
+          const arxivPaper = view.entities.some(e => e.id === paper && e.type === 'Paper' && !!paperIds(e).arxiv);
+          // Only an arXiv paper is read again: its text can be fetched; another's reader would fail the same way (2026-10-19).
+          if (arxivPaper && !reread.has(paper) && steps.active() && !halted() && left(T.extractEnd) >= T.extractMin) {
             // The second reader starts once the server has the paper's text (fetched 15 s apart, only for these papers), so it
             // reads the text instead of trying the pages that did not open (2026-10-16: prefetching every queued paper lagged behind).
             reread.add(paper); count.reread++;
