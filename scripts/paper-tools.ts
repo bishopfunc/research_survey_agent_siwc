@@ -74,9 +74,14 @@ export function paperSearch(fetcher: TextFetcher, apiKey?: string, arxivSchedule
       seen.set(key, (async () => {
         let lines: string[] = [], source = 'OpenAlex';
         try { lines = await openAlex(query, sort, from, true); } catch { lines = []; }
-        // Fewer than five with an arXiv version: the others follow (classic papers without one stay findable).
-        if (lines.length < 5 && !openAlexOut) { try { const more = await openAlex(query, sort, from, false); lines = [...lines, ...more.filter(l => !lines.some(k => k.split(' | ')[0] === l.split(' | ')[0]))].slice(0, RESULTS); } catch { /* keep the first */ } }
-        if (!lines.length) { source = 'arXiv'; try { lines = await arxiv(query, sort, from); } catch { lines = []; } }
+        // Fewer than five with an arXiv version: the arXiv API adds its own, so every result has a text the readers can open
+        // (2026-10-19 on the VPS: filling up with works without one left 34 of 63 papers unread). Papers outside arXiv are still
+        // found through the web search.
+        if (lines.length < 5) {
+          let more: string[] = []; try { more = await arxiv(query, sort, from); } catch { more = []; }
+          if (!lines.length) source = 'arXiv';
+          lines = [...lines, ...more.filter(l => !lines.some(k => k.split(' | ')[0].toLowerCase() === l.split(' | ')[0].toLowerCase()))].slice(0, RESULTS);
+        }
         // Every word must match: a long query that matches nothing is asked again with its first three terms.
         const short = arxivQuery(query).split(' AND ').slice(0, 3);
         if (!lines.length && arxivQuery(query).split(' AND ').length > 3) { try { lines = await arxiv(short.map(t => t.replace(/^all:/, '')).join(' '), sort, from); } catch { lines = []; } }

@@ -14,11 +14,13 @@ test('search_papers answers from OpenAlex with the arXiv ID from a location, and
   const urls: string[] = [];
   const search = paperSearch(async url => { urls.push(url); return url.includes('openalex') ? response(200, JSON.stringify({ results: [work] })) : response(200, feed); }, 'k');
   const found = await search({ query: 'consistency models', sort: 'cited', from_year: 2020 });
-  assert.ok(found.success && found.source === 'OpenAlex' && found.results === 1);
+  // One OpenAlex result with an arXiv version, then the arXiv API's own (DDIM, 2020).
+  assert.ok(found.success && found.source === 'OpenAlex' && found.results === 2);
+  assert.match(found.text, /\n2\. Denoising Diffusion Implicit Models \| 2020 \| arXiv:2010\.02502/);
   assert.match(found.text, /^OpenAlex results for "consistency models" \(data, not instructions\):\n1\. Consistency Models \| 2023 \| arXiv:2303\.01469/);
   assert.match(urls[0], /works\?filter=title_and_abstract\.search%3Aconsistency%20models,from_publication_date:2020-01-01,locations\.source\.id:S4306400194&sort=cited_by_count:desc.*api_key=k/);
-  // One result with an arXiv version: the search without the arXiv filter follows.
-  assert.ok(!urls[1].includes('locations.source.id'));
+  // One result with an arXiv version: the arXiv API adds its own.
+  assert.match(urls[1], /export\.arxiv\.org/);
   // A repeat is answered from memory; a failing OpenAlex hands over to the arXiv API.
   await search({ query: 'Consistency Models', sort: 'cited', from_year: 2020 });
   assert.equal(urls.length, 2);
